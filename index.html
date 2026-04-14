@@ -924,9 +924,9 @@ body {
   <!-- PAGE CONFIG -->
   <div id="page-config" class="page-content">
     <div class="stats-row">
-      <div class="stat-card"><div class="stat-label">Articles</div><div class="stat-value" id="sc">0</div></div>
+      <div class="stat-card"><div class="stat-label">Surface panneaux</div><div class="stat-value" id="s-surf">0 m²</div></div>
+      <div class="stat-card"><div class="stat-label">Portes & Rideaux</div><div class="stat-value" id="s-por">0</div></div>
       <div class="stat-card"><div class="stat-label">Total HT</div><div class="stat-value" id="st">0 €</div></div>
-      <div class="stat-card"><div class="stat-label">Coefficient</div><div class="stat-value" id="scf">1.50</div></div>
       <div class="stat-card"><div class="stat-label">Client</div><div class="stat-value" id="scli" style="font-size:14px;color:var(--text2);padding-top:3px">—</div></div>
     </div>
 
@@ -1084,8 +1084,8 @@ body {
   <!-- PAGE DEVIS -->
   <div id="page-devis" class="page-content" style="display:none">
     <div class="stats-row">
-      <div class="stat-card"><div class="stat-label">Articles</div><div class="stat-value" id="sc2">0</div></div>
-      <div class="stat-card"><div class="stat-label">Total HT</div><div class="stat-value" id="st2">0 €</div></div>
+      <div class="stat-card"><div class="stat-label">Surface panneaux</div><div class="stat-value" id="s-surf2">0 m²</div></div>
+      <div class="stat-card"><div class="stat-label">Portes & Rideaux</div><div class="stat-value" id="s-por2">0</div></div>
       <div class="stat-card"><div class="stat-label">TVA 20%</div><div class="stat-value" id="stva">0 €</div></div>
       <div class="stat-card"><div class="stat-label">Total TTC</div><div class="stat-value blue" id="sttc">0 €</div></div>
     </div>
@@ -1461,9 +1461,11 @@ function clearClient(){
 function refreshAll(){
   const p=P();let tot=0;items.forEach(it=>{tot+=cpv(it,p);});
   const tva=tot*.2;
-  ['sc','sc2'].forEach(id=>{const e=G(id);if(e)e.textContent=items.length;});
+  const surfTot=items.filter(i=>i.type==='pan').reduce((s,i)=>s+i.surf,0);
+  const porTot=items.filter(i=>i.type==='por').length;
+  ['s-surf','s-surf2'].forEach(id=>{const e=G(id);if(e)e.textContent=surfTot>0?fmt(surfTot)+' m²':'0 m²';});
+  ['s-por','s-por2'].forEach(id=>{const e=G(id);if(e)e.textContent=porTot;});
   ['st','st2'].forEach(id=>{const e=G(id);if(e)e.textContent=Math.round(tot)+' €';});
-  const scf=G('scf');if(scf)scf.textContent=p.coef.toFixed(2);
   const sv=G('stva');if(sv)sv.textContent=Math.round(tva)+' €';
   const sttc=G('sttc');if(sttc)sttc.textContent=Math.round(tot+tva)+' €';
   G('bdg').textContent=items.length;
