@@ -860,6 +860,7 @@ body {
 .modal-title { font-size: 15px; font-weight: 600; margin-bottom: 1.125rem; letter-spacing: -.2px; }
 .modal-actions { display: flex; gap: 8px; margin-top: 1.125rem; justify-content: flex-end; }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 <div class="shell">
@@ -1586,9 +1587,7 @@ function refreshAll(){
         </table>
         <div class="apercu-totaux">
           <div class="ap-tot-row"><span>Total HT produits</span><span>${fmt(tot)} €</span></div>
-          ${tr.trNet>0?`<div class="ap-tot-row"><span>Transport HT${tr.trPan===0&&items.filter(i=>i.type==='pan').reduce((s,i)=>s+i.surf,0)>0?' (panneaux franco)':''}</span><span>${fmt(tr.trNet)} €</span></div>`:''}
-          ${evac>0?`<div class="ap-tot-row"><span>Évacuation & traitement des déchets</span><span>${fmt(evac)} €</span></div>`:''}
-          ${manuClient?`<div class="ap-tot-row"><span>Manutention</span><span style="font-style:italic;color:var(--text2)">À la charge du client</span></div>`:manu>0?`<div class="ap-tot-row"><span>Manutention & déchargement</span><span>${fmt(manu)} €</span></div>`:''}
+          ${buildApercuAnnexes(tr, evac, manu, manuClient, items, p)}
           <div class="ap-tot-row" style="font-weight:500;padding-top:5px;border-top:1px solid var(--border2);margin-top:4px"><span>Total HT</span><span>${fmt(totAvecTr)} €</span></div>
           <div class="ap-tot-row"><span>TVA 20 %</span><span>${fmt(tva)} €</span></div>
           <div class="ap-tot-final"><span>Total TTC</span><span>${fmt(totAvecTr+tva)} €</span></div>
@@ -1801,6 +1800,25 @@ function porReset(){
   G('por-prev-hint').style.display='none';G('bk-por').classList.remove('show');qshow('q-type');
 }
 
+function buildApercuAnnexes(tr, evac, manu, manuClient, items, p){
+  let h = '';
+  if(tr.trNet > 0){
+    const surfPan = items.filter(i=>i.type==='pan').reduce((s,i)=>s+i.surf, 0);
+    const label = 'Transport HT' + (tr.trPan===0 && surfPan>0 ? ' (panneaux franco)' : '');
+    h += '<div class="ap-tot-row"><span>' + label + '</span><span>' + fmt(tr.trNet) + ' €</span></div>';
+  }
+  if(evac > 0){
+    h += '<div class="ap-tot-row"><span>Évacuation & traitement des déchets</span><span>' + fmt(evac) + ' €</span></div>';
+  }
+  if(manuClient){
+    h += '<div class="ap-tot-row"><span>Manutention</span><span style="font-style:italic;color:var(--text2)">À la charge du client</span></div>';
+  } else if(manu > 0){
+    h += '<div class="ap-tot-row"><span>Manutention & déchargement</span><span>' + fmt(manu) + ' €</span></div>';
+  }
+  return h;
+}
+
+
 function calcEvacuation(p){
   const base = parseFloat(G('ev-base')?.value) || 660;
   const net  = base * p.coef;
@@ -1831,6 +1849,7 @@ function calcManutention(p){
 }
 
 
+function calcTransport(p, items){
   // Panneaux
   const surfTot = items.filter(i=>i.type==='pan').reduce((s,i)=>s+i.surf, 0);
   const franco  = parseFloat(G('tr-pan-franco')?.value)  || 500;
@@ -1855,7 +1874,285 @@ function calcManutention(p){
 }
 
 
-function genPDF(){alert('Export PDF — disponible dans la prochaine mise à jour.');}
+function genPDF(){
+  if(!items.length){alert('Aucun article dans le devis.');return;}
+  const {jsPDF} = window.jspdf;
+  const doc = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const p = P();
+  const W = 210, ML = 14, MR = 196, TW = MR - ML;
+
+  // Couleurs
+  const BLUE  = [27, 95, 168];
+  const BGLUE = [235, 242, 251];
+  const GREY  = [100, 104, 110];
+  const LGREY = [237, 236, 234];
+  const BLACK = [26, 25, 23];
+
+  let y = 0;
+
+  function setFont(style, size, color){
+    doc.setFont('helvetica', style);
+    doc.setFontSize(size);
+    doc.setTextColor(...(color||BLACK));
+  }
+  function line(x1,y1,x2,y2,color,lw){
+    doc.setDrawColor(...(color||LGREY));
+    doc.setLineWidth(lw||0.3);
+    doc.line(x1,y1,x2,y2);
+  }
+  function rect(x,y,w,h,fillColor){
+    doc.setFillColor(...fillColor);
+    doc.rect(x,y,w,h,'F');
+  }
+  function fmtN(n){return n.toFixed(2).replace('.',',');}
+
+  // ── EN-TÊTE ──────────────────────────────────────────────
+  // Bande bleue en haut
+  rect(0, 0, W, 28, BLUE);
+
+  // Nom société
+  setFont('bold', 18, [255,255,255]);
+  doc.text('MYS', ML, 12);
+  setFont('normal', 18, [180,210,250]);
+  doc.text('Pro', ML + 14, 12);
+
+  // Sous-titre
+  setFont('normal', 8, [180,210,250]);
+  doc.text('Construction de chambres froides isothermes', ML, 17);
+
+  // Infos société à droite
+  setFont('normal', 7, [200,225,255]);
+  doc.text('9 Av. de l\'Europe — Module 6 — 34830 Clapiers', MR, 10, {align:'right'});
+  doc.text('Tél. 06 26 31 92 37', MR, 14, {align:'right'});
+  doc.text('SIRET 977 511 237 00017 — TVA FR 419 775 112 37', MR, 18, {align:'right'});
+
+  y = 35;
+
+  // ── BLOC CLIENT + RÉFÉRENCE ───────────────────────────────
+  const cl = curClient;
+  const colW = TW / 2 - 3;
+
+  // Bloc client
+  rect(ML, y, colW, 32, BGLUE);
+  setFont('bold', 7, GREY);
+  doc.text('CLIENT', ML+4, y+6);
+  if(cl){
+    setFont('bold', 11, BLACK);
+    doc.text(cl.nom, ML+4, y+12);
+    setFont('normal', 8, GREY);
+    let cy = y+17;
+    if(cl.adresse){doc.text(cl.adresse, ML+4, cy);cy+=4;}
+    if(cl.cp||cl.ville){doc.text([cl.cp,cl.ville].filter(Boolean).join(' '), ML+4, cy);cy+=4;}
+    if(cl.tel){doc.text(cl.tel, ML+4, cy);}
+  } else {
+    setFont('normal', 9, GREY);
+    doc.text('Non renseigné', ML+4, y+14);
+  }
+
+  // Bloc devis
+  const rx = ML + colW + 6;
+  rect(rx, y, colW, 32, [245,245,243]);
+  setFont('bold', 7, GREY);
+  doc.text('DEVIS', rx+4, y+6);
+  setFont('bold', 13, BLUE);
+  doc.text('N° ' + G('devis-num').textContent, rx+4, y+13);
+  setFont('normal', 8, GREY);
+  const today = new Date();
+  const dateStr = today.toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+  doc.text('Émis le ' + dateStr, rx+4, y+19);
+  doc.text('Validité : 30 jours', rx+4, y+24);
+  setFont('normal', 7, GREY);
+  doc.text('Chantier : ' + G('page-title').textContent, rx+4, y+29);
+
+  y += 38;
+
+  // ── FONCTION TABLEAU ──────────────────────────────────────
+  function drawTable(title, headers, rows, colWidths){
+    // Titre de section
+    rect(ML, y, TW, 7, BLUE);
+    setFont('bold', 8, [255,255,255]);
+    doc.text(title, ML+3, y+5);
+    y += 7;
+
+    // En-têtes
+    rect(ML, y, TW, 6, LGREY);
+    setFont('bold', 7, GREY);
+    let cx = ML;
+    headers.forEach((h,i)=>{
+      const align = i === headers.length-1 ? 'right' : 'left';
+      const tx = align==='right' ? cx+colWidths[i]-2 : cx+2;
+      doc.text(h, tx, y+4, {align});
+      cx += colWidths[i];
+    });
+    y += 6;
+
+    // Lignes
+    rows.forEach((row, ri)=>{
+      const rh = 7;
+      if(ri%2===0) rect(ML, y, TW, rh, [250,250,249]);
+      setFont('normal', 8, BLACK);
+      let cx2 = ML;
+      row.forEach((cell,ci)=>{
+        const align = ci === row.length-1 ? 'right' : 'left';
+        const tx = align==='right' ? cx2+colWidths[ci]-2 : cx2+2;
+        // Tronquer si trop long
+        const maxW = colWidths[ci] - 4;
+        const txt = String(cell);
+        doc.text(txt, tx, y+5, {align, maxWidth: maxW});
+        cx2 += colWidths[ci];
+      });
+      line(ML, y+rh, MR, y+rh, LGREY, 0.2);
+      y += rh;
+    });
+    y += 4;
+  }
+
+  // ── PANNEAUX ──────────────────────────────────────────────
+  const pans = items.filter(i=>i.type==='pan');
+  if(pans.length){
+    const rows = pans.map(it=>{
+      const a = getPx(it.ep, it.surface);
+      const pv = (a+p.pose+p.acc)*p.coef*it.surf;
+      return [
+        it.paroi + ' — ' + it.mousse + ' ' + it.ep + 'mm',
+        it.surface||'Phénolique',
+        it.piece||'—',
+        (it.nbPan||'—') + ' pan.',
+        fmtN(it.surf) + ' m²',
+        fmtN(pv) + ' €'
+      ];
+    });
+    drawTable('PANNEAUX ISOTHERMES',
+      ['Désignation','Surface','Pièce','Quantité','Surface totale','Prix HT'],
+      rows, [42,32,28,22,24,34]);
+  }
+
+  // ── PORTES ────────────────────────────────────────────────
+  const pors = items.filter(i=>i.type==='por');
+  if(pors.length){
+    if(y > 230){doc.addPage();y=15;}
+    const rows = pors.map(it=>{
+      const pv = (it.achat+it.pose)*p.coef+(it.rauto?it.rauto*p.coef:0);
+      const dim = (it._larg||'')+'×'+(it._haut||'')+' mm';
+      return [
+        it.label.split(' ')[0],
+        dim,
+        it.meta||'—',
+        fmtN(pv) + ' €'
+      ];
+    });
+    drawTable('PORTES, CHÂSSIS & RIDEAUX',
+      ['Type','Dimension','Détail','Prix HT'],
+      rows, [30,35,87,30]);
+  }
+
+  // ── ACCESSOIRES ───────────────────────────────────────────
+  const accs = items.filter(i=>i.type==='acc');
+  if(accs.length){
+    if(y > 230){doc.addPage();y=15;}
+    const rows = accs.map(it=>[ it.label, it.meta||'—', 'À chiffrer' ]);
+    drawTable('PRODUITS COMPLÉMENTAIRES',
+      ['Désignation','Unité','Prix HT'],
+      rows, [100,52,30]);
+  }
+
+  // ── FRAIS ANNEXES ─────────────────────────────────────────
+  const tr   = calcTransport(p, items);
+  const evac = calcEvacuation(p);
+  const manu = calcManutention(p);
+  const manuClient = G('manu-client')?.checked;
+  const hasAnnexes = tr.trNet>0 || evac>0 || manu>0 || manuClient;
+
+  if(hasAnnexes){
+    if(y > 230){doc.addPage();y=15;}
+    const annexRows = [];
+    if(tr.trNet>0){
+      const surfPan = items.filter(i=>i.type==='pan').reduce((s,i)=>s+i.surf,0);
+      const trLabel = tr.trPan===0&&surfPan>0 ? 'Transport (panneaux franco de port)' : 'Transport';
+      annexRows.push([trLabel, '—', fmtN(tr.trNet)+' €']);
+    }
+    if(evac>0) annexRows.push(['Évacuation & traitement des déchets','—',fmtN(evac)+' €']);
+    if(manuClient) annexRows.push(['Manutention & déchargement','—','À la charge du client']);
+    else if(manu>0) annexRows.push(['Manutention & déchargement','—',fmtN(manu)+' €']);
+    if(annexRows.length) drawTable('FRAIS ANNEXES', ['Désignation','Détail','Montant HT'], annexRows, [100,52,30]);
+  }
+
+  // ── TOTAUX ────────────────────────────────────────────────
+  if(y > 220){doc.addPage();y=15;}
+
+  const tot = items.reduce((s,it)=>s+cpv(it,p),0);
+  const totAvecTr = tot + tr.trNet + evac + manu;
+  const tva = totAvecTr * 0.20;
+  const ttc = totAvecTr + tva;
+
+  // Bloc totaux à droite
+  const totX = MR - 70;
+  const totW = 70;
+
+  rect(totX, y, totW, 8, LGREY);
+  setFont('bold', 7, GREY);
+  doc.text('Total HT produits', totX+3, y+5);
+  setFont('normal', 9, BLACK);
+  doc.text(fmtN(tot)+' €', MR-2, y+5, {align:'right'});
+  y += 8;
+
+  if(hasAnnexes){
+    rect(totX, y, totW, 8, [248,248,246]);
+    setFont('normal', 7, GREY);
+    doc.text('Frais annexes', totX+3, y+5);
+    doc.text(fmtN(tr.trNet+evac+manu)+' €', MR-2, y+5, {align:'right'});
+    y += 8;
+
+    rect(totX, y, totW, 8, LGREY);
+    setFont('bold', 8, BLACK);
+    doc.text('Total HT', totX+3, y+5.5);
+    doc.text(fmtN(totAvecTr)+' €', MR-2, y+5.5, {align:'right'});
+    y += 8;
+  }
+
+  rect(totX, y, totW, 8, [248,248,246]);
+  setFont('normal', 7, GREY);
+  doc.text('TVA 20 %', totX+3, y+5);
+  doc.text(fmtN(tva)+' €', MR-2, y+5, {align:'right'});
+  y += 8;
+
+  // Total TTC — encadré bleu
+  rect(totX, y, totW, 11, BLUE);
+  setFont('bold', 10, [255,255,255]);
+  doc.text('TOTAL TTC', totX+3, y+7);
+  doc.text(fmtN(ttc)+' €', MR-2, y+7, {align:'right'});
+  y += 15;
+
+  // ── BON POUR ACCORD ───────────────────────────────────────
+  if(y > 240){doc.addPage();y=15;}
+  y += 4;
+  line(ML, y, MR, y, LGREY, 0.3);
+  y += 6;
+  setFont('normal', 7, GREY);
+  doc.text('Bon pour accord — Signature et cachet client :', ML, y);
+  y += 4;
+  line(ML, y, ML+80, y, LGREY, 0.3);
+  doc.text('Date :', ML+85, y);
+  line(ML+97, y, MR, y, LGREY, 0.3);
+  y += 4;
+  setFont('normal', 6, [180,180,180]);
+  doc.text('Devis établi par MYS Pro — SIRET 977 511 237 00017 — TVA FR 419 775 112 37 — 9 Av. de l\'Europe Module 6, 34830 Clapiers', ML, y);
+
+  // ── PIED DE PAGE ──────────────────────────────────────────
+  const pageCount = doc.internal.getNumberOfPages();
+  for(let i=1;i<=pageCount;i++){
+    doc.setPage(i);
+    setFont('normal', 7, GREY);
+    doc.text('MYS Pro — Devis N° '+G('devis-num').textContent, ML, 292);
+    doc.text('Page '+i+' / '+pageCount, MR, 292, {align:'right'});
+    line(ML, 289, MR, 289, LGREY, 0.2);
+  }
+
+  // ── TÉLÉCHARGEMENT ────────────────────────────────────────
+  const num = G('devis-num').textContent;
+  const clientName = cl ? cl.nom.replace(/[^a-zA-Z0-9]/g,'_') : 'Client';
+  doc.save('Devis_' + num + '_' + clientName + '.pdf');
+}
 
 // ══ INIT ══════════════════════════════════════════════════
 renCli();renPos();renApp();renFou();refreshAll();
