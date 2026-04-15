@@ -844,6 +844,35 @@ body {
 .px-table input { width: 46px; border: 1px solid var(--border); border-radius: 4px; padding: 3px 4px; font-size: 11px; font-family: 'DM Mono', monospace; text-align: right; background: var(--surface); color: var(--text); }
 .px-table input:focus { outline: none; border-color: var(--blue); }
 .acc-placeholder { margin: .25rem 1rem .5rem; padding: .5rem; font-size: 11px; color: var(--text3); font-style: italic; border: 1px dashed var(--border); border-radius: var(--radius-sm); text-align: center; }
+.acc-step { }
+.acc-field { display:flex;align-items:center;gap:10px;margin-bottom:.625rem; }
+.acc-field label { font-size:12px;color:var(--text2);min-width:160px; }
+.acc-field input, .acc-field select { flex:1;max-width:140px;border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 9px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text); }
+.acc-field input:focus,.acc-field select:focus { outline:none;border-color:#2E3192; }
+.acc-unit { font-size:11px;color:var(--text3); }
+.acc-result { background:#E8E9F5;border-radius:var(--radius-sm);padding:.5rem .875rem;font-size:12px;color:#2E3192;margin:.375rem 0 .625rem;font-weight:500; }
+.acc-note { font-size:11px;color:var(--text3);margin-bottom:.5rem;font-style:italic; }
+.acc-item-row { display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-sm);margin-bottom:3px; }
+.acc-item-left { flex:1; }
+.acc-item-name { font-size:12px;font-weight:500; }
+.acc-item-meta { font-size:10px;color:var(--text3);margin-top:1px; }
+.acc-item-right { display:flex;align-items:center;gap:6px;flex-shrink:0; }
+.acc-item-price { font-size:12px;font-weight:500;color:#2E3192; }
+.acc-qty-btn { width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--bg2);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;color:var(--text2); }
+.acc-qty-btn:hover { background:var(--bg3); }
+.acc-qty-val { font-size:12px;font-weight:500;min-width:18px;text-align:center; }
+.cat-section { background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);margin-bottom:1rem; }
+.cat-section-hdr { display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.125rem;cursor:pointer;user-select:none; }
+.cat-section-hdr:hover { background:var(--bg2);border-radius:var(--radius); }
+.cat-section-title { font-size:13px;font-weight:600; }
+.cat-section-body { display:none;border-top:1px solid var(--border2);padding:.875rem 1.125rem; }
+.cat-section-body.open { display:block; }
+.cat-row { display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border2); }
+.cat-row:last-child { border-bottom:none; }
+.cat-row-name { flex:1;font-size:13px; }
+.cat-row-unit { font-size:11px;color:var(--text3);min-width:50px; }
+.cat-row-input { width:80px;border:1px solid var(--border);border-radius:var(--radius-sm);padding:4px 7px;font-size:13px;font-family:'DM Mono',sans-serif;text-align:right;background:var(--surface);color:var(--text); }
+.cat-row-input:focus { outline:none;border-color:#2E3192; }
 
 /* MODAL */
 .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 200; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
@@ -918,6 +947,10 @@ body {
       <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="1" width="10" height="14" rx="1"/><path d="M6 5h4M6 8h4M6 11h2"/></svg>
       Contacts
     </div>
+    <div class="nav-item" onclick="showPage('catalogue',this)">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h10"/><circle cx="13" cy="12" r="2"/><path d="M13 10v1M13 13v1"/></svg>
+      Catalogue prix
+    </div>
   </div>
 </nav>
 
@@ -926,11 +959,26 @@ body {
 
   <!-- PAGE CONFIG -->
   <div id="page-config" class="page-content">
-    <div class="stats-row">
+    <div class="stats-row" style="position:relative">
       <div class="stat-card"><div class="stat-label">Surface panneaux</div><div class="stat-value" id="stat-surf">0 m²</div></div>
       <div class="stat-card"><div class="stat-label">Portes & Rideaux</div><div class="stat-value" id="stat-por">0</div></div>
       <div class="stat-card"><div class="stat-label">Total HT</div><div class="stat-value" id="st">0 €</div></div>
-      <div class="stat-card"><div class="stat-label">Client</div><div class="stat-value" id="scli" style="font-size:14px;color:var(--text2);padding-top:3px">—</div></div>
+      <div class="stat-card" id="stat-client-card" onclick="openClientPicker()" style="cursor:pointer;position:relative" title="Cliquer pour sélectionner un client">
+        <div class="stat-label">Client</div>
+        <div id="scli" style="font-size:13px;font-weight:500;color:var(--text2);padding-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">— Sélectionner</div>
+        <div style="position:absolute;top:8px;right:8px;font-size:10px;color:var(--text3)">▾</div>
+      </div>
+
+      <!-- DROPDOWN CLIENT -->
+      <div id="client-picker" style="display:none;position:absolute;z-index:50;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-md);width:280px;max-height:340px;overflow:hidden;flex-direction:column">
+        <div style="padding:.625rem .875rem;border-bottom:1px solid var(--border2)">
+          <input type="text" id="cp-search" placeholder="Rechercher..." oninput="filterPicker()" style="width:100%;border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 10px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--bg2)">
+        </div>
+        <div id="cp-list" style="overflow-y:auto;max-height:240px;padding:.375rem 0"></div>
+        <div style="border-top:1px solid var(--border2);padding:.5rem .875rem">
+          <button onclick="openClientPickerPon()" style="font-size:11px;color:var(--blue);background:none;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;padding:0">+ Client ponctuel</button>
+        </div>
+      </div>
     </div>
 
     <!-- ZONE 1 : CONFIGURATEUR -->
@@ -1079,7 +1127,64 @@ body {
         </div>
       </div>
       <div class="zone-sec-body" id="sec-body">
-        <div id="sec-grid"></div>
+        <!-- ENTONNOIR ACCESSOIRES -->
+        <div id="acc-funnel">
+          <div class="cfg-tabs" style="margin-bottom:.875rem">
+            <button class="cfg-tab active" id="acc-tab-cat" onclick="accSwitch('cat')">Catégorie</button>
+            <button class="cfg-tab" id="acc-tab-prod" onclick="accSwitch('prod')" style="display:none">Produit</button>
+            <button class="cfg-tab" id="acc-tab-detail" onclick="accSwitch('detail')" style="display:none">Détail</button>
+          </div>
+
+          <!-- ÉTAPE 1 : CATÉGORIE -->
+          <div id="acc-step-cat" class="acc-step">
+            <div class="step-label">Catégorie de produit</div>
+            <div class="choices">
+              <button class="choice" onclick="accPickCat('equipements')"><div class="ch-label">Équipements</div><div class="ch-hint">Soupape, trappe, lisse</div></button>
+              <button class="choice" onclick="accPickCat('sol')"><div class="ch-label">Sol</div><div class="ch-hint">Phénolique, BRIO, tôle</div></button>
+              <button class="choice" onclick="accPickCat('plafond')"><div class="ch-label">Système plafond</div><div class="ch-hint">Té alu, clameaux, câble</div></button>
+              <button class="choice" onclick="accPickCat('finitions')"><div class="ch-label">Finitions</div><div class="ch-hint">Cornières, plinthe</div></button>
+              <button class="choice" onclick="accPickCat('consommables')"><div class="ch-label">Consommables</div><div class="ch-hint">Silicone, mousse PU, U de sol</div></button>
+            </div>
+          </div>
+
+          <!-- ÉTAPE 2 : PRODUIT -->
+          <div id="acc-step-prod" class="acc-step" style="display:none">
+            <div class="step-bc" style="margin-bottom:.75rem">
+              <div class="bc-path" id="acc-bc"></div>
+              <button class="btn-back show" onclick="accReset()">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M10 4L6 8l4 4"/></svg>
+                Retour
+              </button>
+            </div>
+            <div class="step-label">Produit</div>
+            <div class="choices" id="acc-prod-choices"></div>
+          </div>
+
+          <!-- ÉTAPE 3 : DÉTAIL & CALCUL -->
+          <div id="acc-step-detail" class="acc-step" style="display:none">
+            <div class="step-bc" style="margin-bottom:.75rem">
+              <div class="bc-path" id="acc-bc2"></div>
+              <button class="btn-back show" onclick="accBackToProd()">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M10 4L6 8l4 4"/></svg>
+                Retour
+              </button>
+            </div>
+            <div id="acc-detail-form"></div>
+            <div class="recap-box" id="acc-recap-box" style="display:none">
+              <div id="acc-recap-rows"></div>
+            </div>
+            <div class="action-row" style="margin-top:.75rem">
+              <button class="btn-validate" onclick="accAdd()">Valider et ajouter</button>
+              <button class="btn-cancel" onclick="accReset()">Annuler</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- LISTE DES ACCESSOIRES AJOUTÉS -->
+        <div id="acc-list-wrap" style="margin-top:1rem;display:none">
+          <div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.5rem">Produits ajoutés</div>
+          <div id="acc-list"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -1196,6 +1301,14 @@ body {
     <div class="c-panel" id="cp-fou">
       <div class="section-header"><div><div class="section-title">Fournisseurs</div></div></div>
       <div id="list-fou"></div>
+    </div>
+  </div>
+
+  <!-- PAGE CATALOGUE PRIX -->
+  <div id="page-catalogue" class="page-content" style="display:none">
+    <div class="cnt">
+      <div style="font-size:15px;font-weight:600;margin-bottom:1.25rem;letter-spacing:-.2px">Catalogue prix</div>
+      <div id="cat-sections"></div>
     </div>
   </div>
 
@@ -1320,26 +1433,6 @@ const HAS_NEG=['PCIN','PPIN'];
 const DIM_INFO={PCIP:'600→3000 larg. | 1800→3000 haut.',PCIN:'700→3000 larg. | 1800→3000 haut.',PPIP:'600→1400 | 1800→2200',PPIN:'600→1200 | 1800→2200',PPSI:'600→2000 | 1800→2200',PVV:'700→2000 | 1800→2500',PCS:'600→2000 | 1800→2500',PPS:'796/896 larg. | 2028 haut.',CHASSIS:'600→1200 | 800→2000',RIDEAU:'Dimensions selon matrice'};
 const SOL_LENGTHS=[2000,2200,2400,2600,2800,3000];
 
-const SECS=[
-  {id:'soupape',g:'Équipements',n:"Soupape d'équilibrage",u:'unité',tr:'neg100',why:'Panneau ≥ 100mm détecté'},
-  {id:'trappe',g:'Équipements',n:'Trappe de visite 740×740',u:'unité',tr:'plafond',why:'Plafond isotherme détecté'},
-  {id:'lisse',g:'Équipements',n:'Lisse de protection + cache vis',u:'barre 3m'},
-  {id:'sol',g:'Sol',n:'Sol phénolique 100mm',u:'m²',tr:'neg100',why:'Chambre négative détectée',calc:true},
-  {id:'brio',g:'Sol',n:'Plaque BRIO RAL 9010',u:'m²'},
-  {id:'tole',g:'Sol',n:'Tôle larmée 4mm',u:'m²'},
-  {id:'te',g:'Système plafond',n:'Té aluminium laqué blanc',u:'barre 4ml'},
-  {id:'tige',g:'Système plafond',n:'Tige filetée ø10mm',u:'unité'},
-  {id:'clam',g:'Système plafond',n:'Clameau de reprise ø8/10mm',u:'unité'},
-  {id:'cint',g:'Finitions',n:'Cornière int. RAL 9010 50×50',u:'barre 3m'},
-  {id:'cext',g:'Finitions',n:'Cornière ext. RAL 9010 50×150',u:'barre 3m'},
-  {id:'plinthe',g:'Finitions',n:'Plinthe PVC 80mm blanche',u:'barre 3m'},
-  {id:'sil',g:'Consommables',n:'Silicone blanc 300ml',u:'unité'},
-  {id:'pu',g:'Consommables',n:'Mousse PU 750ml',u:'unité'},
-  {id:'but',g:'Consommables',n:'Butyle gris 300ml',u:'unité'},
-  {id:'usol60',g:'Consommables',n:'U de sol 60mm × 3000mm',u:'barre'},
-  {id:'usol100',g:'Consommables',n:'U de sol 100mm × 3000mm',u:'barre'},
-];
-
 let CLI=[
   {nom:'APPLICATIONS FROID',adresse:'3 Avenue Charles Cros',cp:'34830',ville:'Jacou',tel:'04 99 62 23 23'},
   {nom:'BIZERN S.E.E.',adresse:'336 Rue Jean Baptiste Biot',cp:'66000',ville:'Perpignan'},
@@ -1399,13 +1492,221 @@ function hasNeg100(){return items.some(i=>i.type==='pan'&&parseInt(i.ep)>=100);}
 function hasPlafond(){return items.some(i=>i.type==='pan'&&i.paroi==='Plafond');}
 
 // ══ NAVIGATION ══════════════════════════════════════════════
-const PAGE_TITLES={config:'Configurateur',devis:'Devis client',cmdpan:'Cmd panneaux',cmdpor:'Cmd portes',mission:'Ordre de mission',contacts:'Annuaire'};
+// ══ CATALOGUE PRIX ════════════════════════════════════════════
+const CATALOGUE = {
+  equipements:[
+    {id:'soupape',n:"Soupape d'équilibrage (< 75 m³)",u:'unité',px:0},
+    {id:'trappe',n:'Trappe de visite 740×740mm',u:'unité',px:0},
+    {id:'lisse',n:'Lisse de protection 3m',u:'barre',px:0},
+    {id:'cache_vis',n:'Cache vis lisse de protection',u:'unité',px:0},
+    {id:'embout_lisse',n:'Embout lisse de protection',u:'unité',px:0},
+  ],
+  sol:[
+    {id:'sol_phen_2000',n:'Sol phénolique 100mm — 2000×1200mm',u:'panneau',px:0},
+    {id:'sol_phen_2200',n:'Sol phénolique 100mm — 2200×1200mm',u:'panneau',px:0},
+    {id:'sol_phen_2400',n:'Sol phénolique 100mm — 2400×1200mm',u:'panneau',px:0},
+    {id:'sol_phen_2600',n:'Sol phénolique 100mm — 2600×1200mm',u:'panneau',px:0},
+    {id:'sol_phen_2800',n:'Sol phénolique 100mm — 2800×1200mm',u:'panneau',px:0},
+    {id:'sol_phen_3000',n:'Sol phénolique 100mm — 3000×1200mm',u:'panneau',px:0},
+    {id:'brio',n:'Plaque BRIO RAL 9010 3000×1220mm',u:'panneau',px:0},
+    {id:'tole_1x2',n:'Tôle larmée 4mm — 1×2m',u:'tôle',px:0},
+    {id:'tole_125x25',n:'Tôle larmée 4mm — 1.25×2.5m',u:'tôle',px:0},
+    {id:'tole_15x3',n:'Tôle larmée 4mm — 1.5×3m',u:'tôle',px:0},
+  ],
+  plafond:[
+    {id:'te_alu',n:'Té aluminium laqué blanc 4ml',u:'barre',px:0},
+    {id:'clameau_rep',n:'Clameau de reprise ø8/10mm',u:'unité',px:0},
+    {id:'clameau_cont',n:'Clameau de continuité ø8/10mm',u:'unité',px:0},
+    {id:'zip_block',n:'Zip block ø10mm',u:'unité',px:0},
+    {id:'oeillet',n:'Oeillet ø10mm',u:'unité',px:0},
+    {id:'cable',n:'Câble de suspension',u:'mètre',px:0},
+  ],
+  finitions:[
+    {id:'corn_ext_50150',n:'Cornière ext. RAL 9010 50×150×3000mm',u:'barre',px:0},
+    {id:'corn_int_5050',n:'Cornière int. RAL 9010 50×50×3000mm',u:'barre',px:0},
+    {id:'plinthe',n:'Plinthe PVC 80mm blanche 3m',u:'barre',px:0},
+    {id:'ang_ext_plinthe',n:'Angle externe de plinthe',u:'unité',px:0},
+    {id:'ang_int_plinthe',n:'Angle interne de plinthe',u:'unité',px:0},
+    {id:'embout_plinthe',n:'Embout plinthe G/D',u:'unité',px:0},
+  ],
+  consommables:[
+    {id:'silicone_b',n:'Silicone blanc 300ml',u:'cartouche',px:0},
+    {id:'mousse_pu',n:'Mousse PU 750ml',u:'unité',px:0},
+    {id:'butyle',n:'Butyle gris 300ml',u:'unité',px:0},
+    {id:'usol_40',n:'U de sol 40mm × 3000mm',u:'barre',px:0},
+    {id:'usol_60',n:'U de sol 60mm × 3000mm',u:'barre',px:0},
+    {id:'usol_80',n:'U de sol 80mm × 3000mm',u:'barre',px:0},
+    {id:'usol_100',n:'U de sol 100mm × 3000mm',u:'barre',px:0},
+    {id:'usol_120',n:'U de sol 120mm × 3000mm',u:'barre',px:0},
+    {id:'usol_150',n:'U de sol 150mm × 3000mm',u:'barre',px:0},
+    {id:'colle',n:'Colle',u:'unité',px:0},
+  ]
+};
+const CAT_LABELS={equipements:'Équipements',sol:'Sol',plafond:'Système plafond',finitions:'Finitions',consommables:'Consommables'};
+function getPrix(id){for(const cat of Object.values(CATALOGUE)){const p=cat.find(x=>x.id===id);if(p)return p.px||0;}return 0;}
+function setPrix(id,val){for(const cat of Object.values(CATALOGUE)){const p=cat.find(x=>x.id===id);if(p){p.px=val;return;}}}
+function renderCatalogue(){
+  const el=G('cat-sections');if(!el)return;
+  el.innerHTML=Object.entries(CATALOGUE).map(([key,prods])=>`
+    <div class="cat-section"><div class="cat-section-hdr" onclick="togCatSection('cat-${key}')">
+      <div class="cat-section-title">${CAT_LABELS[key]||key}</div><span id="cat-arr-${key}">▼</span></div>
+      <div class="cat-section-body" id="cat-${key}">
+        ${prods.map(p=>`<div class="cat-row"><span class="cat-row-name">${p.n}</span><span class="cat-row-unit">${p.u}</span>
+          <input class="cat-row-input" type="number" value="${p.px}" step="0.01" min="0" placeholder="0.00" onchange="setPrix('${p.id}',parseFloat(this.value)||0)">
+          <span style="font-size:11px;color:var(--text3)">€ HT</span></div>`).join('')}
+      </div></div>`).join('');
+}
+function togCatSection(id){const b=G(id);const open=b.classList.toggle('open');const key=id.replace('cat-','');const arr=G('cat-arr-'+key);if(arr)arr.textContent=open?'▲':'▼';}
+
+// ══ ENTONNOIR ACCESSOIRES ══════════════════════════════════════
+let accCat=null,accProd=null;
+const ACC_PRODS={
+  equipements:[{id:'soupape',n:"Soupape d'équilibrage",hint:'Panneau ≥ 100mm'},{id:'trappe',n:'Trappe de visite 740×740mm',hint:'Plafond isotherme'},{id:'lisse',n:'Lisse de protection',hint:'ML → nb barres 3m'}],
+  sol:[{id:'sol_phen',n:'Sol phénolique 100mm',hint:'Surface m² → nb panneaux'},{id:'brio',n:'Plaque BRIO RAL 9010',hint:'ML × hauteur → nb panneaux'},{id:'tole',n:'Tôle larmée 4mm',hint:'Surface m² → nb tôles'}],
+  plafond:[{id:'te_systeme',n:'Système Té alu complet',hint:'ML → Té + clameaux + câble + fixations'}],
+  finitions:[{id:'corn_ext',n:'Cornière ext. 50×150mm',hint:'ML → nb barres 3m'},{id:'corn_int',n:'Cornière int. 50×50mm',hint:'Angles + périmètre → nb barres'},{id:'plinthe',n:'Plinthe PVC 80mm',hint:'Auto depuis cloisons ≤80mm + ML séparatif'}],
+  consommables:[{id:'silicone',n:'Silicone blanc 300ml',hint:'Auto depuis nb panneaux'},{id:'mousse_pu',n:'Mousse PU 750ml',hint:'Auto depuis portes + sol + angles'},{id:'usol',n:'U de sol',hint:'Auto depuis épaisseur + ML cloisons'}]
+};
+
+function accSwitch(tab){
+  ['cat','prod','detail'].forEach(t=>{const s=G('acc-step-'+t);const b=G('acc-tab-'+t);if(s)s.style.display=t===tab?'block':'none';if(b)b.classList.toggle('active',t===tab);});
+  ['prod','detail'].forEach(t=>{const b=G('acc-tab-'+t);if(b)b.style.display=tab==='cat'&&t==='cat'?'':'';});
+}
+function accPickCat(cat){
+  accCat=cat;
+  const prods=ACC_PRODS[cat]||[];
+  G('acc-bc').innerHTML=`<span class="bc-seg">${CAT_LABELS[cat]}</span>`;
+  G('acc-prod-choices').innerHTML=prods.map(p=>`<button class="choice" onclick="accPickProd('${p.id}')"><div class="ch-label">${p.n}</div><div class="ch-hint">${p.hint}</div></button>`).join('');
+  G('acc-tab-prod').style.display='';
+  G('acc-step-cat').style.display='none';G('acc-step-prod').style.display='block';G('acc-step-detail').style.display='none';
+  G('acc-tab-cat').classList.remove('active');G('acc-tab-prod').classList.add('active');G('acc-tab-detail').classList.remove('active');
+}
+function accPickProd(pid){
+  accProd=pid;
+  const prodName=ACC_PRODS[accCat]?.find(p=>p.id===pid)?.n||pid;
+  G('acc-bc2').innerHTML=`<span class="bc-seg">${CAT_LABELS[accCat]}</span><span class="bc-arrow">›</span><span class="bc-seg">${prodName}</span>`;
+  G('acc-tab-detail').style.display='';
+  G('acc-recap-box').style.display='none';
+  renderAccForm(pid);
+  G('acc-step-cat').style.display='none';G('acc-step-prod').style.display='none';G('acc-step-detail').style.display='block';
+  G('acc-tab-cat').classList.remove('active');G('acc-tab-prod').classList.remove('active');G('acc-tab-detail').classList.add('active');
+}
+function accBackToProd(){
+  G('acc-step-cat').style.display='none';G('acc-step-prod').style.display='block';G('acc-step-detail').style.display='none';
+  G('acc-tab-cat').classList.remove('active');G('acc-tab-prod').classList.add('active');G('acc-tab-detail').classList.remove('active');
+}
+function accReset(){
+  accCat=null;accProd=null;
+  G('acc-tab-prod').style.display='none';G('acc-tab-detail').style.display='none';
+  G('acc-step-cat').style.display='block';G('acc-step-prod').style.display='none';G('acc-step-detail').style.display='none';
+  G('acc-tab-cat').classList.add('active');G('acc-tab-prod').classList.remove('active');G('acc-tab-detail').classList.remove('active');
+}
+function rr2(l,v){return `<div class="recap-row"><span class="rk">${l}</span><span class="rv">${v}</span></div>`;}
+function renderAccForm(pid){
+  const el=G('acc-detail-form');if(!el)return;
+  const mlCl40=items.filter(i=>i.type==='pan'&&i.paroi==='Cloison'&&i.ep==='40').reduce((s,i)=>s+(i._ml||0),0);
+  const mlCl60=items.filter(i=>i.type==='pan'&&i.paroi==='Cloison'&&i.ep==='60').reduce((s,i)=>s+(i._ml||0),0);
+  const mlCl80=items.filter(i=>i.type==='pan'&&i.paroi==='Cloison'&&i.ep==='80').reduce((s,i)=>s+(i._ml||0),0);
+  const mlClNeg=items.filter(i=>i.type==='pan'&&i.paroi==='Cloison'&&parseInt(i.ep)>=100).reduce((s,i)=>s+(i._ml||0),0);
+  const nbPan=items.filter(i=>i.type==='pan').reduce((s,i)=>s+(i.nbPan||0),0);
+  const nbPor=items.filter(i=>i.type==='por').length;
+  const forms={
+    soupape:`<div class="acc-note">1 soupape par chambre négative.</div><div class="acc-field"><label>Quantité</label><input type="number" id="af-qty" value="1" min="1" step="1"><span class="acc-unit">unité(s)</span></div>`,
+    trappe:`<div class="acc-note">1 trappe par plafond isotherme.</div><div class="acc-field"><label>Quantité</label><input type="number" id="af-qty" value="1" min="1" step="1"><span class="acc-unit">unité(s)</span></div>`,
+    lisse:`<div class="acc-field"><label>Longueur totale (ML)</label><input type="number" id="af-ml" value="0" min="0" step="0.5" oninput="calcLisse()"><span class="acc-unit">m</span></div>
+      <div class="acc-field"><label>Niveaux</label><select id="af-niv" onchange="calcLisse()"><option value="1">1 niveau</option><option value="2">2 niveaux</option></select></div>
+      <div class="acc-result" id="af-res-lisse">Saisir les ML</div>`,
+    sol_phen:`<div class="acc-field"><label>Surface à couvrir</label><input type="number" id="af-surf" value="0" min="0" step="0.1" oninput="calcSolPhen()"><span class="acc-unit">m²</span></div>
+      <div class="acc-field"><label>Longueur panneau</label><select id="af-sol-l" onchange="calcSolPhen()"><option value="2000">2.00m</option><option value="2200">2.20m</option><option value="2400" selected>2.40m</option><option value="2600">2.60m</option><option value="2800">2.80m</option><option value="3000">3.00m</option></select></div>
+      <div class="acc-result" id="af-res-sol">Saisir la surface</div>`,
+    brio:`<div class="acc-field"><label>Épaisseur</label><select id="af-brio-ep"><option value="2">2mm</option><option value="3">3mm</option><option value="5">5mm</option></select></div>
+      <div class="acc-field"><label>Hauteur</label><select id="af-brio-h"><option value="2600">2.60m</option><option value="3000">3.00m</option></select></div>
+      <div class="acc-field"><label>Longueur (ML)</label><input type="number" id="af-brio-ml" value="0" min="0" step="0.1" oninput="calcBrio()"><span class="acc-unit">m</span></div>
+      <div class="acc-result" id="af-res-brio">Saisir les ML</div>`,
+    tole:`<div class="acc-field"><label>Surface à couvrir</label><input type="number" id="af-tole-surf" value="0" min="0" step="0.1" oninput="calcTole()"><span class="acc-unit">m²</span></div>
+      <div class="acc-field"><label>Format de tôle</label><select id="af-tole-fmt" onchange="calcTole()"><option value="2">1×2m (2m²)</option><option value="3.125">1.25×2.5m (3.125m²)</option><option value="4.5">1.5×3m (4.5m²)</option></select></div>
+      <div class="acc-result" id="af-res-tole">Saisir la surface</div>`,
+    te_systeme:`<div class="acc-field"><label>Longueur totale (ML)</label><input type="number" id="af-te-ml" value="0" min="0" step="0.5" oninput="calcTe()"><span class="acc-unit">m</span></div>
+      <div class="acc-field"><label>Longueur câble/clameau</label><input type="number" id="af-te-cable" value="2" min="0.5" step="0.5" oninput="calcTe()"><span class="acc-unit">m</span></div>
+      <div class="acc-result" id="af-res-te">Saisir les ML</div>`,
+    corn_ext:`<div class="acc-field"><label>Longueur totale (ML)</label><input type="number" id="af-ce-ml" value="0" min="0" step="0.5" oninput="calcCornExt()"><span class="acc-unit">m</span></div>
+      <div class="acc-result" id="af-res-ce">Saisir les ML</div>`,
+    corn_int:`<div class="acc-note">Périmètre auto depuis cloisons ≥100mm : ${mlClNeg.toFixed(1)} ML</div>
+      <div class="acc-field"><label>ML périmètre</label><input type="number" id="af-ci-perim" value="${mlClNeg.toFixed(1)}" min="0" step="0.5" oninput="calcCornInt()"><span class="acc-unit">m</span></div>
+      <div class="acc-field"><label>Nb angles intérieurs</label><input type="number" id="af-ci-angles" value="4" min="0" step="1" oninput="calcCornInt()"><span class="acc-unit">angles</span></div>
+      <div class="acc-result" id="af-res-ci">—</div>`,
+    plinthe:`<div class="acc-note">ML auto cloisons ≤80mm : ${(mlCl40+mlCl60+mlCl80).toFixed(1)} ML</div>
+      <div class="acc-field"><label>ML périphérique</label><input type="number" id="af-pl-auto" value="${(mlCl40+mlCl60+mlCl80).toFixed(1)}" min="0" step="0.5" oninput="calcPlinthe()"><span class="acc-unit">m</span></div>
+      <div class="acc-field"><label>ML séparatif (manuel)</label><input type="number" id="af-pl-sep" value="0" min="0" step="0.5" oninput="calcPlinthe()"><span class="acc-unit">m</span></div>
+      <div class="acc-result" id="af-res-pl">—</div>`,
+    silicone:`<div class="acc-note">Base : 1 cartouche/panneau (${nbPan} panneaux)</div>
+      <div class="acc-field"><label>Quantité</label><input type="number" id="af-qty" value="${nbPan}" min="0" step="1"><span class="acc-unit">cartouche(s)</span></div>`,
+    mousse_pu:`<div class="acc-note">Base auto : ${nbPor} porte(s)</div>
+      <div class="acc-field"><label>Pour les portes</label><input type="number" id="af-pu-portes" value="${nbPor}" min="0" step="1"><span class="acc-unit">unité(s)</span></div>
+      <div class="acc-field"><label>Supplément</label><input type="number" id="af-pu-sup" value="0" min="0" step="1" oninput="calcPU()"><span class="acc-unit">unité(s)</span></div>
+      <div class="acc-result" id="af-res-pu">—</div>`,
+    usol:`<div class="acc-note">Calculé depuis les cloisons du devis</div>
+      ${[['40',mlCl40],['60',mlCl60],['80',mlCl80],['100',mlClNeg]].filter(([,ml])=>ml>0).map(([ep,ml])=>`<div class="acc-field"><label>Cloisons ${ep}mm (${ml.toFixed(1)}ML)</label><input type="number" id="af-usol-${ep}" value="${Math.ceil(ml/3)}" min="0" step="1"><span class="acc-unit">barres 3m</span></div>`).join('')}
+      ${[mlCl40,mlCl60,mlCl80,mlClNeg].every(m=>m===0)?'<div class="acc-note">Aucune cloison dans le devis</div>':''}`
+  };
+  el.innerHTML=forms[pid]||`<div class="acc-field"><label>Quantité</label><input type="number" id="af-qty" value="1" min="1" step="1"><span class="acc-unit">unité(s)</span></div>`;
+  if(pid==='lisse')calcLisse();if(pid==='corn_int')calcCornInt();if(pid==='plinthe')calcPlinthe();if(pid==='mousse_pu')calcPU();
+}
+function calcLisse(){const ml=parseFloat(G('af-ml')?.value)||0;const niv=parseInt(G('af-niv')?.value)||1;const nb=Math.ceil(ml/3)*niv;const r=G('af-res-lisse');if(r)r.innerHTML=`${nb} barre${nb>1?'s':''} 3m × ${niv} niv. | ${nb*2} cache-vis | ${nb*2} embouts`;}
+function calcSolPhen(){const surf=parseFloat(G('af-surf')?.value)||0;const l=parseInt(G('af-sol-l')?.value)||2400;const sp=1.2*(l/1000);const nb=surf>0?Math.ceil(surf/sp):0;const r=G('af-res-sol');if(r)r.innerHTML=`${nb} panneau${nb>1?'x':''} ${(l/1000).toFixed(1)}m×1.2m = ${(nb*sp).toFixed(2)}m²`;}
+function calcBrio(){const ml=parseFloat(G('af-brio-ml')?.value)||0;const ep=G('af-brio-ep')?.value;const h=parseInt(G('af-brio-h')?.value)||2600;const nb=Math.ceil(ml/1.22);const r=G('af-res-brio');if(r)r.innerHTML=`${nb} panneau${nb>1?'x':''} BRIO ${ep}mm × ${(h/1000).toFixed(2)}m × 1.22m`;}
+function calcTole(){const surf=parseFloat(G('af-tole-surf')?.value)||0;const fmt=parseFloat(G('af-tole-fmt')?.value)||2;const nb=surf>0?Math.ceil(surf/fmt):0;const r=G('af-res-tole');if(r)r.innerHTML=`${nb} tôle${nb>1?'s':''} — ${(nb*fmt).toFixed(2)}m² couverts`;}
+function calcTe(){const ml=parseFloat(G('af-te-ml')?.value)||0;const cable=parseFloat(G('af-te-cable')?.value)||2;const nb=Math.ceil(ml/4);const clRep=Math.ceil(ml);const clCont=nb;const tot=clRep+clCont;const r=G('af-res-te');if(r)r.innerHTML=`${nb} barres Té | ${clRep} cl.reprise | ${clCont} cl.cont. | ${tot} zip+oeillet | ~${Math.ceil(tot*cable)}m câble`;}
+function calcCornExt(){const ml=parseFloat(G('af-ce-ml')?.value)||0;const nb=Math.ceil(ml/3);const r=G('af-res-ce');if(r)r.innerHTML=`${nb} barre${nb>1?'s':''} 3m`;}
+function calcCornInt(){const perim=parseFloat(G('af-ci-perim')?.value)||0;const angles=parseInt(G('af-ci-angles')?.value)||0;const nb=Math.ceil((perim+angles)/3);const r=G('af-res-ci');if(r)r.innerHTML=`${nb} barre${nb>1?'s':''} 3m (périmètre ${perim}m + ${angles} angles)`;}
+function calcPlinthe(){const auto=parseFloat(G('af-pl-auto')?.value)||0;const sep=parseFloat(G('af-pl-sep')?.value)||0;const nb=Math.ceil((auto+sep)/3);const r=G('af-res-pl');if(r)r.innerHTML=`${nb} barre${nb>1?'s':''} 3m — ${(auto+sep).toFixed(1)}ML total`;}
+function calcPU(){const p=parseInt(G('af-pu-portes')?.value)||0;const s=parseInt(G('af-pu-sup')?.value)||0;const r=G('af-res-pu');if(r)r.innerHTML=`${p+s} unité${p+s>1?'s':''}`;}
+
+function accAdd(){
+  const pid=accProd;if(!pid)return;
+  const prodDef=ACC_PRODS[accCat]?.find(x=>x.id===pid);if(!prodDef)return;
+  let label=prodDef.n,meta='',qty=1;
+  if(['soupape','trappe','silicone'].includes(pid)){qty=parseInt(G('af-qty')?.value)||1;meta=`${qty} unité${qty>1?'s':''}`;}
+  else if(pid==='lisse'){const ml=parseFloat(G('af-ml')?.value)||0;const niv=parseInt(G('af-niv')?.value)||1;qty=Math.ceil(ml/3)*niv;meta=`${qty} barres 3m — ${ml}ML × ${niv} niv.`;}
+  else if(pid==='sol_phen'){const surf=parseFloat(G('af-surf')?.value)||0;const l=parseInt(G('af-sol-l')?.value)||2400;qty=Math.ceil(surf/(1.2*(l/1000)));meta=`${qty} panneaux ${(l/1000).toFixed(1)}m×1.2m | ${surf.toFixed(1)}m²`;}
+  else if(pid==='brio'){const ml=parseFloat(G('af-brio-ml')?.value)||0;const ep=G('af-brio-ep')?.value;const h=G('af-brio-h')?.value;qty=Math.ceil(ml/1.22);meta=`${qty} panneaux BRIO ${ep}mm × ${(parseInt(h)/1000).toFixed(2)}m`;}
+  else if(pid==='tole'){const surf=parseFloat(G('af-tole-surf')?.value)||0;const fmt=parseFloat(G('af-tole-fmt')?.value)||2;qty=Math.ceil(surf/fmt);meta=`${qty} tôles — ${surf.toFixed(1)}m²`;}
+  else if(pid==='te_systeme'){const ml=parseFloat(G('af-te-ml')?.value)||0;const cable=parseFloat(G('af-te-cable')?.value)||2;const nb=Math.ceil(ml/4);const clRep=Math.ceil(ml);const clCont=nb;const tot=clRep+clCont;qty=nb;meta=`${nb} barres Té | ${clRep} cl.rep. | ${clCont} cl.cont. | ${tot} zip+oeillet | ~${Math.ceil(tot*cable)}m câble`;}
+  else if(pid==='corn_ext'){const ml=parseFloat(G('af-ce-ml')?.value)||0;qty=Math.ceil(ml/3);meta=`${qty} barres 3m — ${ml}ML`;}
+  else if(pid==='corn_int'){const p2=parseFloat(G('af-ci-perim')?.value)||0;const a=parseInt(G('af-ci-angles')?.value)||0;qty=Math.ceil((p2+a)/3);meta=`${qty} barres 3m — périm.${p2}m + ${a} angles`;}
+  else if(pid==='plinthe'){const au=parseFloat(G('af-pl-auto')?.value)||0;const se=parseFloat(G('af-pl-sep')?.value)||0;qty=Math.ceil((au+se)/3);meta=`${qty} barres 3m — ${(au+se).toFixed(1)}ML`;}
+  else if(pid==='mousse_pu'){const p2=parseInt(G('af-pu-portes')?.value)||0;const s=parseInt(G('af-pu-sup')?.value)||0;qty=p2+s;meta=`${qty} unité${qty>1?'s':''}`;}
+  else if(pid==='usol'){const eps=['40','60','80','100'];const usols=eps.map(ep=>({ep,nb:parseInt(G('af-usol-'+ep)?.value)||0})).filter(u=>u.nb>0);qty=usols.reduce((s,u)=>s+u.nb,0);meta=usols.map(u=>`${u.nb} barres ${u.ep}mm`).join(' + ');}
+  const px=getPrix(pid);
+  items.push({type:'acc',label,meta,qty,px,achat:px,pose:0,rauto:0,surf:0,ep:'',piece:'',accId:pid});
+  renderAccList();refreshAll();accReset();
+}
+function renderAccList(){
+  const wrap=G('acc-list-wrap');const list=G('acc-list');if(!wrap||!list)return;
+  const acc=items.filter(i=>i.type==='acc');
+  wrap.style.display=acc.length?'block':'none';
+  list.innerHTML=acc.map((it)=>{
+    const gi=items.indexOf(it);const px=it.px||0;const total=px*(it.qty||1);
+    return `<div class="acc-item-row"><div class="acc-item-left"><div class="acc-item-name">${it.label}</div><div class="acc-item-meta">${it.meta||''}</div></div>
+      <div class="acc-item-right">
+        <button class="acc-qty-btn" onclick="accQtyChange(${gi},-1)">−</button>
+        <span class="acc-qty-val">${it.qty||1}</span>
+        <button class="acc-qty-btn" onclick="accQtyChange(${gi},1)">+</button>
+        <span class="acc-item-price">${px>0?total.toFixed(2)+' €':'À chiffrer'}</span>
+        <button class="item-del" onclick="delItem(${gi})">×</button>
+      </div></div>`;
+  }).join('');
+}
+function accQtyChange(i,d){if(items[i]){items[i].qty=Math.max(1,(items[i].qty||1)+d);renderAccList();refreshAll();}}
+
+const PAGE_TITLES={config:'Configurateur',devis:'Devis client',cmdpan:'Cmd panneaux',cmdpor:'Cmd portes',mission:'Ordre de mission',contacts:'Annuaire',catalogue:'Catalogue prix'};
 function showPage(name, el){
   document.querySelectorAll('.page-content').forEach(p=>p.style.display='none');
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   G('page-'+name).style.display='block';
   if(el) el.classList.add('active');
   G('page-title').textContent=PAGE_TITLES[name]||name;
+  if(name==='catalogue') renderCatalogue();
   refreshAll();
 }
 function swCfg(w){
@@ -1433,75 +1734,76 @@ function syncP(){refreshAll();}
 
 // ══ TOGGLE SECONDAIRE ══════════════════════════════════════
 function toggleSec(){
-  secOpen=!secOpen;
-  G('sec-body').classList.toggle('open',secOpen);
-  G('sec-toggle-arr').classList.toggle('open',secOpen);
-  G('sec-toggle-txt').textContent=secOpen?'Fermer':'Ouvrir';
-  if(secOpen) renderSec();
+  const body=G('sec-body');
+  const open=body.classList.toggle('open');
+  G('sec-toggle-arr').classList.toggle('open',open);
+  G('sec-toggle-txt').textContent=open?'Fermer':'Ouvrir';
+  if(open) renderAccList();
 }
-function updateSecBadge(){
-  const neg=hasNeg100(),plaf=hasPlafond();
-  const n=SECS.filter(p=>(p.tr==='neg100'&&neg)||(p.tr==='plafond'&&plaf)).length;
-  const b=G('sec-badge');
-  if(n>0){b.textContent=`${n} suggestion${n>1?'s':''}`;b.classList.add('show');}
-  else b.classList.remove('show');
+
+
+
+
+// ── CLIENT PICKER (configurateur) ──────────────────────────
+function openClientPicker(){
+  const picker = G('client-picker');
+  if(!picker) return;
+  if(picker.style.display==='flex'){picker.style.display='none';return;}
+  const card = G('stat-client-card');
+  picker.style.top = (card.offsetTop + card.offsetHeight + 4)+'px';
+  picker.style.left = card.offsetLeft+'px';
+  picker.style.display='flex';
+  G('cp-search').value='';
+  filterPicker();
+  G('cp-search').focus();
+  setTimeout(()=>{document.addEventListener('click',closePicker,{once:true});},10);
 }
-function renderSec(){
-  const neg=hasNeg100(),plaf=hasPlafond();
-  const grps={};
-  SECS.forEach(s=>{const hl=(s.tr==='neg100'&&neg)||(s.tr==='plafond'&&plaf);if(!grps[s.g])grps[s.g]=[];grps[s.g].push({...s,hl});});
-  Object.values(grps).forEach(g=>g.sort((a,b)=>b.hl-a.hl));
-  const sorted=Object.entries(grps).sort(([,a],[,b])=>b.some(i=>i.hl)-a.some(i=>i.hl));
-  G('sec-grid').innerHTML=sorted.map(([gn,ps])=>`
-    <div class="sec-section">
-      <div class="sec-section-title">${gn}</div>
-      <div class="sec-grid">
-        ${ps.map(s=>`<div class="sec-card${s.hl?' hl':''}">
-          <div class="sec-card-top">
-            <div>
-              <div class="sec-card-name">${s.n}</div>
-              <div class="sec-card-unit">${s.u}</div>
-              ${s.hl?`<div class="sec-card-why">↑ ${s.why}</div>`:''}
-            </div>
-            <button class="btn-sec-add${s.hl?'':' outline'}" onclick="addSec('${s.id}',this)">${s.calc?'Calculer':'Ajouter'}</button>
-          </div>
-          ${s.calc?`<div class="sol-calc" id="sc-${s.id}">
-            <div class="sol-field-row"><label>Largeur chambre (m)</label><input type="number" id="slg-${s.id}" step="0.1" placeholder="ex: 3.00"></div>
-            <div class="sol-field-row"><label>Longueur chambre (m)</label><input type="number" id="sln-${s.id}" step="0.1" placeholder="ex: 4.60"></div>
-            <button class="btn-continue" style="font-size:11px;padding:6px 14px" onclick="calcSol('${s.id}')">Calculer découpage</button>
-            <div class="sol-result" id="sr-${s.id}"></div>
-          </div>`:''}
-        </div>`).join('')}
-      </div>
-    </div>`).join('');
+function closePicker(e){
+  const picker=G('client-picker');
+  if(picker&&!picker.contains(e.target)&&e.target!==G('stat-client-card')&&!G('stat-client-card').contains(e.target))
+    picker.style.display='none';
 }
-function addSec(id,btn){
-  const s=SECS.find(x=>x.id===id);if(!s)return;
-  if(s.calc){G(`sc-${id}`).classList.toggle('open');return;}
-  items.push({type:'acc',label:s.n,meta:s.u,achat:0,pose:0,rauto:0,surf:0,ep:'',piece:''});
-  refreshAll();
-  const orig=btn.textContent;btn.textContent='✓';btn.style.background='var(--green)';
-  setTimeout(()=>{btn.textContent=orig;btn.style.background='';refreshAll();},1400);
+function filterPicker(){
+  const q=(G('cp-search').value||'').toLowerCase();
+  let list=[...CLI];
+  if(q)list=list.filter(c=>c.nom.toLowerCase().includes(q)||(c.ville||'').toLowerCase().includes(q));
+  list.sort((a,b)=>a.nom.localeCompare(b.nom));
+  const el=G('cp-list');
+  if(!list.length){el.innerHTML='<div style="padding:.5rem 1rem;font-size:12px;color:var(--text3);font-style:italic">Aucun résultat</div>';return;}
+  el.innerHTML=list.map(c=>{
+    const i=CLI.indexOf(c);
+    return `<div onclick="pickClient(${i})" style="padding:.5rem 1rem;font-size:12px;cursor:pointer" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''"><div style="font-weight:500">${c.nom}</div><div style="font-size:10px;color:var(--text3)">${[c.cp,c.ville].filter(Boolean).join(' ')}${c.tel?' — '+c.tel:''}</div></div>`;
+  }).join('');
 }
-function calcSol(id){
-  const lg=parseFloat(G(`slg-${id}`).value)||0,ln=parseFloat(G(`sln-${id}`).value)||0;
-  if(!lg||!ln){alert('Saisir les deux dimensions.');return;}
-  const rows=Math.ceil(lg/1.2);
-  function opt(r,u){if(r<=0.05)return u;let b=null,bd=Infinity;for(const l of SOL_LENGTHS){if(l/1000<=r+0.05){const t=opt(r-l/1000,[...u,l]);const w=Math.abs(t.reduce((s,x)=>s+x/1000,0)-ln);if(w<bd){bd=w;b=t;}}}return b||u;}
-  const c=opt(ln,[]);const cnt={};c.forEach(l=>{cnt[l]=(cnt[l]||0)+1;});
-  const tot=c.length*rows;
-  const det=Object.entries(cnt).map(([l,n])=>`${n*rows}× ${l/1000}m`).join(' + ');
-  const res=G(`sr-${id}`);
-  res.innerHTML=`<strong>${tot} panneaux phénolique 100mm × 1,20m</strong>${det} (${rows} rangée${rows>1?'s':''})<br><span style="font-size:10px">Pour chambre ${lg}m × ${ln}m</span>`;
-  res.style.display='block';
+function pickClient(i){
+  setClient(CLI[i]);
+  const picker=G('client-picker');
+  if(picker)picker.style.display='none';
+  // Rester sur la page config
+  const configNav=document.querySelector('.nav-item.active');
+  if(G('page-config').style.display!=='none') return;
+  showPage('config',configNav);
+}
+function openClientPickerPon(){
+  G('client-picker').style.display='none';
+  const nom=prompt('Raison sociale du client ponctuel :');
+  if(!nom||!nom.trim())return;
+  setClient({nom:nom.trim(),adresse:'',cp:'',ville:'',tel:''});
 }
 
 // ══ CLIENT ══════════════════════════════════════════════════
 function setClient(c){
   curClient=c;
   G('client-display').innerHTML=`<div class="client-set-badge">✓ ${c.nom}</div><div style="font-weight:600;font-size:13px;margin-top:2px">${c.nom}</div>${c.adresse?`<div class="dh-line">${c.adresse}</div>`:''}<div class="dh-line">${[c.cp,c.ville].filter(Boolean).join(' ')}</div>${c.tel?`<div class="dh-line">${c.tel}</div>`:''}<button class="btn" style="margin-top:8px;font-size:11px" onclick="clearClient()">Changer de client</button>`;
-  const sc=G('scli');if(sc)sc.textContent=c.nom.length>13?c.nom.slice(0,13)+'…':c.nom;
-  showPage('devis',null);
+  const sc=G('scli');
+  if(sc){
+    const nom=c.nom.length>16?c.nom.slice(0,16)+'…':c.nom;
+    sc.textContent=nom;
+    sc.style.color='var(--text)';
+  }
+  // Ne redirige vers devis que si on n'est pas déjà sur le configurateur
+  const onConfig = G('page-config') && G('page-config').style.display!=='none';
+  if(!onConfig) showPage('devis',null);
   refreshAll();
 }
 function clearClient(){
@@ -1527,8 +1829,7 @@ function refreshAll(){
   const sv=G('stva');if(sv)sv.textContent=Math.round(tva)+' €';
   const sttc=G('sttc');if(sttc)sttc.textContent=Math.round(totAvecTr+tva)+' €';
   G('bdg').textContent=items.length;
-  updateSecBadge();
-  if(secOpen) renderSec();
+  renderAccList();
 
   // VUE ÉDITION
   const ve=G('view-edit');
