@@ -897,7 +897,7 @@ body {
 <!-- TOPBAR -->
 <header class="topbar">
   <div class="topbar-left">
-    <div class="logo">MYS<span>Pro</span></div>
+    <img id="topbar-logo" style="height:36px;width:auto;display:block;cursor:pointer" onclick="showPage('config',document.querySelector('.nav-item'))" title="MYS Pro">
     <div class="divider-v"></div>
     <div class="page-title" id="page-title">Configurateur</div>
     <div class="devis-badge">N° <span id="devis-num">2026-1041</span></div>
@@ -905,6 +905,9 @@ body {
     <input type="text" id="projet-nom" placeholder="Nom du projet..." style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:4px 10px;font-size:12px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text);width:200px;">
   </div>
   <div class="topbar-right">
+    <button class="btn" onclick="toggleDevisPanel()">📋 Mes devis</button>
+    <button class="btn" onclick="nouveauDevis()">+ Nouveau</button>
+    <button class="btn" onclick="sauvegarderDevis()">💾 Sauvegarder</button>
     <button class="btn btn-green" onclick="genPDF()">Générer PDF</button>
     <button class="btn btn-primary">Valider devis</button>
   </div>
@@ -2373,7 +2376,201 @@ function genPDF(){
   const safe=(projetNom||'Projet').replace(/[^\w\u00C0-\u017E]/g,'_').replace(/_+/g,'_');
   doc.save('Devis_'+num+'_'+safe+'.pdf');
 }
-renCli();renPos();renApp();renFou();refreshAll();
+const _logoEl=G('topbar-logo');if(_logoEl)_logoEl.src=LOGO_B64;
+// ══ SUPABASE ══════════════════════════════════════════════════
+const SB_URL = 'https://sttnctrzmjirsigidxwx.supabase.co';
+const SB_KEY = 'sb_publishable_Q5fXmtMjch2qKM3Lza-sPQ_d9Z6yHFI';
+
+async function sbFetch(path, opts={}){
+  const r = await fetch(SB_URL+path, {
+    headers: {
+      'apikey': SB_KEY,
+      'Authorization': 'Bearer '+SB_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': opts.prefer||'',
+      ...opts.headers
+    },
+    method: opts.method||'GET',
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  });
+  if(!r.ok){ const t=await r.text(); throw new Error(t); }
+  const txt = await r.text();
+  return txt ? JSON.parse(txt) : null;
+}
+
+// Générer numéro séquentiel
+async function genNumero(){
+  try {
+    const data = await sbFetch('/rest/v1/devis?select=numero&order=created_at.desc&limit=1');
+    if(data && data.length){
+      const last = data[0].numero;
+      const n = parseInt(last.split('-')[1]||'1000');
+      return '2026-'+(n+1);
+    }
+  } catch(e){ console.warn('Supabase genNumero:', e); }
+  return '2026-1001';
+}
+
+// Sauvegarder devis courant
+async function sauvegarderDevis(){
+  const p = P();
+  const tr = calcTransport(p, items);
+  const evac = calcEvacuation(p);
+  const manu = calcManutention(p);
+  const tot = items.reduce((s,it)=>s+cpv(it,p), 0);
+  const totAvecTr = tot + tr.trNet + evac + manu;
+  const num = G('devis-num').textContent;
+  const payload = {
+    numero: num,
+    updated_at: new Date().toISOString(),
+    client: curClient,
+    projet_nom: G('projet-nom')?.value||'',
+    items: items,
+    params: { pose: parseFloat(G('pp')?.value)||18, acc: parseFloat(G('pa')?.value)||6, coef: parseFloat(G('pc')?.value)||1.5 },
+    transport: tr,
+    evacuation: evac,
+    manutention: { base: parseFloat(G('manu-base')?.value)||600, client: G('manu-client')?.checked||false, total: manu },
+    total_ht: Math.round(totAvecTr*100)/100,
+    total_ttc: Math.round(totAvecTr*1.2*100)/100,
+    statut: 'brouillon'
+  };
+  try {
+    // Chercher si devis existe déjà par numéro
+    const exists = await sbFetch('/rest/v1/devis?numero=eq.'+encodeURIComponent(num)+'&select=id');
+    if(exists && exists.length){
+      await sbFetch('/rest/v1/devis?id=eq.'+exists[0].id, { method:'PATCH', body: payload, prefer:'return=minimal' });
+    } else {
+      await sbFetch('/rest/v1/devis', { method:'POST', body: payload, prefer:'return=minimal' });
+    }
+    showToast('Devis sauvegardé');
+  } catch(e) {
+    console.error('Sauvegarde:', e);
+    showToast('Erreur de sauvegarde', true);
+  }
+}
+
+// Charger liste des devis
+async function chargerListeDevis(){
+  try {
+    const data = await sbFetch('/rest/v1/devis?select=id,numero,projet_nom,client,total_ht,statut,updated_at&order=updated_at.desc');
+    renderListeDevis(data||[]);
+  } catch(e){ console.error('Chargement liste:', e); }
+}
+
+// Charger un devis
+async function chargerDevis(id){
+  try {
+    const data = await sbFetch('/rest/v1/devis?id=eq.'+id+'&select=*');
+    if(!data||!data.length) return;
+    const d = data[0];
+    // Restaurer l'état
+    items = d.items || [];
+    curClient = d.client || null;
+    if(d.params){
+      if(G('pp')) G('pp').value = d.params.pose||18;
+      if(G('pa')) G('pa').value = d.params.acc||6;
+      if(G('pc')) G('pc').value = d.params.coef||1.5;
+    }
+    if(G('projet-nom')) G('projet-nom').value = d.projet_nom||'';
+    // Numéro
+    G('devis-num').textContent = d.numero;
+    if(G('dnum')) G('dnum').textContent = d.numero;
+    // Client display
+    if(curClient) setClient(curClient);
+    refreshAll();
+    renderAccList();
+    showToast('Devis '+d.numero+' chargé');
+    // Fermer le panneau
+    G('devis-panel').classList.remove('open');
+    showPage('config', document.querySelector('.nav-item'));
+  } catch(e){ console.error('Chargement devis:', e); showToast('Erreur chargement', true); }
+}
+
+// Nouveau devis
+async function nouveauDevis(){
+  if(items.length && !confirm('Créer un nouveau devis ? Le devis actuel non sauvegardé sera perdu.')) return;
+  const num = await genNumero();
+  items = [];
+  curClient = null;
+  if(G('projet-nom')) G('projet-nom').value = '';
+  if(G('pp')) G('pp').value = 18;
+  if(G('pa')) G('pa').value = 6;
+  if(G('pc')) G('pc').value = 1.5;
+  G('devis-num').textContent = num;
+  if(G('dnum')) G('dnum').textContent = num;
+  clearClient();
+  refreshAll();
+  renderAccList();
+  showToast('Nouveau devis '+num);
+  G('devis-panel').classList.remove('open');
+  showPage('config', document.querySelector('.nav-item'));
+}
+
+function renderListeDevis(list){
+  const el = G('devis-panel-list'); if(!el) return;
+  if(!list.length){ el.innerHTML='<div style="font-size:12px;color:var(--text3);padding:.75rem 0;font-style:italic">Aucun devis sauvegardé</div>'; return; }
+  el.innerHTML = list.map(d=>`
+    <div onclick="chargerDevis('${d.id}')" style="padding:.625rem .875rem;border:1px solid var(--border2);border-radius:var(--radius-sm);margin-bottom:5px;cursor:pointer;transition:border-color .15s" onmouseover="this.style.borderColor='var(--blue)'" onmouseout="this.style.borderColor='var(--border2)'">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <span style="font-size:13px;font-weight:600;font-family:'DM Mono',monospace">${d.numero}</span>
+        <span style="font-size:11px;color:var(--text3)">${new Date(d.updated_at).toLocaleDateString('fr-FR')}</span>
+      </div>
+      ${d.projet_nom?`<div style="font-size:12px;color:var(--text2);margin-top:2px">${d.projet_nom}</div>`:''}
+      ${d.client?`<div style="font-size:11px;color:var(--text3)">${d.client.nom}</div>`:''}
+      <div style="font-size:11px;color:var(--blue);margin-top:2px;font-weight:500">${d.total_ht?d.total_ht.toLocaleString('fr-FR',{minimumFractionDigits:2})+' € HT':''}</div>
+    </div>`).join('');
+}
+
+// Toast notification
+function showToast(msg, isErr=false){
+  let t = G('toast');
+  if(!t){ t=document.createElement('div'); t.id='toast'; document.body.appendChild(t);
+    t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:8px 20px;border-radius:20px;font-size:13px;font-weight:500;font-family:"DM Sans",sans-serif;z-index:9999;transition:opacity .3s;pointer-events:none'; }
+  t.textContent = msg;
+  t.style.background = isErr ? '#A03030' : '#1A9E72';
+  t.style.color = '#fff';
+  t.style.opacity = '1';
+  clearTimeout(t._to);
+  t._to = setTimeout(()=>{ t.style.opacity='0'; }, 2500);
+}
+
+
+function toggleDevisPanel(){
+  const panel=G('devis-panel');const overlay=G('devis-overlay');
+  const isOpen=panel.classList.contains('open');
+  if(isOpen){
+    panel.classList.remove('open');panel.style.transform='translateX(100%)';overlay.style.display='none';
+  } else {
+    panel.style.display='flex';panel.classList.add('open');panel.style.transform='translateX(0)';overlay.style.display='block';
+    chargerListeDevis();
+  }
+}
+
+// INIT
+renCli();renPos();renApp();renFou();
+genNumero().then(num=>{
+  G('devis-num').textContent=num;
+  if(G('dnum'))G('dnum').textContent=num;
+}).catch(()=>{});
+refreshAll();
+
 </script>
+<!-- PANNEAU MES DEVIS -->
+<div id="devis-panel" style="display:none;position:fixed;top:52px;right:0;width:320px;height:calc(100vh - 52px);background:var(--surface);border-left:1px solid var(--border);box-shadow:-4px 0 16px rgba(0,0,0,.08);z-index:100;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s">
+  <div style="padding:1rem 1.125rem;border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between">
+    <div style="font-size:14px;font-weight:600">Mes devis</div>
+    <button onclick="G('devis-panel').classList.remove('open');G('devis-panel').style.transform='translateX(100%)'" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text2);line-height:1">×</button>
+  </div>
+  <div style="padding:.875rem 1.125rem;border-bottom:1px solid var(--border2)">
+    <button onclick="nouveauDevis()" style="width:100%;padding:8px;background:var(--blue);color:#fff;border:none;border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;font-weight:500;cursor:pointer;margin-bottom:6px">+ Nouveau devis</button>
+    <button onclick="sauvegarderDevis()" style="width:100%;padding:8px;background:var(--green);color:#fff;border:none;border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;font-weight:500;cursor:pointer">💾 Sauvegarder le devis actuel</button>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:.875rem 1.125rem">
+    <div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.625rem">Devis récents</div>
+    <div id="devis-panel-list"><div style="font-size:12px;color:var(--text3);font-style:italic">Chargement...</div></div>
+  </div>
+</div>
+<div id="devis-overlay" onclick="toggleDevisPanel()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:99"></div>
+
 </body>
 </html>
