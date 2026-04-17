@@ -990,6 +990,7 @@ body {
         <div class="cfg-tabs">
           <button class="cfg-tab active" id="tab-pan" onclick="swCfg('pan')">Panneaux</button>
           <button class="cfg-tab" id="tab-por" onclick="swCfg('por')">Portes & Rideaux</button>
+          <button class="cfg-tab" id="tab-acc" onclick="swCfg('acc')">Produits complémentaires</button>
         </div>
 
         <!-- PANNEAUX -->
@@ -1111,31 +1112,9 @@ body {
             </div>
           </div>
         </div>
-      </div>
-    </div>
-
-    <!-- ZONE 2 : PRODUITS COMPLÉMENTAIRES -->
-    <div class="card" style="margin-bottom:0">
-      <div class="zone-sec-header" onclick="toggleSec()">
-        <div class="zone-sec-left">
-          <div class="card-title">Produits complémentaires</div>
-          <span class="zone-sec-badge" id="sec-badge"></span>
-        </div>
-        <div class="zone-sec-toggle">
-          <span id="sec-toggle-txt" style="font-size:11px;color:var(--text3)">Ouvrir</span>
-          <span class="toggle-arrow" id="sec-toggle-arr">▼</span>
-        </div>
-      </div>
-      <div class="zone-sec-body" id="sec-body">
-        <!-- ENTONNOIR ACCESSOIRES -->
-        <div id="acc-funnel">
-          <div class="cfg-tabs" style="margin-bottom:.875rem">
-            <button class="cfg-tab active" id="acc-tab-cat" onclick="accSwitch('cat')">Catégorie</button>
-            <button class="cfg-tab" id="acc-tab-prod" onclick="accSwitch('prod')" style="display:none">Produit</button>
-            <button class="cfg-tab" id="acc-tab-detail" onclick="accSwitch('detail')" style="display:none">Détail</button>
-          </div>
-
-          <!-- ÉTAPE 1 : CATÉGORIE -->
+        <!-- PRODUITS COMPLÉMENTAIRES -->
+        <div id="cfg-acc" style="display:none">
+          <!-- ENTONNOIR ACCESSOIRES -->
           <div id="acc-step-cat" class="acc-step">
             <div class="step-label">Catégorie de produit</div>
             <div class="choices">
@@ -1146,8 +1125,6 @@ body {
               <button class="choice" onclick="accPickCat('consommables')"><div class="ch-label">Consommables</div><div class="ch-hint">Silicone, mousse PU, U de sol</div></button>
             </div>
           </div>
-
-          <!-- ÉTAPE 2 : PRODUIT -->
           <div id="acc-step-prod" class="acc-step" style="display:none">
             <div class="step-bc" style="margin-bottom:.75rem">
               <div class="bc-path" id="acc-bc"></div>
@@ -1159,8 +1136,6 @@ body {
             <div class="step-label">Produit</div>
             <div class="choices" id="acc-prod-choices"></div>
           </div>
-
-          <!-- ÉTAPE 3 : DÉTAIL & CALCUL -->
           <div id="acc-step-detail" class="acc-step" style="display:none">
             <div class="step-bc" style="margin-bottom:.75rem">
               <div class="bc-path" id="acc-bc2"></div>
@@ -1178,13 +1153,13 @@ body {
               <button class="btn-cancel" onclick="accReset()">Annuler</button>
             </div>
           </div>
+          <!-- LISTE DES ACCESSOIRES AJOUTÉS -->
+          <div id="acc-list-wrap" style="margin-top:1rem;display:none">
+            <div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.5rem">Produits ajoutés</div>
+            <div id="acc-list"></div>
+          </div>
         </div>
 
-        <!-- LISTE DES ACCESSOIRES AJOUTÉS -->
-        <div id="acc-list-wrap" style="margin-top:1rem;display:none">
-          <div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.5rem">Produits ajoutés</div>
-          <div id="acc-list"></div>
-        </div>
       </div>
     </div>
   </div>
@@ -1568,38 +1543,27 @@ const ACC_PRODS={
   consommables:[{id:'silicone',n:'Silicone blanc 300ml',hint:'Auto depuis nb panneaux'},{id:'mousse_pu',n:'Mousse PU 750ml',hint:'Auto depuis portes + sol + angles'},{id:'usol',n:'U de sol',hint:'Auto depuis épaisseur + ML cloisons'}]
 };
 
-function accSwitch(tab){
-  ['cat','prod','detail'].forEach(t=>{const s=G('acc-step-'+t);const b=G('acc-tab-'+t);if(s)s.style.display=t===tab?'block':'none';if(b)b.classList.toggle('active',t===tab);});
-  ['prod','detail'].forEach(t=>{const b=G('acc-tab-'+t);if(b)b.style.display=tab==='cat'&&t==='cat'?'':'';});
-}
 function accPickCat(cat){
   accCat=cat;
   const prods=ACC_PRODS[cat]||[];
   G('acc-bc').innerHTML=`<span class="bc-seg">${CAT_LABELS[cat]}</span>`;
   G('acc-prod-choices').innerHTML=prods.map(p=>`<button class="choice" onclick="accPickProd('${p.id}')"><div class="ch-label">${p.n}</div><div class="ch-hint">${p.hint}</div></button>`).join('');
-  G('acc-tab-prod').style.display='';
   G('acc-step-cat').style.display='none';G('acc-step-prod').style.display='block';G('acc-step-detail').style.display='none';
-  G('acc-tab-cat').classList.remove('active');G('acc-tab-prod').classList.add('active');G('acc-tab-detail').classList.remove('active');
 }
 function accPickProd(pid){
   accProd=pid;
   const prodName=ACC_PRODS[accCat]?.find(p=>p.id===pid)?.n||pid;
   G('acc-bc2').innerHTML=`<span class="bc-seg">${CAT_LABELS[accCat]}</span><span class="bc-arrow">›</span><span class="bc-seg">${prodName}</span>`;
-  G('acc-tab-detail').style.display='';
   G('acc-recap-box').style.display='none';
   renderAccForm(pid);
   G('acc-step-cat').style.display='none';G('acc-step-prod').style.display='none';G('acc-step-detail').style.display='block';
-  G('acc-tab-cat').classList.remove('active');G('acc-tab-prod').classList.remove('active');G('acc-tab-detail').classList.add('active');
 }
 function accBackToProd(){
   G('acc-step-cat').style.display='none';G('acc-step-prod').style.display='block';G('acc-step-detail').style.display='none';
-  G('acc-tab-cat').classList.remove('active');G('acc-tab-prod').classList.add('active');G('acc-tab-detail').classList.remove('active');
 }
 function accReset(){
   accCat=null;accProd=null;
-  G('acc-tab-prod').style.display='none';G('acc-tab-detail').style.display='none';
   G('acc-step-cat').style.display='block';G('acc-step-prod').style.display='none';G('acc-step-detail').style.display='none';
-  G('acc-tab-cat').classList.add('active');G('acc-tab-prod').classList.remove('active');G('acc-tab-detail').classList.remove('active');
 }
 function rr2(l,v){return `<div class="recap-row"><span class="rk">${l}</span><span class="rv">${v}</span></div>`;}
 function renderAccForm(pid){
@@ -1712,8 +1676,11 @@ function showPage(name, el){
 function swCfg(w){
   G('cfg-pan').style.display=w==='pan'?'block':'none';
   G('cfg-por').style.display=w==='por'?'block':'none';
+  G('cfg-acc').style.display=w==='acc'?'block':'none';
   G('tab-pan').classList.toggle('active',w==='pan');
   G('tab-por').classList.toggle('active',w==='por');
+  G('tab-acc').classList.toggle('active',w==='acc');
+  if(w==='acc') accReset();
 }
 function swView(v){
   curView=v;
