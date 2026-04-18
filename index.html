@@ -2227,220 +2227,259 @@ function genPDF(){
   const p = P();
   const W=210, ML=14, MR=196, TW=MR-ML;
 
-  // Palette épurée
-  const NAVY  = [46,49,146];
-  const GREY  = [110,114,120];
-  const LGREY = [240,239,237];
-  const DGREY = [60,63,70];
-  const BLACK = [26,25,23];
-  const WHITE = [255,255,255];
+  const NAVY  =[46,49,146];
+  const FUCHSIA=[190,30,130];
+  const GREY  =[110,114,120];
+  const LGREY =[240,239,237];
+  const DGREY =[60,63,70];
+  const BLACK =[26,25,23];
+  const WHITE =[255,255,255];
+  const BLUEL =[235,235,248];
+  const ROWALT=[248,248,247];
 
-  let y = 0;
+  let y=0;
+  let porRefCounter=0;
 
-  function sf(style,size,color){doc.setFont('helvetica',style);doc.setFontSize(size);doc.setTextColor(...(color||BLACK));}
-  function fill(x,ry,w,h,c){doc.setFillColor(...c);doc.rect(x,ry,w,h,'F');}
-  function hline(ry,c,lw){doc.setDrawColor(...(c||LGREY));doc.setLineWidth(lw||0.25);doc.line(ML,ry,MR,ry);}
-  function fn(n){return n.toFixed(2).replace('.',',');}
+  function sf(bold,size,color){doc.setFont('helvetica',bold?'bold':'normal');doc.setFontSize(size);doc.setTextColor(...(color||BLACK));}
+  function hline(ry,col,lw){doc.setDrawColor(...(col||LGREY));doc.setLineWidth(lw||0.3);doc.line(ML,ry,MR,ry);}
+  function fillR(x,ry,w,h,fill){doc.setFillColor(...fill);doc.rect(x,ry,w,h,'F');}
+  function strokeR(x,ry,w,h,col,lw){doc.setDrawColor(...col);doc.setLineWidth(lw||0.4);doc.rect(x,ry,w,h,'S');}
+  function fn(n){return isNaN(n)||n===0?'—':n.toFixed(2).replace('.',',')+' \u20ac';}
 
   // ── EN-TÊTE ──────────────────────────────────────────────
-  // Logo — ratio 1.414 : pour h=18mm → w=25.5mm
-  const logoH = 18, logoW = 25.5;
-  try { doc.addImage(LOGO_B64,'PNG',ML,6,logoW,logoH); }
-  catch(e){ sf('bold',14,NAVY); doc.text('MYS Pro',ML,14); }
+  y -= 0;
+  y = 10;
 
-  // Infos société à droite, alignées
-  sf('normal',7,GREY);
-  doc.text('9 Av. de l\'Europe — Module 6 — 34830 Clapiers',MR,10,{align:'right'});
-  doc.text('Tél. 06 26 31 92 37',MR,15,{align:'right'});
-  doc.text('SIRET 977 511 237 00017 — TVA FR 419 775 112 37',MR,20,{align:'right'});
+  // Logo — ratio 1.414
+  const logoW=38, logoH=26.9;
+  try{ doc.addImage(LOGO_B64,'PNG',ML,y,logoW,logoH); }catch(e){ sf(true,14,NAVY);doc.text('MYS Pro',ML,y+14); }
 
-  // Ligne séparatrice fine sous l'en-tête
-  y = 28;
-  hline(y,LGREY,0.5);
-  y += 6;
+  // Numéro devis
+  sf(true,22,NAVY);
+  doc.text('Devis : '+G('devis-num').textContent, MR, y+8, {align:'right'});
 
-  // ── BLOC CLIENT + RÉFÉRENCE ───────────────────────────────
-  const cl = curClient;
-  const colW = TW/2-3;
-  const projetNom = (G('projet-nom')?.value||'').trim();
-
-  // Colonne gauche — client
-  sf('bold',7,NAVY);
-  doc.text('CLIENT',ML,y+1);
-  sf('normal',7,GREY);
-  doc.text('─'.repeat(30),ML,y+3);
-  if(cl){
-    sf('bold',11,DGREY);
-    doc.text(cl.nom,ML,y+9);
-    sf('normal',8,GREY);
-    let cy=y+14;
-    if(cl.adresse){doc.text(cl.adresse,ML,cy);cy+=4.5;}
-    if(cl.cp||cl.ville){doc.text([cl.cp,cl.ville].filter(Boolean).join(' '),ML,cy);cy+=4.5;}
-    if(cl.tel){doc.text(cl.tel,ML,cy);}
-  } else {
-    sf('normal',9,GREY); doc.text('Non renseigné',ML,y+10);
-  }
-
-  // Colonne droite — référence
-  const rx = ML+colW+6;
-  sf('bold',7,NAVY); doc.text('DEVIS',rx,y+1);
-  sf('normal',7,GREY); doc.text('─'.repeat(30),rx,y+3);
-  sf('bold',13,DGREY); doc.text('N° '+G('devis-num').textContent,rx,y+10);
-  if(projetNom){ sf('bold',9,NAVY); doc.text(projetNom,rx,y+16); }
-  sf('normal',8,GREY);
+  // Date et ref client
+  const projetNom=(G('projet-nom')?.value||'').trim();
   const today=new Date();
-  const ds=today.toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
-  doc.text('Émis le '+ds,rx,y+(projetNom?22:16));
-  doc.text('Validité : 30 jours',rx,y+(projetNom?27:21));
-
-  y += 36;
-  hline(y,LGREY,0.5);
-  y += 6;
-
-  // ── TABLEAUX ─────────────────────────────────────────────
-  function drawTable(title, headers, rows, colWidths){
-    if(y>235){doc.addPage();y=15;}
-    // Titre section — texte bleu marine, souligné
-    sf('bold',9,NAVY);
-    doc.text(title,ML,y+5);
-    hline(y+7,[200,202,220],0.4);
-    y+=10;
-
-    // En-têtes colonnes
-    sf('bold',7,GREY);
-    let cx=ML;
-    headers.forEach((h,i)=>{
-      const al=i===headers.length-1?'right':'left';
-      doc.text(h, al==='right'?cx+colWidths[i]-2:cx+2, y+4,{align:al});
-      cx+=colWidths[i];
-    });
-    hline(y+6,LGREY,0.3);
-    y+=7;
-
-    // Lignes
-    rows.forEach((row,ri)=>{
-      const rh=7;
-      if(ri%2===0) fill(ML,y,TW,rh,LGREY);
-      sf('normal',8,BLACK);
-      let cx2=ML;
-      row.forEach((cell,ci)=>{
-        const al=ci===row.length-1?'right':'left';
-        doc.text(String(cell),al==='right'?cx2+colWidths[ci]-2:cx2+2,y+5,{align:al,maxWidth:colWidths[ci]-4});
-        cx2+=colWidths[ci];
-      });
-      doc.setDrawColor(...LGREY);doc.setLineWidth(0.2);doc.line(ML,y+rh,MR,y+rh);
-      y+=rh;
-    });
-    y+=6;
+  const dateStr=today.toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+  sf(false,8.5,GREY);
+  doc.text('Date :', MR-28, y+15, {align:'right'});
+  sf(true,8.5,DGREY);
+  doc.text(dateStr, MR-23, y+15);
+  if(projetNom){
+    sf(false,8.5,GREY);
+    doc.text('Réf. Client :', MR-28, y+20, {align:'right'});
+    sf(true,8.5,DGREY);
+    doc.text(projetNom, MR-23, y+20);
   }
 
-  // Panneaux
+  y += logoH + 5;
+  hline(y, FUCHSIA, 1.0);
+  y += 5;
+
+  // ── BLOCS ÉMETTEUR / CLIENT ───────────────────────────────
+  const cl=curClient;
+  const blkH=30, colW=TW/2-3, rx=ML+colW+6;
+
+  // Émetteur
+  strokeR(ML, y, colW, blkH, [221,219,215]);
+  sf(true,9,NAVY); doc.text('MYS PRO', ML+3, y+6);
+  sf(false,7.5,GREY);
+  const emLines=['35 Rue Raymond Campourcy, bat C','34070 Montpellier','Tél. : 06 26 31 92 37','Siret : 977 511 237 00017','N° TVA : FR 419 775 112 37'];
+  emLines.forEach((l,i)=>doc.text(l, ML+3, y+11+i*3.8));
+
+  // Client
+  strokeR(rx, y, colW, blkH, [221,219,215]);
+  sf(false,7.5,GREY); doc.text('A :', rx+3, y+6);
+  if(cl){
+    sf(true,9,DGREY); doc.text(cl.nom, rx+10, y+6);
+    sf(false,7.5,GREY); doc.text('Adresse :', rx+3, y+11);
+    sf(false,7.5,DGREY);
+    let cy=y+11;
+    if(cl.adresse){doc.text(cl.adresse, rx+22, cy);cy+=3.8;}
+    if(cl.cp||cl.ville){doc.text([cl.cp,cl.ville].filter(Boolean).join(' '), rx+22, cy);}
+  } else {
+    sf(false,8,GREY); doc.text('Non renseigné', rx+3, y+14);
+  }
+
+  y += blkH + 6;
+
+  // ── COLONNES TABLEAU ──────────────────────────────────────
+  const COL_W=[16,80,24,26,30];
+  const HDRS=['Réf.','Désignation','Prix HT','Quantité','Montant HT'];
+
+  function drawTableHeader(){
+    fillR(ML, y, TW, 7, NAVY);
+    let cx=ML;
+    HDRS.forEach((h,i)=>{
+      sf(true,7.5,WHITE);
+      if(i>=2) doc.text(h, cx+COL_W[i]-2, y+4.8, {align:'right'});
+      else doc.text(h, cx+2, y+4.8);
+      cx+=COL_W[i];
+    });
+    y+=7;
+  }
+
+  function drawSection(title){
+    fillR(ML, y, TW, 6.5, BLUEL);
+    sf(true,8,NAVY); doc.text(title, ML+2, y+4.5);
+    doc.setDrawColor(...[197,217,240]); doc.setLineWidth(0.4);
+    doc.line(ML, y+6.5, ML+TW, y+6.5);
+    y+=6.5;
+  }
+
+  function drawRow(ref, desig, prix, qte, montant, alt){
+    if(y>265){doc.addPage();y=15;drawTableHeader();}
+    const rh=6.5;
+    if(alt) fillR(ML, y, TW, rh, ROWALT);
+    sf(false,6.5,GREY); doc.text(String(ref||''), ML+2, y+4.3);
+    sf(false,7.5,DGREY);
+    // Tronquer désignation si trop longue
+    const maxDesigW=COL_W[1]-4;
+    doc.text(String(desig||''), ML+COL_W[0]+2, y+4.3, {maxWidth:maxDesigW});
+    let cx=ML+COL_W[0]+COL_W[1];
+    sf(false,7.5,DGREY);
+    doc.text(String(prix||''), cx+COL_W[2]-2, y+4.3, {align:'right'});
+    cx+=COL_W[2];
+    doc.text(String(qte||''), cx+COL_W[3]-2, y+4.3, {align:'right'});
+    cx+=COL_W[3];
+    sf(false,7.5,BLACK);
+    doc.text(String(montant||''), cx+COL_W[4]-2, y+4.3, {align:'right'});
+    doc.setDrawColor(...LGREY); doc.setLineWidth(0.25);
+    doc.line(ML, y+rh, ML+TW, y+rh);
+    y+=rh;
+  }
+
+  function drawAnnexe(label, montant){
+    if(y>265){doc.addPage();y=15;}
+    const rh=6;
+    fillR(ML, y, TW, rh, [244,243,240]);
+    sf(true,7.5,DGREY); doc.text(label, ML+2, y+4);
+    sf(true,7.5,BLACK); doc.text(String(montant), ML+TW-2, y+4, {align:'right'});
+    doc.setDrawColor(...LGREY); doc.setLineWidth(0.3);
+    doc.line(ML, y+rh, ML+TW, y+rh);
+    y+=rh;
+  }
+
+  drawTableHeader();
+
+  // ── PANNEAUX ─────────────────────────────────────────────
   const pans=items.filter(i=>i.type==='pan');
   if(pans.length){
-    drawTable('PANNEAUX ISOTHERMES',
-      ['Désignation','Surface','Pièce','Quantité','Surface totale','Prix HT'],
-      pans.map(it=>{
-        const a=getPx(it.ep,it.surface);
-        const pv=(a+p.pose+p.acc)*p.coef*it.surf;
-        return[it.paroi+' — '+it.mousse+' '+it.ep+'mm',it.surface||'Phénolique',it.piece||'—',(it.nbPan||'—')+' pan.',fn(it.surf)+' m²',fn(pv)+' €'];
-      }),
-      [44,30,28,20,24,36]);
+    drawSection('PANNEAUX ISOTHERMES');
+    pans.forEach((it,i)=>{
+      const a=getPx(it.ep,it.surface);
+      const pv=(a+p.pose+p.acc)*p.coef*it.surf;
+      const hLabel=it._h?' — h. '+it._h+'m':'';
+      const isBrio=it.mousse==='BRIO';
+      const desig=isBrio
+        ?'BRIO '+it.ep+'mm — h. '+it._h+'m'
+        :it.paroi+' '+it.ep+'mm — '+it.mousse+(it.surface?' — '+it.surface:'')+hLabel;
+      const prix=it.surf>0?fn(pv/it.surf):'—';
+      const qte=fn(it.surf).replace(' €','')+' m\u00b2';
+      drawRow(it.ref||'', desig, prix, qte, fn(pv), i%2===1);
+    });
   }
 
-  // Portes
+  // ── PORTES ────────────────────────────────────────────────
   const pors=items.filter(i=>i.type==='por');
   if(pors.length){
-    drawTable('PORTES, CHÂSSIS & RIDEAUX',
-      ['Type','Dimension','Détail','Prix HT'],
-      pors.map(it=>{
-        const pv=(it.achat+it.pose)*p.coef+(it.rauto?it.rauto*p.coef:0);
-        return[it.label.split(' ')[0],(it._larg||'')+'×'+(it._haut||'')+'mm',it.meta||'—',fn(pv)+' €'];
-      }),
-      [28,34,90,30]);
+    drawSection('PORTES, CH\u00c2SSIS & RIDEAUX');
+    pors.forEach((it,i)=>{
+      const pv=(it.achat+it.pose)*p.coef+(it.rauto?it.rauto*p.coef:0);
+      const desig=(it.label||it.type)+' — '+(it._larg||'')+'×'+(it._haut||'')+'mm'+(it.meta?' — '+it.meta:'');
+      drawRow(it.ref||'P'+String(i+1).padStart(3,'0'), desig, '—', String(1)+' u', fn(pv), i%2===1);
+    });
   }
 
-  // Accessoires
+  // ── ACCESSOIRES ────────────────────────────────────────────
   const accs=items.filter(i=>i.type==='acc');
   if(accs.length){
-    drawTable('PRODUITS COMPLÉMENTAIRES',
-      ['Désignation','Unité','Prix HT'],
-      accs.map(it=>[it.label,it.meta||'—','À chiffrer']),
-      [100,52,30]);
+    drawSection('ACCESSOIRES & COMPL\u00c9MENTS');
+    accs.forEach((it,i)=>{
+      const px=it.px||0;
+      const qte=it.qty||1;
+      const montant=px>0?fn(px*qte):'À chiffrer';
+      const unite=it.meta||'u';
+      drawRow('', it.label||'', px>0?fn(px):'—', qte+' '+unite, montant, i%2===1);
+    });
   }
 
-  // Frais annexes
+  // ── FRAIS ANNEXES ─────────────────────────────────────────
   const tr=calcTransport(p,items);
   const evac=calcEvacuation(p);
   const manu=calcManutention(p);
   const manuClient=G('manu-client')?.checked;
   const surfPan=items.filter(i=>i.type==='pan').reduce((s,i)=>s+i.surf,0);
   const hasAnnexes=tr.trNet>0||evac>0||manu>0||manuClient;
+
   if(hasAnnexes){
-    const arows=[];
-    if(tr.trNet>0) arows.push(['Transport'+(tr.trPan===0&&surfPan>0?' (panneaux franco)':''),'—',fn(tr.trNet)+' €']);
-    if(evac>0) arows.push(['Évacuation & traitement des déchets','—',fn(evac)+' €']);
-    if(manuClient) arows.push(['Manutention & déchargement','—','À la charge du client']);
-    else if(manu>0) arows.push(['Manutention & déchargement','—',fn(manu)+' €']);
-    if(arows.length) drawTable('FRAIS ANNEXES',['Désignation','Détail','Montant HT'],arows,[100,52,30]);
+    y+=2;
+    if(tr.trNet>0){
+      const lbl='TRANSPORT'+(tr.trPan===0&&surfPan>0?' (panneaux franco)':'');
+      drawAnnexe(lbl, fn(tr.trNet));
+    }
+    if(evac>0) drawAnnexe('ÉVACUATION DES DÉCHETS', fn(evac));
+    if(manuClient) drawAnnexe('MANUTENTION & DÉCHARGEMENT', 'À la charge du client');
+    else if(manu>0) drawAnnexe('MANUTENTION & DÉCHARGEMENT', fn(manu));
   }
 
-  // ── TOTAUX ───────────────────────────────────────────────
+  // ── TOTAUX ────────────────────────────────────────────────
   if(y>220){doc.addPage();y=15;}
   const tot=items.reduce((s,it)=>s+cpv(it,p),0);
   const totAvecTr=tot+tr.trNet+evac+manu;
   const tva=totAvecTr*0.20;
   const ttc=totAvecTr+tva;
 
-  hline(y,LGREY,0.5); y+=5;
-  const totX=MR-68, totW=68;
-
-  function trow(label,val,bold,navy){
-    sf(bold?'bold':'normal',8,navy?NAVY:DGREY);
-    doc.text(label,totX,y+5);
-    sf(bold?'bold':'normal',9,navy?NAVY:DGREY);
-    doc.text(val,MR,y+5,{align:'right'});
-    doc.setDrawColor(...LGREY);doc.setLineWidth(0.2);doc.line(totX,y+8,MR,y+8);
-    y+=9;
-  }
-
-  trow('Total HT produits',fn(tot)+' €',false,false);
-  if(hasAnnexes){
-    trow('Frais annexes',fn(tr.trNet+evac+manu)+' €',false,false);
-    trow('Total HT',fn(totAvecTr)+' €',true,false);
-  }
-  trow('TVA 20 %',fn(tva)+' €',false,false);
-
-  // TTC — encadré navy sobre
-  y+=2;
-  fill(totX-2,y,totW+2,11,NAVY);
-  sf('bold',9,WHITE); doc.text('TOTAL TTC',totX+2,y+7.5);
-  sf('bold',11,WHITE); doc.text(fn(ttc)+' €',MR,y+7.5,{align:'right'});
-  y+=16;
-
-  // ── BON POUR ACCORD ───────────────────────────────────────
-  if(y>248){doc.addPage();y=15;}
-  y+=4;
-  hline(y,LGREY,0.4); y+=6;
-  sf('bold',7,NAVY); doc.text('BON POUR ACCORD',ML,y);
   y+=5;
-  sf('normal',7,GREY);
-  doc.text('Signature et cachet :',ML,y);
-  doc.setDrawColor(...LGREY);doc.setLineWidth(0.3);
-  doc.line(ML+40,y+1,ML+TW/2-5,y+1);
-  doc.text('Date :',ML+TW/2+2,y);
-  doc.line(ML+TW/2+16,y+1,MR,y+1);
-  y+=8;
-  sf('normal',6,[180,180,180]);
-  doc.text('MYS Pro — SIRET 977 511 237 00017 — TVA FR 419 775 112 37 — 9 Av. de l\'Europe Module 6, 34830 Clapiers — Tél. 06 26 31 92 37',ML,y);
+  hline(y, [221,219,215], 0.5);
+  y+=7;
 
-  // ── PIED DE PAGE ─────────────────────────────────────────
+  const totX=MR-65, totW=65;
+
+  function totRow(label,val,navy){
+    const rh=7;
+    if(navy){ fillR(totX, y, totW, rh, NAVY); }
+    sf(false,8,navy?WHITE:GREY); doc.text(label, totX+3, y+rh/2+1.5);
+    sf(navy,9,navy?WHITE:DGREY); doc.text(val, MR-2, y+rh/2+1.5, {align:'right'});
+    if(!navy){doc.setDrawColor(...LGREY);doc.setLineWidth(0.3);doc.line(totX,y+rh,MR,y+rh);}
+    y+=rh;
+  }
+
+  // Conditions à gauche
+  sf(false,7.5,GREY);
+  ['Validité du devis : 30 jours','Délai panneaux et portes : 3 à 6 semaines','Conditions : 40% à la commande, solde fin de chantier'].forEach((t,i)=>{
+    doc.text(t, ML, y+i*4.5);
+  });
+
+  totRow('Total HT produits', fn(tot));
+  if(hasAnnexes){
+    totRow('Frais annexes', fn(tr.trNet+evac+manu));
+    totRow('Total HT', fn(totAvecTr));
+  }
+  totRow('TVA 20 %', fn(tva));
+  y+=1;
+  totRow('TOTAL TTC', fn(ttc), true);
+
+  // ── BON POUR ACCORD ──────────────────────────────────────
+  if(y>248){doc.addPage();y=15;}
+  y+=8;
+  const bpaH=22;
+  strokeR(ML, y, TW, bpaH, [221,219,215], 0.5);
+  sf(true,8,NAVY); doc.text('Pour le client', ML+4, y+6);
+  sf(false,7.5,GREY); doc.text('Mention : "Bon pour accord"  |  Tampon — Signature', ML+4, y+11);
+  y+=bpaH+8;
+
+  // ── PIED DE PAGE toutes pages ─────────────────────────────
   const pc=doc.internal.getNumberOfPages();
   for(let i=1;i<=pc;i++){
     doc.setPage(i);
-    hline(286,LGREY,0.3);
-    sf('normal',6,GREY);
-    doc.text('MYS Pro — Devis N° '+G('devis-num').textContent+(projetNom?' — '+projetNom:''),ML,291);
-    doc.text('Page '+i+' / '+pc,MR,291,{align:'right'});
+    fillR(0, 284, W, 9, NAVY);
+    sf(false,6,WHITE);
+    doc.text('Siret N° 977 511 237 00017 — RCS Montpellier — Code NAF 46.69C — TVA N°FR41977511237 — Capital Social 10 000 €', W/2, 288, {align:'center'});
+    doc.text('MYS Pro — 9 Avenue de l\'Europe Module 6, 34830 Clapiers — Tél. 06 26 31 92 37', W/2, 291, {align:'center'});
+    sf(false,6.5,WHITE);
+    doc.text('Page '+i+' / '+pc, MR, 290, {align:'right'});
   }
 
   // ── EXPORT ───────────────────────────────────────────────
