@@ -908,9 +908,7 @@ body {
     <button class="btn" onclick="toggleDevisPanel()">📋 Mes devis</button>
     <button class="btn" onclick="nouveauDevis()">+ Nouveau</button>
     <button class="btn" onclick="sauvegarderDevis()">💾 Sauvegarder</button>
-    <button class="btn btn-green" onclick="genPDF()">Générer PDF</button>
-    <button class="btn btn-primary">Valider devis</button>
-  </div>
+    
 </header>
 
 <!-- SIDEBAR GAUCHE -->
@@ -937,6 +935,10 @@ body {
     <div class="nav-item" onclick="showPage('cmdpor',this)">
       <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="2" width="10" height="12" rx="1"/><circle cx="11" cy="8" r="1"/></svg>
       Cmd portes
+    </div>
+    <div class="nav-item" onclick="showPage('cmdacc',this)">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2l2 4h4l-3 3 1 4-4-2-4 2 1-4-3-3h4z"/></svg>
+      Cmd accessoires
     </div>
     <div class="nav-item" onclick="showPage('mission',this)">
       <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5" r="2.5"/><path d="M2 14c0-3.3 2.7-5 6-5s6 1.7 6 5"/></svg>
@@ -1198,9 +1200,12 @@ body {
       </div>
     </div>
 
-    <div class="view-toggle">
-      <button class="vtb active" id="vt-edit" onclick="swView('edit')">Édition</button>
-      <button class="vtb" id="vt-apercu" onclick="swView('apercu')">Aperçu devis</button>
+    <div class="view-toggle" style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <button class="vtb active" id="vt-edit" onclick="swView('edit')">Édition</button>
+        <button class="vtb" id="vt-apercu" onclick="swView('apercu')">Aperçu devis</button>
+      </div>
+      <button class="btn btn-green" onclick="genPDF()" style="font-size:12px;padding:6px 14px">Générer PDF</button>
     </div>
     <div id="view-edit"></div>
     <div id="view-apercu" style="display:none"></div>
@@ -1209,16 +1214,123 @@ body {
   <!-- PAGE CMD PAN -->
   <div id="page-cmdpan" class="page-content" style="display:none">
     <div class="card">
-      <div class="card-header"><div class="card-title">Commande panneaux — ESQUISS</div></div>
-      <div class="card-body"><div id="cmd-pan-body"><div class="empty-state">Aucun panneau configuré</div></div></div>
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+        <div class="card-title">Commande panneaux</div>
+        <button class="btn btn-green" onclick="genCmdPDF('pan')" style="font-size:12px;padding:6px 14px">Générer PDF</button>
+      </div>
+      <div class="card-body">
+        <div id="cmd-pan-form" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem">
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Fournisseur</label>
+            <select id="cmd-pan-fou" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text)">
+              <option value="">— Sélectionner —</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Type de document</label>
+            <select id="cmd-pan-type" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text)">
+              <option value="Demande de prix">Demande de prix</option>
+              <option value="Commande">Commande</option>
+              <option value="Devis">Devis</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Adresse de livraison</label>
+            <textarea id="cmd-pan-adresse" rows="2" placeholder="Adresse du chantier..." style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text);resize:vertical"></textarea>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Date de livraison souhaitée</label>
+            <input type="date" id="cmd-pan-date" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text)">
+          </div>
+          <div style="grid-column:1/-1">
+            <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Observations</label>
+            <textarea id="cmd-pan-obs" rows="2" placeholder="Informations complémentaires pour le fournisseur..." style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text);resize:vertical"></textarea>
+          </div>
+        </div>
+        <div id="cmd-pan-body"><div class="empty-state">Aucun panneau configuré</div></div>
+      </div>
     </div>
   </div>
 
   <!-- PAGE CMD POR -->
   <div id="page-cmdpor" class="page-content" style="display:none">
     <div class="card">
-      <div class="card-header"><div class="card-title">Commande portes & rideaux — COLDKIT PORTISO</div></div>
-      <div class="card-body"><div id="cmd-por-body"><div class="empty-state">Aucune porte configurée</div></div></div>
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+        <div class="card-title">Commande portes & rideaux</div>
+        <button class="btn btn-green" onclick="genCmdPDF('por')" style="font-size:12px;padding:6px 14px">Générer PDF</button>
+      </div>
+      <div class="card-body">
+        <div id="cmd-por-form" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem">
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Fournisseur</label>
+            <select id="cmd-por-fou" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text)">
+              <option value="">— Sélectionner —</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Type de document</label>
+            <select id="cmd-por-type" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text)">
+              <option value="Demande de prix">Demande de prix</option>
+              <option value="Commande">Commande</option>
+              <option value="Devis">Devis</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Adresse de livraison</label>
+            <textarea id="cmd-por-adresse" rows="2" placeholder="Adresse du chantier..." style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text);resize:vertical"></textarea>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Date de livraison souhaitée</label>
+            <input type="date" id="cmd-por-date" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text)">
+          </div>
+          <div style="grid-column:1/-1">
+            <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Observations</label>
+            <textarea id="cmd-por-obs" rows="2" placeholder="Informations complémentaires pour le fournisseur..." style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text);resize:vertical"></textarea>
+          </div>
+        </div>
+        <div id="cmd-por-body"><div class="empty-state">Aucune porte configurée</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE CMD ACC -->
+  <div id="page-cmdacc" class="page-content" style="display:none">
+    <div class="card">
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+        <div class="card-title">Commande accessoires</div>
+        <button class="btn btn-green" onclick="genCmdPDF('acc')" style="font-size:12px;padding:6px 14px">Générer PDF</button>
+      </div>
+      <div class="card-body">
+        <div id="cmd-acc-form" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem">
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Fournisseur</label>
+            <select id="cmd-acc-fou" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text)">
+              <option value="">— Sélectionner —</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Type de document</label>
+            <select id="cmd-acc-type" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text)">
+              <option value="Demande de prix">Demande de prix</option>
+              <option value="Commande">Commande</option>
+              <option value="Devis">Devis</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Adresse de livraison</label>
+            <textarea id="cmd-acc-adresse" rows="2" placeholder="Adresse du chantier..." style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text);resize:vertical"></textarea>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Date de livraison souhaitée</label>
+            <input type="date" id="cmd-acc-date" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text)">
+          </div>
+          <div style="grid-column:1/-1">
+            <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Observations</label>
+            <textarea id="cmd-acc-obs" rows="2" placeholder="Informations complémentaires pour le fournisseur..." style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text);resize:vertical"></textarea>
+          </div>
+        </div>
+        <div id="cmd-acc-body"><div class="empty-state">Aucun accessoire configuré</div></div>
+      </div>
     </div>
   </div>
 
@@ -1682,7 +1794,7 @@ function renderAccList(){
 }
 function accQtyChange(i,d){if(items[i]){items[i].qty=Math.max(1,(items[i].qty||1)+d);renderAccList();refreshAll();}}
 
-const PAGE_TITLES={config:'Configurateur',devis:'Devis client',cmdpan:'Cmd panneaux',cmdpor:'Cmd portes',mission:'Ordre de mission',contacts:'Annuaire',catalogue:'Catalogue prix'};
+const PAGE_TITLES={config:'Configurateur',devis:'Devis client',cmdpan:'Cmd panneaux',cmdpor:'Cmd portes',cmdacc:'Cmd accessoires',mission:'Ordre de mission',contacts:'Annuaire',catalogue:'Catalogue prix'};
 function showPage(name, el){
   document.querySelectorAll('.page-content').forEach(p=>p.style.display='none');
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
@@ -1889,14 +2001,56 @@ function refreshAll(){
   const cpan=G('cmd-pan-body');
   if(cpan){
     const pan=items.filter(i=>i.type==='pan');
-    cpan.innerHTML=pan.length?`<table class="cmd-table"><tr><th>Désignation</th><th>Épaisseur</th><th>Hauteur</th><th>Nb panneaux</th><th>Surface</th></tr>${pan.map(it=>`<tr><td><strong>${it.paroi} — ${it.mousse}</strong><div class="cmd-ref">${it.surface||'Phénolique'}${it.piece?' — '+it.piece:''}</div></td><td>${it.ep} mm</td><td>${it._h?it._h+' m':'—'}</td><td>${it.nbPan||'—'}</td><td>${fmt(it.surf)} m²</td></tr>`).join('')}</table>`:'<div class="empty-state">Aucun panneau configuré</div>';
+    if(pan.length){
+      cpan.innerHTML=`<table class="cmd-table">
+        <thead><tr><th>Réf.</th><th>Désignation</th><th>Épaisseur</th><th>Hauteur</th><th>Nb panneaux</th><th>Surface m²</th></tr></thead>
+        <tbody>${pan.map(it=>{
+          const isBrio=it.mousse==='BRIO';
+          const desig=isBrio?`BRIO ${it.ep}mm`:`${it.paroi} ${it.ep}mm — ${it.mousse} — ${it.surface||'Phénolique'}${it.piece?' — '+it.piece:''}`;
+          return `<tr><td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3)">${it.ref||''}</td><td><strong>${desig}</strong></td><td>${it.ep} mm</td><td>${it._h?it._h+' m':'—'}</td><td>${it.nbPan||'—'}</td><td>${fmt(it.surf)} m²</td></tr>`;
+        }).join('')}</tbody>
+      </table>`;
+    } else {
+      cpan.innerHTML='<div class="empty-state">Aucun panneau configuré</div>';
+    }
   }
 
   // CMD POR
   const cpor=G('cmd-por-body');
   if(cpor){
     const por=items.filter(i=>i.type==='por');
-    cpor.innerHTML=por.length?`<table class="cmd-table"><tr><th>Type</th><th>Dimension</th><th>Détail</th><th>Prix achat HT</th></tr>${por.map(it=>`<tr><td><strong>${it.label.split(' ')[0]}</strong></td><td>${it._larg||''}×${it._haut||''}mm</td><td>${it.meta}</td><td>${fmt(it.achat)} €</td></tr>`).join('')}</table>`:'<div class="empty-state">Aucune porte configurée</div>';
+    if(por.length){
+      cpor.innerHTML=`<table class="cmd-table">
+        <thead><tr><th>Réf.</th><th>Type</th><th>Dimensions</th><th>Détails</th><th>Prix achat HT</th></tr></thead>
+        <tbody>${por.map(it=>`<tr>
+          <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3)">${it.ref||''}</td>
+          <td><strong>${TL[it.type]||it.type||''}</strong></td>
+          <td>${it._larg||''}×${it._haut||''} mm</td>
+          <td style="font-size:12px;color:var(--text2)">${it.meta||''}</td>
+          <td>${fmt(it.achat)} €</td>
+        </tr>`).join('')}</tbody>
+      </table>`;
+    } else {
+      cpor.innerHTML='<div class="empty-state">Aucune porte configurée</div>';
+    }
+  }
+
+  // CMD ACC
+  const cacc=G('cmd-acc-body');
+  if(cacc){
+    const acc=items.filter(i=>i.type==='acc');
+    if(acc.length){
+      cacc.innerHTML=`<table class="cmd-table">
+        <thead><tr><th>Désignation</th><th>Quantité</th><th>Prix unitaire HT</th></tr></thead>
+        <tbody>${acc.map(it=>`<tr>
+          <td><strong>${it.label}</strong></td>
+          <td>${it.qty||1} ${it.meta||'u'}</td>
+          <td>${it.px>0?fmt(it.px)+' €':'À chiffrer'}</td>
+        </tr>`).join('')}</tbody>
+      </table>`;
+    } else {
+      cacc.innerHTML='<div class="empty-state">Aucun accessoire configuré</div>';
+    }
   }
 
   // MISSION
@@ -2646,6 +2800,190 @@ function showToast(msg, isErr=false){
 }
 
 
+// ══ FICHES COMMANDES PDF ══════════════════════════════════
+function initCmdSelects(){
+  ['pan','por','acc'].forEach(t=>{
+    const sel=G('cmd-'+t+'-fou');
+    if(!sel)return;
+    sel.innerHTML='<option value="">— Sélectionner —</option>'+FOU.map(f=>`<option value="${f.nom}">${f.nom}</option>`).join('');
+    // Défauts
+    if(t==='pan') sel.value='ESQUISS';
+    if(t==='por'||t==='acc') sel.value='COLDKIT PORTISO';
+  });
+}
+
+function genCmdPDF(type){
+  const {jsPDF} = window.jspdf;
+  const doc = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const W=210,ML=14,MR=196,TW=MR-ML;
+
+  const NAVY=[46,49,146], FUCHSIA=[190,30,130], GREY=[110,114,120], LGREY=[240,239,237];
+  const DGREY=[60,63,70], BLACK=[26,25,23], WHITE=[255,255,255], BLUEL=[235,235,248];
+
+  const fouNom = G('cmd-'+type+'-fou')?.value||'';
+  const docType = G('cmd-'+type+'-type')?.value||'Demande de prix';
+  const adresse = G('cmd-'+type+'-adresse')?.value||'';
+  const dateStr = G('cmd-'+type+'-date')?.value||'';
+  const obs = G('cmd-'+type+'-obs')?.value||'';
+  const projetNom = G('projet-nom')?.value||'';
+  const devisNum = G('devis-num')?.textContent||'';
+
+  // Trouver les infos fournisseur
+  const fouObj = FOU.find(f=>f.nom===fouNom)||{nom:fouNom,det:'',note:''};
+
+  function sf(bold,size,color){doc.setFont('helvetica',bold?'bold':'normal');doc.setFontSize(size);doc.setTextColor(...(color||BLACK));}
+  function hline(y,col,lw){doc.setDrawColor(...(col||LGREY));doc.setLineWidth(lw||0.3);doc.line(ML,y,MR,y);}
+  function fillR(x,y,w,h,fill){doc.setFillColor(...fill);doc.rect(x,y,w,h,'F');}
+  function strokeR(x,y,w,h,col,lw){doc.setDrawColor(...col);doc.setLineWidth(lw||0.4);doc.rect(x,y,w,h,'S');}
+  function fn(n){return isNaN(n)||n===0?'—':n.toFixed(2).replace('.',',')+' €';}
+
+  let y=10;
+
+  // Logo
+  const logoW=38,logoH=26.9;
+  try{doc.addImage(LOGO_B64,'PNG',ML,y,logoW,logoH);}catch(e){sf(true,14,NAVY);doc.text('MYS Pro',ML,y+14);}
+
+  // Type doc en grand
+  sf(true,18,NAVY);
+  doc.text(docType.toUpperCase()+' :', MR, y+8, {align:'right'});
+  sf(false,8.5,GREY);
+  doc.text('Date :', MR-28, y+15, {align:'right'});
+  sf(true,8.5,DGREY);
+  doc.text(new Date().toLocaleDateString('fr-FR'), MR-23, y+15);
+  if(devisNum){
+    sf(false,8.5,GREY);
+    doc.text('Réf. Devis :', MR-28, y+20, {align:'right'});
+    sf(true,8.5,DGREY);
+    doc.text(devisNum+(projetNom?' — '+projetNom:''), MR-23, y+20);
+  }
+
+  y+=logoH+5;
+  hline(y,FUCHSIA,1.0);
+  y+=5;
+
+  // Blocs MYS PRO / Fournisseur
+  const blkH=28,colW=TW/2-3,rx=ML+colW+6;
+  strokeR(ML,y,colW,blkH,[221,219,215]);
+  sf(true,9,NAVY); doc.text('MYS PRO',ML+3,y+6);
+  sf(false,7.5,GREY);
+  ['35 Rue Raymond Campourcy, bat C','34070 Montpellier','Tél. : 06 26 31 92 37','Siret : 977 511 237 00017'].forEach((l,i)=>doc.text(l,ML+3,y+11+i*3.8));
+
+  strokeR(rx,y,colW,blkH,[221,219,215]);
+  sf(false,7.5,GREY); doc.text('A :',rx+3,y+6);
+  sf(true,9,DGREY); doc.text(fouNom||'—',rx+10,y+6);
+  if(fouObj.det){
+    sf(false,7.5,GREY);
+    const detParts=fouObj.det.split(' — ');
+    detParts.forEach((p,i)=>doc.text(p,rx+3,y+11+i*3.8));
+  }
+
+  y+=blkH+5;
+
+  // Bloc livraison
+  if(adresse||dateStr){
+    const livH=adresse&&dateStr?18:12;
+    fillR(ML,y,TW,livH,BLUEL);
+    sf(true,7.5,NAVY); doc.text('INFORMATIONS DE LIVRAISON',ML+3,y+5);
+    sf(false,7.5,DGREY);
+    if(adresse) doc.text('Adresse : '+adresse.replace(/\n/g,' '),ML+3,y+10);
+    if(dateStr){
+      const d=new Date(dateStr);
+      const df=d.toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+      doc.text('Date souhaitée : '+df, adresse?ML+TW/2+3:ML+3, y+10);
+    }
+    doc.setDrawColor(...[197,217,240]); doc.setLineWidth(0.3);
+    doc.line(ML,y+livH,ML+TW,y+livH);
+    y+=livH+4;
+  }
+
+  // En-têtes tableau selon type
+  let headers=[], colWidths=[];
+  if(type==='pan'){
+    headers=['Réf.','Désignation','Ép. (mm)','Hauteur','Nb pan.','Surface m²'];
+    colWidths=[15,68,18,18,16,21];
+  } else if(type==='por'){
+    headers=['Réf.','Type','Dimensions','Détails','Px achat HT'];
+    colWidths=[15,35,32,54,26];
+  } else {
+    headers=['Désignation','Quantité','Prix unitaire HT'];
+    colWidths=[100,36,46];
+  }
+
+  // Header tableau
+  fillR(ML,y,TW,7,NAVY);
+  let cx=ML;
+  headers.forEach((h,i)=>{
+    sf(true,7.5,WHITE);
+    if(i>=2) doc.text(h,cx+colWidths[i]-2,y+4.8,{align:'right'});
+    else doc.text(h,cx+2,y+4.8);
+    cx+=colWidths[i];
+  });
+  y+=7;
+
+  // Lignes produits
+  const filtered = type==='pan'?items.filter(i=>i.type==='pan')
+    :type==='por'?items.filter(i=>i.type==='por')
+    :items.filter(i=>i.type==='acc');
+
+  filtered.forEach((it,idx)=>{
+    if(y>265){doc.addPage();y=15;}
+    const rh=7,alt=idx%2===1;
+    if(alt) fillR(ML,y,TW,rh,[248,248,247]);
+
+    let cells=[];
+    if(type==='pan'){
+      const isBrio=it.mousse==='BRIO';
+      const desig=isBrio?`BRIO ${it.ep}mm`:`${it.paroi} ${it.ep}mm — ${it.mousse}${it.surface?' — '+it.surface:''}${it.piece?' — '+it.piece:''}`;
+      cells=[it.ref||'',desig,it.ep,it._h?it._h+' m':'—',it.nbPan||'—',fmt(it.surf)+' m²'];
+    } else if(type==='por'){
+      cells=[it.ref||'',TL[it.type]||it.type||'',`${it._larg||''}×${it._haut||''} mm`,it.meta||'',fn(it.achat)];
+    } else {
+      cells=[it.label||'',`${it.qty||1} ${it.meta||'u'}`,it.px>0?fn(it.px):'À chiffrer'];
+    }
+
+    cx=ML;
+    cells.forEach((cell,i)=>{
+      sf(false,7,i===0?GREY:DGREY);
+      if(i>=2) doc.text(String(cell),cx+colWidths[i]-2,y+rh/2+1.5,{align:'right'});
+      else doc.text(String(cell),cx+2,y+rh/2+1.5,{maxWidth:colWidths[i]-4});
+      cx+=colWidths[i];
+    });
+    doc.setDrawColor(...LGREY);doc.setLineWidth(0.25);
+    doc.line(ML,y+rh,ML+TW,y+rh);
+    y+=rh;
+  });
+
+  if(!filtered.length){
+    sf(false,9,GREY); doc.text('Aucun article pour ce type de commande.',ML+3,y+8);
+    y+=15;
+  }
+
+  // Observations
+  if(obs){
+    y+=4;
+    strokeR(ML,y,TW,14,[221,219,215],0.5);
+    sf(true,7.5,NAVY); doc.text('OBSERVATIONS',ML+3,y+5);
+    sf(false,7.5,DGREY); doc.text(obs,ML+3,y+10,{maxWidth:TW-6});
+    y+=18;
+  }
+
+  // Pied de page
+  const pc=doc.internal.getNumberOfPages();
+  for(let i=1;i<=pc;i++){
+    doc.setPage(i);
+    fillR(0,284,W,9,NAVY);
+    sf(false,6,WHITE);
+    doc.text('Siret N° 977 511 237 00017 — RCS Montpellier — Code NAF 46.69C — TVA N°FR41977511237',W/2,288,{align:'center'});
+    doc.text('MYS Pro — 9 Avenue de l\'Europe Module 6, 34830 Clapiers — Tél. 06 26 31 92 37',W/2,291,{align:'center'});
+    sf(false,6.5,WHITE);
+    doc.text('Page '+i+'/'+pc,MR,290,{align:'right'});
+  }
+
+  const label=type==='pan'?'Panneaux':type==='por'?'Portes':'Accessoires';
+  const safe=(projetNom||devisNum||'Cmd').replace(/[^\w\u00C0-\u017E]/g,'_').replace(/_+/g,'_');
+  doc.save(`Cmd_${label}_${safe}.pdf`);
+}
+
 function toggleDevisPanel(){
   const panel=G('devis-panel');const overlay=G('devis-overlay');
   const isOpen=panel.classList.contains('open');
@@ -2659,6 +2997,7 @@ function toggleDevisPanel(){
 
 // INIT
 renCli();renPos();renApp();renFou();
+initCmdSelects();
 genNumero().then(num=>{
   G('devis-num').textContent=num;
   if(G('dnum'))G('dnum').textContent=num;
