@@ -1511,6 +1511,7 @@ function togglePwd(){
             <textarea id="cmd-acc-obs" rows="2" placeholder="Informations complémentaires pour le fournisseur..." style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text);resize:vertical"></textarea>
           </div>
         </div>
+        <div id="metre-panel"></div>
         <div id="cmd-acc-body"><div class="empty-state">Aucun accessoire configuré</div></div>
       </div>
     </div>
@@ -2455,6 +2456,156 @@ function renderAccList(){
 }
 function accQtyChange(i,d){if(items[i]){items[i].qty=Math.max(1,(items[i].qty||1)+d);renderAccList();refreshAll();}}
 
+// ══ MÉTRÉ CHANTIER → QUANTITÉS ACCESSOIRES AUTO (fiche commande) ══════════════
+// Déduit les quantités de consommables/finitions du contenu du devis + quelques
+// mesures de chantier saisies au passage en commande. Sert UNIQUEMENT à la
+// commande (jamais facturé — le coût est dans le paramètre « Accessoires €/m² »).
+let METRE={ sepa:0, angIntPos:0, angIntNeg:0, angExt:0, margeOverride:'', chevronEsp:40, chambres:[], overrides:{} };
+function accById(id){ return ACC_DEFAULTS.find(a=>a.id===id); }
+function metreMarge(surfTot, ov){
+  if(ov!==''&&ov!=null&&!isNaN(parseFloat(ov))) return parseFloat(ov)/100;
+  if(surfTot<50) return .10; if(surfTot<150) return .08; if(surfTot<300) return .06; if(surfTot<600) return .05; return .04;
+}
+function metreDevisData(){
+  const pans=items.filter(i=>i.type==='pan'), pors=items.filter(i=>i.type==='por');
+  const clois=pans.filter(p=>p.paroi==='Cloison'), plaf=pans.filter(p=>p.paroi==='Plafond'), sols=pans.filter(p=>p.paroi==='Sol négatif');
+  const sum=(a,f)=>a.reduce((s,x)=>s+(parseFloat(f(x))||0),0);
+  const mlByEp={}; clois.forEach(p=>{ const e=parseInt(p.ep)||0; mlByEp[e]=(mlByEp[e]||0)+(parseFloat(p._ml)||0); });
+  const mlPos=Object.keys(mlByEp).filter(e=>+e<100).reduce((s,e)=>s+mlByEp[e],0);
+  const mlNeg=Object.keys(mlByEp).filter(e=>+e>=100).reduce((s,e)=>s+mlByEp[e],0);
+  const PIVOT=['PPIP','PPIN','PPSI','PPSI_CF','PPIP_CF'];
+  return {
+    surfCloison:sum(clois,p=>p.surf), surfPlafond:sum(plaf,p=>p.surf), surfSol:sum(sols,p=>p.surf), surfTot:sum(pans,p=>p.surf),
+    nbPan:sum(pans,p=>p.nbPan), mlByEp, mlPos, mlNeg,
+    hMax:Math.max(2.5,...clois.map(p=>parseFloat(p._h)||0)),
+    epMax:Math.max(0,...clois.map(p=>parseInt(p.ep)||0)),
+    surfBrio:sum(pans.filter(p=>p.mousse==='BRIO'),p=>p.surf),
+    nbPortes:pors.filter(p=>p.subtype!=='RIDEAU'&&p.subtype!=='CHASSIS').length,
+    nbPivot:pors.filter(p=>PIVOT.includes(p.subtype)).length
+  };
+}
+function metreCalc(){
+  const d=metreDevisData(), f=METRE, marge=metreMarge(d.surfTot,f.margeOverride);
+  const hFac=Math.max(1,Math.ceil(d.hMax/3));
+  const L=[]; const add=(id,theo,formule,o)=>{ o=o||{}; if(theo>0) L.push({id,theo,formule,cond:o.cond||'unit',condSize:o.condSize||1,noMarge:!!o.noMarge}); };
+  // U de sol PVC (<100) + galva (>100, ×2)
+  let bUsolPVC=0, bGalva=0;
+  Object.keys(d.mlByEp).forEach(e=>{ const ep=+e, ml=d.mlByEp[e]; if(ml<=0) return; const b=Math.ceil(ml/3);
+    if(ep>100){ bGalva+=2*b; } else { bUsolPVC+=b; const id=ep<=40?'usol_40':ep<=60?'usol_60':ep<=80?'usol_80':'usol_100'; add(id,b,`${ml.toFixed(1)} ml ÷ 3`,{cond:'barre'}); } });
+  add('corn_galva_30',bGalva,`2 côtés × cloisons > 100 mm`,{cond:'barre'});
+  const bUsol=bUsolPVC+bGalva;
+  add('cheville_frapper6',8*bUsol,`8 × ${bUsol} barres (U de sol + galva)`,{cond:'boite',condSize:100});
+  const surfCP=d.surfCloison+d.surfPlafond;
+  add('silicone_blanc',0.25*surfCP,`0,25 × ${surfCP.toFixed(1)} m² (cloisons + plafond)`,{cond:'cart'});
+  add('silicone_noir',0.25*d.surfSol,`0,25 × ${d.surfSol.toFixed(1)} m² de sol`,{cond:'cart'});
+  add('mousse_pu_750',d.nbPortes+Math.ceil(surfCP/50)+Math.ceil(d.surfSol/10),`${d.nbPortes} portes + ${Math.ceil(surfCP/50)} (cloison/plaf) + ${Math.ceil(d.surfSol/10)} (sol)`,{cond:'cart'});
+  add('colle',d.surfBrio,`1 × ${d.surfBrio.toFixed(1)} m² BRIO`,{cond:'unit'});
+  // Cornières / 1/4 de rond (× hauteur si > 3 m)
+  const ceId=d.epMax<=150?'corn_ext_50x150':(d.epMax>=200?'corn_ext_50x250':'corn_ext_50x200');
+  add(ceId,f.angExt*hFac,`${f.angExt} angles ext.${hFac>1?` × ${hFac} (haut.)`:''}`,{cond:'barre'});
+  const nbCI=f.angIntNeg*hFac;
+  add('corn_int_50x50',nbCI,`${f.angIntNeg} angles int. négatif${hFac>1?` × ${hFac}`:''}`,{cond:'barre'});
+  add('vis_autofor_blanche',12*nbCI,`12 × ${nbCI} cornières int.`,{cond:'boite',condSize:500});
+  const nbQR=f.angIntPos*hFac;
+  add('conge_quart_rond',nbQR,`${f.angIntPos} angles int. positif${hFac>1?` × ${hFac}`:''}`,{cond:'barre'});
+  add('support_conge',nbQR,`= nb 1/4 de rond`,{cond:'unit'});
+  // Plinthes (positive) + accessoires de plinthe
+  const bPlinthe=Math.ceil((d.mlPos+f.sepa)/3);
+  add('plinthe_80',bPlinthe,`(${d.mlPos.toFixed(1)} ml positif + ${f.sepa} sépa.) ÷ 3`,{cond:'barre'});
+  add('plinthe_angle_int',f.angIntPos,`= nb angles int. positif`,{cond:'unit'});
+  add('plinthe_angle_ext',f.angExt,`= nb angles ext.`,{cond:'unit'});
+  add('plinthe_embout_g',2*d.nbPortes,`2 × ${d.nbPortes} portes`,{cond:'unit'});
+  add('plinthe_embout_d',2*d.nbPortes,`2 × ${d.nbPortes} portes`,{cond:'unit'});
+  // Visserie & butyle
+  add('vis_autofor',6*bPlinthe+12*nbQR+4*d.nbPan,`6×${bPlinthe} plinthes + 12×${nbQR} 1/4rond + 4×${d.nbPan} pan.`,{cond:'boite',condSize:500});
+  add('butyle_gris',bUsol/2+bPlinthe/2+nbQR/2,`(${bUsol} U sol + ${bPlinthe} plinthes + ${nbQR} 1/4rond) ÷ 2`,{cond:'cart'});
+  // Chevrons (chambres négatives)
+  if(d.surfSol>0){ let ml=0; f.chambres.forEach(c=>{ const A=Math.max(c.l||0,c.w||0), B=Math.min(c.l||0,c.w||0); if(A<=0||B<=0) return; const esp=(f.chevronEsp||40)/100; ml+=2*(A+B)+Math.max(0,Math.ceil(B/esp)-1)*A; });
+    add('chevron_pvc',Math.ceil(ml/3),`${ml.toFixed(1)} ml (périmètre + rangées ${f.chevronEsp} cm) ÷ 3`,{cond:'barre'}); }
+  // Soupapes (par volume) + tampons
+  let sInf=0,sSup=0; f.chambres.forEach(c=>{ const v=c.vol||0; if(v<=0) return; if(v<75) sInf++; else sSup++; });
+  add('soupape_inf75',sInf,`${sInf} chambre(s) < 75 m³`,{noMarge:true});
+  add('soupape_sup75',sSup,`${sSup} chambre(s) ≥ 75 m³`,{noMarge:true});
+  if(d.nbPortes>10) add('tampon_porte',d.nbPivot,`${d.nbPivot} portes pivotantes (projet > 10 portes)`,{noMarge:true});
+  // Arrondi + marge
+  const lines=L.map(x=>{ let q=x.noMarge?x.theo:x.theo*(1+marge), finale, cl='';
+    if(x.cond==='boite'){ finale=Math.ceil(q/x.condSize); cl=`boîte${finale>1?'s':''} de ${x.condSize}`; }
+    else if(x.cond==='barre'){ finale=Math.ceil(q); cl=`barre${finale>1?'s':''}`; }
+    else if(x.cond==='cart'){ finale=Math.ceil(q); cl=`cartouche${finale>1?'s':''}`; }
+    else { finale=Math.ceil(q); cl=''; }
+    const def=accById(x.id)||{};
+    const ov=f.overrides[x.id];
+    return {id:x.id, nom:def.nom||x.id, fou:def.fou||'(non attribué)', u:def.u||'', theo:x.theo, finale, affiche:(ov!=null&&ov!=='')?parseFloat(ov):finale, cond:cl, formule:x.formule, noMarge:x.noMarge, override:(ov!=null&&ov!=='')};
+  });
+  return {marge, data:d, lines};
+}
+// ── Rendu du panneau Métré (formulaire + résultats) ──
+function metreReadForm(){
+  const g=id=>G(id)?G(id).value:'';
+  METRE.sepa=parseFloat(g('me-sepa'))||0;
+  METRE.angIntPos=parseInt(g('me-aip'))||0;
+  METRE.angIntNeg=parseInt(g('me-ain'))||0;
+  METRE.angExt=parseInt(g('me-aex'))||0;
+  METRE.chevronEsp=parseFloat(g('me-esp'))||40;
+  METRE.margeOverride=g('me-marge');
+}
+function metreUpdate(){ metreReadForm(); metreRenderResults(); }
+function metreAddChambre(){ metreReadForm(); METRE.chambres.push({l:0,w:0,vol:0}); metreRenderPanel(); }
+function metreDelChambre(i){ metreReadForm(); METRE.chambres.splice(i,1); metreRenderPanel(); }
+function metreChambreInput(i,k,v){ if(METRE.chambres[i]){ METRE.chambres[i][k]=parseFloat(v)||0; metreRenderResults(); } }
+function metreOverride(id,v){ if(v===''||v==null) delete METRE.overrides[id]; else METRE.overrides[id]=v; }
+function metreRenderPanel(){
+  const el=G('metre-panel'); if(!el) return;
+  const hasPan=items.some(i=>i.type==='pan');
+  const inp=(id,val,ph)=>`<input type="number" id="${id}" value="${val||''}" placeholder="${ph||'0'}" oninput="metreUpdate()" class="cmd-inp" style="width:80px;text-align:right">`;
+  let ch=METRE.chambres.map((c,i)=>`<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px">
+    <span style="font-size:11px;color:var(--text3);width:60px">Négative ${i+1}</span>
+    <input type="number" value="${c.l||''}" placeholder="Long. m" oninput="metreChambreInput(${i},'l',this.value)" class="cmd-inp" style="width:74px">
+    <input type="number" value="${c.w||''}" placeholder="Larg. m" oninput="metreChambreInput(${i},'w',this.value)" class="cmd-inp" style="width:74px">
+    <input type="number" value="${c.vol||''}" placeholder="Vol. m³" oninput="metreChambreInput(${i},'vol',this.value)" class="cmd-inp" style="width:74px">
+    <button class="dx-ic" title="Retirer" onclick="metreDelChambre(${i})">🗑️</button></div>`).join('');
+  el.innerHTML=`<div style="border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:1.25rem;background:var(--bg2)">
+    <div style="font-size:13px;font-weight:600;margin-bottom:2px">Métré chantier <span style="font-weight:400;color:var(--text3);font-size:11px">— saisi au passage en commande, sert au calcul auto des quantités</span></div>
+    ${!hasPan?'<div style="font-size:12px;color:var(--orange);margin-top:6px">Aucun panneau dans le devis — le calcul sera vide.</div>':''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 20px;margin-top:12px">
+      <label style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text2)">ML cloisons séparatrices ${inp('me-sepa',METRE.sepa)}</label>
+      <label style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text2)">Angles int. <b style="color:var(--blue)">positive</b> ${inp('me-aip',METRE.angIntPos)}</label>
+      <label style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text2)">Angles int. <b style="color:var(--text)">négative</b> ${inp('me-ain',METRE.angIntNeg)}</label>
+      <label style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text2)">Angles extérieurs ${inp('me-aex',METRE.angExt)}</label>
+      <label style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text2)">Espacement chevrons (cm) ${inp('me-esp',METRE.chevronEsp)}</label>
+      <label style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text2)">Marge % <span style="color:var(--text3);font-size:10px">(auto si vide)</span> ${inp('me-marge',METRE.margeOverride)}</label>
+    </div>
+    <div style="margin-top:12px">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Chambres froides négatives <span style="text-transform:none;letter-spacing:0">(pour chevrons + soupapes)</span></div>
+      ${ch||'<div style="font-size:11px;color:var(--text3);font-style:italic;margin-bottom:5px">Aucune — ajoute une chambre si le projet a du sol négatif.</div>'}
+      <button class="btn-sec-add outline" onclick="metreAddChambre()" style="font-size:11px">+ Ajouter une chambre négative</button>
+    </div>
+    <div id="metre-results" style="margin-top:1rem"></div>
+  </div>`;
+  metreRenderResults();
+}
+function metreRenderResults(){
+  const el=G('metre-results'); if(!el) return;
+  const r=metreCalc();
+  if(!r.lines.length){ el.innerHTML='<div style="font-size:12px;color:var(--text3);font-style:italic;border-top:1px solid var(--border);padding-top:.75rem">Rien à calculer pour l\'instant.</div>'; return; }
+  const groups={}; r.lines.forEach(L=>{ (groups[L.fou]=groups[L.fou]||[]).push(L); });
+  let h=`<div style="border-top:1px solid var(--border);padding-top:.75rem"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px"><span style="font-size:13px;font-weight:600">Quantités calculées</span><span style="font-size:11px;color:var(--text3)">marge ${(r.marge*100).toFixed(0)} % · surface ${r.data.surfTot.toFixed(0)} m²</span></div>`;
+  Object.keys(groups).sort().forEach(fou=>{
+    h+=`<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--blue);margin:10px 0 4px">${esc(fou)}</div>`;
+    h+=`<table style="width:100%;border-collapse:collapse;font-size:12px">`;
+    groups[fou].forEach(L=>{
+      h+=`<tr style="border-bottom:0.5px solid var(--border2)">
+        <td style="padding:4px 2px"><div>${esc(L.nom)}</div><div style="font-size:10px;color:var(--text3)">${esc(L.formule)}${L.noMarge?'':' · +marge'} → ${L.finale} ${esc(L.cond||L.u)}</div></td>
+        <td style="padding:4px 2px;text-align:right;white-space:nowrap"><input type="number" value="${L.affiche}" oninput="metreOverride('${L.id}',this.value);metreBadge('${L.id}',this)" style="width:56px;text-align:right;border:1px solid ${L.override?'var(--orange)':'var(--border)'};border-radius:4px;padding:2px 4px;font-size:12px;background:var(--surface);color:var(--text)"> <span style="font-size:10px;color:var(--text3)">${esc(L.cond||L.u)}</span></td>
+      </tr>`;
+    });
+    h+=`</table>`;
+  });
+  h+=`<div style="font-size:10px;color:var(--text3);font-style:italic;margin-top:10px;line-height:1.5">Ajout manuel non calculé : plat d'habillage, U d'habillage, cornière pliable, système Té (déjà dans le devis). Chiffres modifiables à la main (surbrillance orange).</div></div>`;
+  el.innerHTML=h;
+}
+function metreBadge(id,inp){ inp.style.borderColor = (inp.value!==''&&!isNaN(parseFloat(inp.value)))?'var(--orange)':'var(--border)'; }
+
 const PAGE_TITLES={config:'Configurateur',devis:'Devis client','devis-existant':'Devis existant',cmdpan:'Cmd panneaux',cmdpor:'Cmd portes',cmdacc:'Cmd accessoires',mission:'Ordre de mission',contacts:'Annuaire',catalogue:'Catalogue prix'};
 function showPage(name, el){
   document.querySelectorAll('.page-content').forEach(p=>p.style.display='none');
@@ -2464,6 +2615,7 @@ function showPage(name, el){
   G('page-title').textContent=PAGE_TITLES[name]||name;
   if(name==='catalogue') renderCatalogue();
   if(name==='devis-existant') loadDevisExistant();
+  if(name==='cmdacc') try{ metreRenderPanel(); }catch(e){ console.error('metre:',e); }
   refreshAll();
 }
 function swCfg(w){
@@ -2803,8 +2955,9 @@ function refreshAll(){
         </tr>`).join('')}</tbody>
       </table>`;
     } else {
-      cacc.innerHTML='<div class="empty-state">Aucun accessoire configuré</div>';
+      cacc.innerHTML='<div class="empty-state">Aucun accessoire ajouté manuellement</div>';
     }
+    if(G('metre-results')) try{ metreRenderResults(); }catch(e){}
   }
 
   // MISSION — Budget Pose
