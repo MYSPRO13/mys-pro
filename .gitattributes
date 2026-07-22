@@ -1,0 +1,3 @@
+# Les bibliothèques tierces doivent rester octet pour octet identiques à l'original
+# (sinon leur empreinte de vérification ne correspond plus).
+vendor/** -text binary
