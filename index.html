@@ -2601,10 +2601,54 @@ function metreRenderResults(){
     });
     h+=`</table>`;
   });
-  h+=`<div style="font-size:10px;color:var(--text3);font-style:italic;margin-top:10px;line-height:1.5">Ajout manuel non calculé : plat d'habillage, U d'habillage, cornière pliable, système Té (déjà dans le devis). Chiffres modifiables à la main (surbrillance orange).</div></div>`;
+  h+=`<div style="font-size:10px;color:var(--text3);font-style:italic;margin-top:10px;line-height:1.5">Ajout manuel non calculé : plat d'habillage, U d'habillage, cornière pliable, système Té (déjà dans le devis). Chiffres modifiables à la main (surbrillance orange).</div>`;
+  // ── Génération des commandes ──
+  const modeEff=cmdAccEffectiveMode();
+  const gN=cmdAccGroupes('normal');
+  window._cmdAccFouKeys=Object.keys(gN).sort();
+  const chip=(m,lab)=>`<button onclick="cmdAccSetMode('${m}')" style="font-size:11px;padding:4px 10px;border-radius:20px;cursor:pointer;border:1px solid ${modeEff===m?'var(--blue)':'var(--border)'};background:${modeEff===m?'var(--blue-light)':'var(--surface)'};color:${modeEff===m?'var(--blue)':'var(--text2)'};font-family:'DM Sans',sans-serif">${lab}</button>`;
+  h+=`<div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+      <span style="font-size:13px;font-weight:600">Générer les commandes</span>
+      <span style="margin-left:auto;display:flex;gap:5px">${chip('normal','Par fournisseur')}${chip('celtek','Tout chez Celtek')}</span>
+    </div>`;
+  if(CMDACC_MODE==='auto') h+=`<div style="font-size:11px;color:var(--text2);background:var(--bg2);border-radius:6px;padding:6px 10px;margin-bottom:8px">Mode auto : ${modeEff==='celtek'?`petit chantier (${r.data.surfTot.toFixed(0)} m² < 100) → <b>tout regroupé chez Celtek</b> (transport unique)`:'chantier assez grand → <b>réparti par fournisseur</b> (meilleurs prix)'} <a onclick="cmdAccSetMode('${modeEff}')" style="color:var(--blue);cursor:pointer">forcer</a></div>`;
+  h+=`<div style="display:flex;gap:6px;flex-wrap:wrap">`;
+  if(modeEff==='celtek'){
+    h+=`<button class="btn btn-green" onclick="cmdAccGenerer('Celtek')" style="font-size:12px;padding:7px 14px">📄 Commande Celtek — tout regroupé</button>`;
+  } else {
+    window._cmdAccFouKeys.forEach((f,i)=>{ h+=`<button class="btn" onclick="cmdAccGenererIdx(${i})" style="font-size:12px;padding:7px 12px">📄 ${esc(f)} <span style="color:var(--text3)">(${gN[f].length})</span></button>`; });
+  }
+  h+=`</div></div></div>`;
   el.innerHTML=h;
 }
 function metreBadge(id,inp){ inp.style.borderColor = (inp.value!==''&&!isNaN(parseFloat(inp.value)))?'var(--orange)':'var(--border)'; }
+
+// ── Commande accessoires : regroupement par fournisseur + option « tout chez Celtek » ──
+// Petit chantier (< 100 m² de panneaux) → un seul envoi chez Celtek (qui a tout) :
+// le cumul des transports des autres fournisseurs n'est rentable qu'au-delà d'un volume.
+let CMDACC_MODE='auto'; // 'auto' | 'normal' | 'celtek'
+window._cmdAccFouKeys=[];
+function cmdAccGroupes(mode){
+  const r=metreCalc(), rows={};
+  const push=(fou,cells)=>{ (rows[fou]=rows[fou]||[]).push(cells); };
+  r.lines.forEach(L=>push(L.fou, [L.nom, L.affiche+' '+(L.cond||L.u), L.formule]));
+  items.filter(i=>i.type==='acc').forEach(it=>{
+    const def=accById(it.accId)||{}, fou=def.fou||'(non attribué)';
+    const q=it.accId==='te_reprise'?((it.ml||0)+' ml'):String(it.nbU||it.qty||1);
+    push(fou, [it.label, q, (it.cmdDetail||accDetail(it)||'')]);
+  });
+  if(mode==='celtek'){ const all=[]; Object.keys(rows).forEach(f=>rows[f].forEach(c=>all.push(c))); return {'Celtek':all}; }
+  return rows;
+}
+function cmdAccEffectiveMode(){ if(CMDACC_MODE!=='auto') return CMDACC_MODE; return metreCalc().data.surfTot<100?'celtek':'normal'; }
+function cmdAccSetMode(m){ CMDACC_MODE=m; metreRenderResults(); }
+function cmdAccGenerer(fou){
+  const g=cmdAccGroupes(cmdAccEffectiveMode()), rows=g[fou];
+  if(!rows||!rows.length){ showToast('Rien à commander pour '+fou, true); return; }
+  genCmdPDF('acc', {fouNom:fou, rows});
+}
+function cmdAccGenererIdx(i){ const f=window._cmdAccFouKeys[i]; if(f) cmdAccGenerer(f); }
 
 const PAGE_TITLES={config:'Configurateur',devis:'Devis client','devis-existant':'Devis existant',cmdpan:'Cmd panneaux',cmdpor:'Cmd portes',cmdacc:'Cmd accessoires',mission:'Ordre de mission',contacts:'Annuaire',catalogue:'Catalogue prix'};
 function showPage(name, el){
@@ -4584,7 +4628,8 @@ function cmdAdrFromClient(t){
   showToast('Adresse du client reprise');
 }
 
-function genCmdPDF(type){
+function genCmdPDF(type, ov){
+  ov = ov || {};
   const {jsPDF} = window.jspdf;
   const doc = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
   const W=210,ML=14,MR=196,TW=MR-ML;
@@ -4592,7 +4637,7 @@ function genCmdPDF(type){
   const NAVY=[26,25,23], FUCHSIA=[26,25,23], GREY=[110,114,120], LGREY=[240,239,237];
   const DGREY=[60,63,70], BLACK=[26,25,23], WHITE=[255,255,255], BLUEL=[240,239,237];
 
-  const fouNom = G('cmd-'+type+'-fou')?.value||'';
+  const fouNom = ov.fouNom!=null ? ov.fouNom : (G('cmd-'+type+'-fou')?.value||'');
   const docType = G('cmd-'+type+'-type')?.value||'Demande de prix';
   // Adresse de livraison structurée : bâtiment / rue / CP + ville → une ligne chacun
   const adrV = sfx => (G('cmd-'+type+'-adr-'+sfx)?.value||'').trim();
@@ -4704,14 +4749,15 @@ function genCmdPDF(type){
   });
   y+=7;
 
-  // Lignes produits
-  const filtered = type==='pan'?items.filter(i=>i.type==='pan')
+  // Lignes produits — soit fournies (ov.rows = tableaux de cellules déjà prêts), soit calculées
+  const filtered = ov.rows ? ov.rows : (type==='pan'?items.filter(i=>i.type==='pan')
     :type==='por'?items.filter(i=>i.type==='por')
-    :items.filter(i=>i.type==='acc');
+    :items.filter(i=>i.type==='acc'));
 
   filtered.forEach((it,idx)=>{
     let cells=[];
-    if(type==='pan'){
+    if(ov.rows){ cells=it; }
+    else if(type==='pan'){
       const isBrio=it.mousse==='BRIO';
       const desig=isBrio?`BRIO ${it.ep}mm`:`${it.paroi} ${it.ep}mm — ${it.mousse}${it.surface?' — '+it.surface:''}${it.piece?' — '+it.piece:''}`;
       cells=[it.ref||'',desig,it.ep,it._h?String(Math.round(parseFloat(it._h)*1000)):'—',it.nbPan||'—'];
@@ -4766,7 +4812,8 @@ function genCmdPDF(type){
 
   const label=type==='pan'?'Panneaux':type==='por'?'Portes':'Accessoires';
   const safe=(projetNom||devisNum||'Cmd').replace(/[^\w\u00C0-\u017E]/g,'_').replace(/_+/g,'_');
-  doc.save(`Cmd_${label}_${safe}.pdf`);
+  const foupart = ov.fouNom ? '_'+String(ov.fouNom).replace(/[^\w\u00C0-\u017E]/g,'_').replace(/_+/g,'_') : '';
+  doc.save(`Cmd_${label}${foupart}_${safe}.pdf`);
 }
 
 function genMissionPDF(){
