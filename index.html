@@ -66,7 +66,18 @@ body {
   padding: 0 1.5rem;
   gap: 1rem;
 }
-.topbar-left { display: flex; align-items: center; gap: 12px; }
+.topbar-left { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; }
+/* Identité du devis : centrée dans la barre, quelles que soient les largeurs des côtés */
+.topbar-center { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.topbar-center .projet-inp { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 5px 11px; font-size: 12.5px; font-family: 'DM Sans', sans-serif; background: var(--surface); color: var(--text); width: 230px; text-align: center; font-weight: 500; }
+.topbar-center .projet-inp::placeholder { font-weight: 400; color: var(--text3); }
+.topbar-center .projet-inp:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(27,95,168,.10); }
+/* Barre latérale : séparation nette entre les réglages du devis et les tarifs de référence */
+.sr-refblock { margin: 1.25rem 0 .5rem; padding: .75rem 1rem .25rem; border-top: 1px solid var(--border); background: var(--bg2); }
+.sr-refhead { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: var(--text3); }
+.sr-refnote { font-size: 10.5px; color: var(--text3); line-height: 1.5; margin-top: 4px; }
+.sr-refnote a { color: var(--blue); cursor: pointer; font-weight: 500; }
+.sr-refnote a:hover { text-decoration: underline; }
 .logo { font-size: 15px; font-weight: 600; letter-spacing: -.3px; color: var(--text); }
 .logo span { color: var(--blue); }
 .divider-v { width: 1px; height: 18px; background: var(--border); }
@@ -80,7 +91,7 @@ body {
   border-radius: 20px;
   color: var(--text2);
 }
-.topbar-right { display: flex; align-items: center; gap: 8px; }
+.topbar-right { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
 .btn { font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500; padding: 6px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text2); cursor: pointer; transition: all .15s; }
 .btn:hover { background: var(--bg2); color: var(--text); }
 .btn-primary { background: var(--blue); color: #fff; border-color: var(--blue); }
@@ -914,7 +925,24 @@ select.dx-pill { cursor: pointer; border: none; outline: none; -webkit-appearanc
   font-family: 'DM Sans', sans-serif;
   text-align: left;
 }
-.collapse-btn:hover { background: var(--bg2); }
+.collapse-btn:hover { background: transparent; color: var(--text); }
+/* ── Cartes de la barre de droite : liseré coloré par groupe ── */
+.sr-card { margin: 5px 10px; border-radius: var(--radius-sm); border: 1px solid transparent; border-left: 3px solid var(--sr-accent); background: var(--bg2); transition: background .15s, border-color .15s, box-shadow .15s; }
+.sr-card .collapse-btn { padding: .55rem .75rem; border-radius: var(--radius-sm); }
+.sr-card.open { background: var(--surface); border-top-color: var(--border); border-right-color: var(--border); border-bottom-color: var(--border); box-shadow: var(--shadow); }
+.sr-card.open .collapse-btn { color: var(--text); font-weight: 600; border-bottom: 1px solid var(--border2); border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
+.sr-card.open .collapse-body { padding-bottom: .4rem; }
+/* Teinte discrète repliée, franche une fois ouverte */
+.sr-card[data-accent="blue"]        { --sr-accent: var(--blue-mid); }
+.sr-card[data-accent="blue"].open   { --sr-accent: var(--blue); }
+.sr-card[data-accent="green"]       { --sr-accent: #A8DCC8; }
+.sr-card[data-accent="green"].open  { --sr-accent: var(--green); }
+.sr-card[data-accent="orange"]      { --sr-accent: var(--orange-mid); }
+.sr-card[data-accent="orange"].open { --sr-accent: var(--orange); }
+.sr-card[data-accent="red"]         { --sr-accent: #E8B4B4; }
+.sr-card[data-accent="red"].open    { --sr-accent: var(--red); }
+.sr-card[data-accent="grey"]        { --sr-accent: var(--border); }
+.sr-card[data-accent="grey"].open   { --sr-accent: var(--text3); }
 .collapse-arrow { transition: transform .2s; font-size: 10px; }
 .collapse-arrow.open { transform: rotate(180deg); }
 .collapse-body { display: none; }
@@ -1142,9 +1170,10 @@ function togglePwd(){
     <img id="topbar-logo" style="height:36px;width:auto;display:block;cursor:pointer" onclick="showHome()" title="Accueil MYS Pro">
     <div class="divider-v"></div>
     <div class="page-title" id="page-title">Configurateur</div>
-    <div class="devis-badge">N° <span id="devis-num">2026-1041</span><button onclick="nouvelleVersionDevis()" title="Créer une nouvelle version de ce devis (l'actuel est figé tel quel)" style="margin-left:7px;border:1px solid var(--border);background:var(--surface);border-radius:6px;padding:1px 7px;font-size:11px;cursor:pointer;color:var(--blue);font-weight:600;font-family:'DM Sans',sans-serif">+V</button></div>
-    <div class="divider-v"></div>
-    <input type="text" id="projet-nom" placeholder="Nom du projet..." style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:4px 10px;font-size:12px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text);width:200px;">
+  </div>
+  <div class="topbar-center">
+    <div class="devis-badge">N° <span id="devis-num">2026-1041</span><button onclick="nouvelleVersionDevis()" title="Créer une nouvelle version de ce devis (l'actuel est archivé tel quel)" style="margin-left:7px;border:1px solid var(--border);background:var(--surface);border-radius:6px;padding:1px 7px;font-size:11px;cursor:pointer;color:var(--blue);font-weight:600;font-family:'DM Sans',sans-serif">+V</button></div>
+    <input type="text" id="projet-nom" class="projet-inp" placeholder="Nom de l'affaire…">
   </div>
   <div class="topbar-right">
     <button class="btn" onclick="showPage('devis-existant')">📋 Mes devis</button>
@@ -1637,7 +1666,21 @@ function togglePwd(){
   <!-- PAGE CATALOGUE PRIX -->
   <div id="page-catalogue" class="page-content" style="display:none">
     <div class="cnt">
-      <div style="font-size:15px;font-weight:600;margin-bottom:1.25rem;letter-spacing:-.2px">Catalogue prix</div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:.25rem;letter-spacing:-.2px">Catalogue prix</div>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:1.25rem">Prix d'achat de référence, communs à tous les devis. Déplie une famille pour saisir, puis <strong>💾 Sauvegarder les prix</strong> dans la barre de droite.</div>
+      <div class="card" style="margin-bottom:1.5rem">
+        <div class="card-header"><div class="card-title">Accessoires &amp; matériaux</div></div>
+        <div class="card-body" style="padding-top:.5rem">
+          <table style="width:100%;border-collapse:collapse;font-size:11px">
+            <thead><tr style="color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.05em">
+              <th style="text-align:left;padding:4px 2px;border-bottom:1px solid var(--border2)">Matériau</th>
+              <th style="text-align:right;padding:4px 2px;border-bottom:1px solid var(--border2);width:90px">Achat</th>
+              <th style="text-align:right;padding:4px 2px;border-bottom:1px solid var(--border2);width:90px">Pose</th>
+            </tr></thead>
+            <tbody id="acc-prices-body"></tbody>
+          </table>
+        </div>
+      </div>
       <div id="cat-sections"></div>
     </div>
   </div>
@@ -1646,13 +1689,30 @@ function togglePwd(){
 
 <!-- SIDEBAR DROITE -->
 <aside class="sidebar-right">
-  <div class="sr-title">Paramètres devis</div>
+  <div class="sr-title">Ce devis<span style="display:block;font-size:10px;font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0;margin-top:2px">Réglages propres à cette affaire</span></div>
   <div class="sr-row"><span class="sr-label">Pose panneaux</span><span><input class="sr-input" id="pp" type="number" value="18" step="0.5" oninput="syncP()"><span class="sr-unit">€/m²</span></span></div>
   <div class="sr-row"><span class="sr-label">Accessoires</span><span><input class="sr-input" id="pa" type="number" value="6" step="0.5" oninput="syncP()"><span class="sr-unit">€/m²</span></span></div>
   <div class="sr-row" style="padding-bottom:.625rem"><span class="sr-label">Coefficient</span><span><input class="sr-input" id="pc" type="number" value="1.5" step="0.05" oninput="syncP()"><span class="sr-unit">×</span></span></div>
   <div id="params-devis-hint" style="display:none;font-size:10px;color:var(--orange);background:var(--orange-light);border-radius:var(--radius-sm);padding:4px 8px;margin-bottom:.625rem;line-height:1.5"></div>
   <div class="sr-sep"></div>
   <div class="sr-sep"></div>
+  <button class="collapse-btn" onclick="togCollapse('pose-mode')">Mode de pose<span class="collapse-arrow" id="arr-pose-mode">▼</span></button>
+  <div class="collapse-body" id="body-pose-mode">
+    <div style="padding:.5rem 0">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 0;font-size:12px">
+        <input type="radio" name="pose-mode" value="budget" id="pm-budget" checked onchange="refreshAll()">
+        <span><strong>Budget chantier</strong><div style="font-size:10px;color:var(--text3);margin-top:1px">Pose incluse dans les prix</div></span>
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 0;font-size:12px">
+        <input type="radio" name="pose-mode" value="journee" id="pm-journee" onchange="refreshAll()">
+        <span><strong>Journée simple</strong><div style="font-size:10px;color:var(--text3);margin-top:1px">Forfait main d'œuvre</div></span>
+      </label>
+      <div id="journee-montant" style="display:none;padding:4px 0 4px 24px">
+        <label style="font-size:10px;color:var(--text3)">Forfait (€ HT)</label>
+        <input type="number" id="journee-px" value="1125" step="25" oninput="refreshAll()" class="sr-input" style="width:72px;margin-top:2px">
+      </div>
+    </div>
+  </div>
   <button class="collapse-btn" onclick="togCollapse('transport')">Transport<span class="collapse-arrow" id="arr-transport">▼</span></button>
   <div class="collapse-body" id="body-transport">
     <div class="sr-row" style="font-size:10px;font-weight:600;color:var(--text3);padding-bottom:2px;text-transform:uppercase;letter-spacing:.06em">Panneaux (ESQUISS)</div>
@@ -1709,6 +1769,11 @@ function togglePwd(){
     </div>
   </div>
 
+  <!-- ── Bloc 2 : tarifs de référence — rarement touchés, volontairement discrets ── -->
+  <div class="sr-refblock">
+    <div class="sr-refhead">Tarifs de référence</div>
+    <div class="sr-refnote">Communs à tous les devis. Le catalogue complet (82 matériaux) se gère dans <a onclick="showPage('catalogue', document.querySelector('.nav-item[onclick*=&quot;catalogue&quot;]'))">Catalogue prix →</a></div>
+  </div>
   <button class="collapse-btn" onclick="togCollapse('px')">Prix achat panneaux<span class="collapse-arrow" id="arr-px">▼</span></button>
   <div class="collapse-body" id="body-px">
     <table class="px-table">
@@ -1720,35 +1785,6 @@ function togglePwd(){
       <tr><td>120</td><td><input id="x120ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="x120ln" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
       <tr><td>150</td><td><input id="x150ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="x150ln" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
     </table>
-  </div>
-  <button class="collapse-btn" onclick="togCollapse('acc')">Accessoires divers<span class="collapse-arrow" id="arr-acc">▼</span></button>
-  <div class="collapse-body" id="body-acc">
-    <table style="width:100%;border-collapse:collapse;font-size:11px">
-      <thead><tr style="color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.05em">
-        <th style="text-align:left;padding:4px 2px;border-bottom:1px solid var(--border2)">Accessoire</th>
-        <th style="text-align:right;padding:4px 2px;border-bottom:1px solid var(--border2)">Achat</th>
-        <th style="text-align:right;padding:4px 2px;border-bottom:1px solid var(--border2)">Pose</th>
-      </tr></thead>
-      <tbody id="acc-prices-body"></tbody>
-    </table>
-  </div>
-
-  <button class="collapse-btn" onclick="togCollapse('pose-mode')" style="margin-top:4px">Mode de pose<span class="collapse-arrow" id="arr-pose-mode">▼</span></button>
-  <div class="collapse-body" id="body-pose-mode">
-    <div style="padding:.5rem 0">
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 0;font-size:12px">
-        <input type="radio" name="pose-mode" value="budget" id="pm-budget" checked onchange="refreshAll()">
-        <span><strong>Budget chantier</strong><div style="font-size:10px;color:var(--text3);margin-top:1px">Pose incluse dans les prix</div></span>
-      </label>
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 0;font-size:12px">
-        <input type="radio" name="pose-mode" value="journee" id="pm-journee" onchange="refreshAll()">
-        <span><strong>Journée simple</strong><div style="font-size:10px;color:var(--text3);margin-top:1px">Forfait main d'œuvre</div></span>
-      </label>
-      <div id="journee-montant" style="display:none;padding:4px 0 4px 24px">
-        <label style="font-size:10px;color:var(--text3)">Forfait (€ HT)</label>
-        <input type="number" id="journee-px" value="1125" step="25" oninput="refreshAll()" class="sr-input" style="width:72px;margin-top:2px">
-      </div>
-    </div>
   </div>
 
   <div style="padding:.75rem 1rem;border-top:1px solid var(--border2);display:flex;gap:6px">
@@ -1898,55 +1934,168 @@ const P = () => {
   };
 };
 
-// Accessoires — les prix réels sont chargés depuis Supabase après connexion (params_prix)
+// ── RÉFÉRENTIEL MATÉRIAUX ────────────────────────────────────
+// Désignations et unités d'achat vivent ici (non confidentiel) ; les PRIX sont
+// saisis dans Paramètres et stockés dans Supabase (params_prix : acc_a_<id> / acc_p_<id>).
+const ACC_CATS = [
+  ['usol',    'U de sol'],
+  ['corn',    'Cornières & habillages laqués'],
+  ['etanch',  'Étanchéité, colle & visserie'],
+  ['plinthe', "Plinthes & congés d'angle"],
+  ['sol',     'Sols & plaques'],
+  ['plafond', 'Plafond & suspension'],
+  ['equip',   'Équipements'],
+  ['te',      'Té de reprise — système complet'],
+  ['legacy',  'Anciennes lignes (devis antérieurs)']
+];
 const ACC_DEFAULTS = [
-  {id:'te',      nom:'Té alu système (ancien — €/ML)',   achat:0, pose:0},
-  {id:'ter_barre',    nom:'Té reprise — barre alu 4m',        achat:0, pose:0},
-  {id:'ter_coulisse', nom:'Té reprise — coulisse',            achat:0, pose:0},
-  {id:'ter_oeillet',  nom:'Té reprise — œillet à vis',        achat:0, pose:0},
-  {id:'ter_clip',     nom:'Té reprise — clip fixation câble', achat:0, pose:0},
-  {id:'ter_cable',    nom:'Té reprise — câble (€/ml)',        achat:0, pose:0},
-  {id:'ter_eclisse',  nom:'Té reprise — éclisse',             achat:0, pose:0},
-  {id:'ter_pose',     nom:'Té reprise — pose (€/ml, col. Achat)', achat:0, pose:0},
-  {id:'corn_ext',nom:'Cornière ext. 50×150',           achat:0, pose:0},
-  {id:'corn_int',nom:'Cornière int. 50×50',            achat:0, pose:0},
-  {id:'plinthe', nom:'Plinthe PVC 80mm',               achat:0, pose:0},
-  {id:'lisse',   nom:'Lisse protection',               achat:0, pose:0},
-  {id:'silicone',nom:'Silicone 300ml',                 achat:0, pose:0},
-  {id:'mousse',  nom:'Mousse PU 750ml',                achat:0, pose:0},
-  {id:'soupape', nom:'Soupape équilibrage',            achat:0, pose:0},
-  {id:'trappe',  nom:'Trappe de visite',               achat:0, pose:0},
-  {id:'sol_phen',nom:'Sol phénolique',                 achat:0, pose:0},
-  {id:'tole',    nom:'Tôle larmée 4mm',                achat:0, pose:0},
-  {id:'u_sol',   nom:'U de sol PVC',                   achat:0, pose:0},
+  // ── U de sol ──
+  {id:'usol_40',  cat:'usol', u:'barre 3 m', nom:'U de sol 40 mm × 3000 mm'},
+  {id:'usol_60',  cat:'usol', u:'barre 3 m', nom:'U de sol 60 mm × 3000 mm'},
+  {id:'usol_80',  cat:'usol', u:'barre 3 m', nom:'U de sol 80 mm × 3000 mm'},
+  {id:'usol_100', cat:'usol', u:'barre 3 m', nom:'U de sol 100 mm × 3000 mm'},
+  // ── Cornières & habillages laqués ──
+  {id:'corn_galva_30',   cat:'corn', u:'barre 3 m', nom:'Cornière galva 30 × 30 × 3000 mm'},
+  {id:'corn_int_50x50',  cat:'corn', u:'barre 3 m', nom:'Cornière int. RAL 9010 50 × 50 × 3000 mm'},
+  {id:'corn_int_50x110', cat:'corn', u:'barre 3 m', nom:'Cornière int. RAL 9010 50 × 110 × 3000 mm'},
+  {id:'corn_int_50x150', cat:'corn', u:'barre 3 m', nom:'Cornière int. RAL 9010 50 × 150 × 3000 mm'},
+  {id:'corn_int_50x200', cat:'corn', u:'barre 3 m', nom:'Cornière int. RAL 9010 50 × 200 × 3000 mm'},
+  {id:'corn_int_80x80',  cat:'corn', u:'barre 3 m', nom:'Cornière int. RAL 9010 80 × 80 × 3000 mm'},
+  {id:'corn_int_100x100',cat:'corn', u:'barre 3 m', nom:'Cornière int. RAL 9010 100 × 100 × 3000 mm'},
+  {id:'corn_ext_50x50',  cat:'corn', u:'barre 3 m', nom:'Cornière ext. RAL 9010 50 × 50 × 3000 mm'},
+  {id:'corn_ext_50x110', cat:'corn', u:'barre 3 m', nom:'Cornière ext. RAL 9010 50 × 110 × 3000 mm'},
+  {id:'corn_ext_50x150', cat:'corn', u:'barre 3 m', nom:'Cornière ext. RAL 9010 50 × 150 × 3000 mm'},
+  {id:'corn_ext_50x200', cat:'corn', u:'barre 3 m', nom:'Cornière ext. RAL 9010 50 × 200 × 3000 mm'},
+  {id:'corn_ext_80x80',  cat:'corn', u:'barre 3 m', nom:'Cornière ext. RAL 9010 80 × 80 × 3000 mm'},
+  {id:'corn_ext_100x100',cat:'corn', u:'barre 3 m', nom:'Cornière ext. RAL 9010 100 × 100 × 3000 mm'},
+  {id:'corn_ext_150x150',cat:'corn', u:'barre 3 m', nom:'Cornière ext. RAL 9010 150 × 150 × 3000 mm'},
+  {id:'corn_ext_200x200',cat:'corn', u:'barre 3 m', nom:'Cornière ext. RAL 9010 200 × 200 × 3000 mm'},
+  {id:'uhab_30x42', cat:'corn', u:'barre 3 m', nom:"U d'habillage RAL 9010 30 × 42 × 30 × 3000 mm"},
+  {id:'uhab_30x62', cat:'corn', u:'barre 3 m', nom:"U d'habillage RAL 9010 30 × 62 × 30 × 3000 mm"},
+  {id:'uhab_30x82', cat:'corn', u:'barre 3 m', nom:"U d'habillage RAL 9010 30 × 82 × 30 × 3000 mm"},
+  {id:'plat_hab_100', cat:'corn', u:'barre 3 m', nom:"Plat d'habillage laqué RAL 9010 100 × 3000 mm"},
+  // ── Étanchéité, colle & visserie ──
+  {id:'silicone_blanc', cat:'etanch', u:'cartouche', nom:'Silicone blanc 300 ml'},
+  {id:'silicone_noir',  cat:'etanch', u:'cartouche', nom:'Silicone noir 300 ml'},
+  {id:'butyle_gris',    cat:'etanch', u:'cartouche', nom:'Butyle gris 300 ml'},
+  {id:'mousse_pu_750',  cat:'etanch', u:'cartouche', nom:'Mousse PU 750 ml'},
+  {id:'colle',          cat:'etanch', u:'unité',     nom:'Colle'},
+  {id:'cheville_frapper6', cat:'etanch', u:'boîte de 100', nom:'Cheville à frapper Ø6 — boîte de 100'},
+  {id:'vis_autofor',        cat:'etanch', u:'boîte de 500', nom:'Vis autoforeuse acier zinguée — boîte de 500'},
+  {id:'vis_autofor_blanche',cat:'etanch', u:'boîte de 500', nom:'Vis autoforeuse acier zinguée blanche — boîte de 500'},
+  // ── Plinthes & congés d'angle ──
+  {id:'support_conge',    cat:'plinthe', u:'unité',     nom:"Support PVC de congé d'angle"},
+  {id:'conge_quart_rond', cat:'plinthe', u:'barre',     nom:"Congé d'angle PVC 1/4 de rond"},
+  {id:'plinthe_80',       cat:'plinthe', u:'barre 3 m', nom:'Plinthe PVC 80 mm blanche — 3 m'},
+  {id:'plinthe_angle_ext',cat:'plinthe', u:'unité',     nom:'Angle externe de plinthe'},
+  {id:'plinthe_angle_int',cat:'plinthe', u:'unité',     nom:'Angle interne de plinthe'},
+  {id:'plinthe_embout_g', cat:'plinthe', u:'unité',     nom:'Embout gauche de plinthe'},
+  {id:'plinthe_embout_d', cat:'plinthe', u:'unité',     nom:'Embout droit de plinthe'},
+  {id:'corn_pliable_pvc', cat:'plinthe', u:'unité',     nom:'Cornière pliable PVC 60 × 60 cm'},
+  {id:'chevron_pvc',      cat:'plinthe', u:'barre 3 m', nom:'Chevron PVC 40 × 60 × 3000 mm'},
+  // ── Sols & plaques ──
+  {id:'solp_2000', cat:'sol', u:'panneau', nom:'Panneau de sol ép. 100 mm — 2000 × 1200 mm — résine phénolique'},
+  {id:'solp_2400', cat:'sol', u:'panneau', nom:'Panneau de sol ép. 100 mm — 2400 × 1200 mm — résine phénolique'},
+  {id:'solp_2600', cat:'sol', u:'panneau', nom:'Panneau de sol ép. 100 mm — 2600 × 1200 mm — résine phénolique'},
+  {id:'solp_2800', cat:'sol', u:'panneau', nom:'Panneau de sol ép. 100 mm — 2800 × 1200 mm — résine phénolique'},
+  {id:'solp_3000', cat:'sol', u:'panneau', nom:'Panneau de sol ép. 100 mm — 3000 × 1200 mm — résine phénolique'},
+  {id:'solp_m2',   cat:'sol', u:'m²',      nom:'Panneau de sol ép. 100 mm résine phénolique — au m²'},
+  {id:'brio_plaque', cat:'sol', u:'plaque', nom:'Plaque BRIO RAL 9010 3000 × 1220 mm'},
+  {id:'tole_larmee', cat:'sol', u:'m²',     nom:'Tôle larmée 4 mm'},
+  // ── Plafond & suspension ──
+  {id:'te_alu_4m',        cat:'plafond', u:'barre 4 m', nom:'Té aluminium laqué blanc 4 ml'},
+  {id:'clameau_reprise',  cat:'plafond', u:'unité', nom:'Clameau de reprise avec manchon réducteur ø8/10 mm'},
+  {id:'clameau_contin',   cat:'plafond', u:'unité', nom:'Clameau de continuité avec manchon réducteur ø8/10 mm'},
+  {id:'tige_filetee_1m',  cat:'plafond', u:'unité', nom:'Tige filetée ø10 mm de 1000 mm'},
+  {id:'tendeur_10',       cat:'plafond', u:'unité', nom:'Tendeur ø10 mm 125 × 40 × 43 mm'},
+  {id:'ecrou_pom_10',     cat:'plafond', u:'unité', nom:'Écrou POM ø10 mm sans rondelle'},
+  {id:'rondelle_pvc',     cat:'plafond', u:'unité', nom:'Rondelle PVC pour écrou POM ø8 ou 10 mm'},
+  {id:'boite_ecrou_10',   cat:'plafond', u:'boîte', nom:'Boîte écrou ø10 mm'},
+  // ── Équipements ──
+  {id:'trappe_740',    cat:'equip', u:'unité',     nom:'Trappe de visite 740 × 740 mm'},
+  {id:'soupape_inf75', cat:'equip', u:'unité',     nom:"Soupape d'équilibrage pression (< 75 m³)"},
+  {id:'soupape_sup75', cat:'equip', u:'unité',     nom:"Soupape d'équilibrage pression (> 75 m³)"},
+  {id:'lisse_prot',    cat:'equip', u:'barre 3 m', nom:'Lisse de protection avec cache-vis — 3 m'},
+  {id:'lisse_cache',   cat:'equip', u:'unité',     nom:'Cache-vis de lisse de protection'},
+  {id:'lisse_embout',  cat:'equip', u:'unité',     nom:'Embout de lisse de protection'},
+  {id:'tampon_porte',  cat:'equip', u:'unité',     nom:'Tampon de porte'},
+  // ── Té de reprise (système Fixone, calcul en kit) ──
+  {id:'ter_barre',    cat:'te', u:'barre 4 m', nom:'Barre de Té 4 m'},
+  {id:'ter_coulisse', cat:'te', u:'unité',     nom:'Coulisse'},
+  {id:'ter_oeillet',  cat:'te', u:'unité',     nom:'Œillet à vis'},
+  {id:'ter_clip',     cat:'te', u:'unité',     nom:'Clip de fixation câble'},
+  {id:'ter_cable',    cat:'te', u:'ml',        nom:'Câble (prix au ml)'},
+  {id:'ter_eclisse',  cat:'te', u:'unité',     nom:'Éclisse'},
+  {id:'ter_pose',     cat:'te', u:'ml',        nom:'POSE du Té — €/ml (colonne Achat)'},
+  // ── Anciennes lignes : conservées pour que les devis déjà enregistrés gardent leur prix ──
+  {id:'te',       cat:'legacy', u:'ml',    nom:'Té alu système (ancien — €/ML)'},
+  {id:'corn_ext', cat:'legacy', u:'barre', nom:'Cornière ext. 50×150 (ancien)'},
+  {id:'corn_int', cat:'legacy', u:'barre', nom:'Cornière int. 50×50 (ancien)'},
+  {id:'plinthe',  cat:'legacy', u:'barre', nom:'Plinthe PVC 80mm (ancien)'},
+  {id:'lisse',    cat:'legacy', u:'barre', nom:'Lisse protection (ancien)'},
+  {id:'silicone', cat:'legacy', u:'cart.', nom:'Silicone 300ml (ancien)'},
+  {id:'mousse',   cat:'legacy', u:'cart.', nom:'Mousse PU 750ml (ancien)'},
+  {id:'soupape',  cat:'legacy', u:'unité', nom:'Soupape équilibrage (ancien)'},
+  {id:'trappe',   cat:'legacy', u:'unité', nom:'Trappe de visite (ancien)'},
+  {id:'sol_phen', cat:'legacy', u:'m²',    nom:'Sol phénolique (ancien)'},
+  {id:'tole',     cat:'legacy', u:'m²',    nom:'Tôle larmée 4mm (ancien)'},
+  {id:'u_sol',    cat:'legacy', u:'barre', nom:'U de sol PVC (ancien)'},
 ];
 
 // Correspondance produits du configurateur accessoires → lignes de prix « Accessoires Divers »
 const ACC_PX_MAP={te_systeme:'te', mousse_pu:'mousse', usol:'u_sol'};
-function getAccPx(id){ id=ACC_PX_MAP[id]||id; return { achat: parseFloat(G('acc-a-'+id)?.value)||0, pose: parseFloat(G('acc-p-'+id)?.value)||0 }; }
+// Les prix vivent en mémoire, pas dans les champs : les familles repliées n'ont pas
+// de champ dans la page, et lire le DOM ferait perdre leur prix à la sauvegarde.
+const ACC_PX_STORE={};
+function accPxRead(pref,id){ const v=ACC_PX_STORE[pref+'_'+id]; return v==null?'':v; }
+function accPxWrite(pref,id,val){ ACC_PX_STORE[pref+'_'+id]=(val===''||val==null)?'':val; }
+function accPxNum(pref,id){ return parseFloat(ACC_PX_STORE[pref+'_'+id])||0; }
+function getAccPx(id){ id=ACC_PX_MAP[id]||id; return { achat: accPxNum('a',id), pose: accPxNum('p',id) }; }
 
+// Familles repliées par défaut, sauf celles où il reste des prix à saisir
+let accCatOpen={};
+function togAccCat(c){ accCatOpen[c]=!accCatOpen[c]; initAccPrices(); }
 function initAccPrices(){
   const tbody = G('acc-prices-body'); if(!tbody) return;
   tbody.innerHTML = '';
-  ACC_DEFAULTS.forEach(a=>{
-    const tr = document.createElement('tr');
-    const td1 = document.createElement('td');
-    td1.style.cssText = 'padding:3px 2px;font-size:11px;color:var(--text2)';
-    td1.textContent = a.nom;
-    const td2 = document.createElement('td');
-    td2.style.cssText = 'padding:3px 2px;text-align:right';
-    const inp1 = document.createElement('input');
-    inp1.type='number'; inp1.id='acc-a-'+a.id; inp1.value=a.achat; inp1.step='0.1';
-    inp1.oninput=refreshAll; inp1.className='sr-input'; inp1.style.cssText='width:68px;font-size:11px';
-    td2.appendChild(inp1);
-    const td3 = document.createElement('td');
-    td3.style.cssText = 'padding:3px 2px;text-align:right';
-    const inp2 = document.createElement('input');
-    inp2.type='number'; inp2.id='acc-p-'+a.id; inp2.value=a.pose; inp2.step='0.1';
-    inp2.oninput=refreshAll; inp2.className='sr-input'; inp2.style.cssText='width:68px;font-size:11px';
-    td3.appendChild(inp2);
-    tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
-    tbody.appendChild(tr);
+  ACC_CATS.forEach(([cle,label])=>{
+    const lignes = ACC_DEFAULTS.filter(a=>(a.cat||'legacy')===cle);
+    if(!lignes.length) return;
+    const remplis = lignes.filter(a=>accPxNum('a',a.id)>0).length;
+    const ouvert = !!accCatOpen[cle];
+    // En-tête de famille (cliquable) — compteur de prix déjà renseignés
+    const trH = document.createElement('tr');
+    const tdH = document.createElement('td');
+    tdH.colSpan=3;
+    tdH.style.cssText='padding:7px 2px 4px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:'+(remplis?'var(--text2)':'var(--text3)')+';cursor:pointer;border-bottom:1px solid var(--border2)';
+    tdH.textContent=`${ouvert?'▾':'▸'} ${label} — ${remplis}/${lignes.length}`;
+    tdH.onclick=()=>togAccCat(cle);
+    trH.appendChild(tdH); tbody.appendChild(trH);
+    if(!ouvert) return;
+    lignes.forEach(a=>{
+      const tr = document.createElement('tr');
+      const td1 = document.createElement('td');
+      td1.style.cssText = 'padding:3px 2px;font-size:11px;color:var(--text2);line-height:1.3';
+      td1.textContent = a.nom;
+      if(a.u){
+        const sp=document.createElement('span');
+        sp.style.cssText='display:block;font-size:9.5px;color:var(--text3)';
+        sp.textContent=a.u;
+        td1.appendChild(sp);
+      }
+      const mk=pref=>{
+        const td=document.createElement('td');
+        td.style.cssText='padding:3px 2px;text-align:right;vertical-align:top';
+        const inp=document.createElement('input');
+        inp.type='number'; inp.id='acc-'+pref+'-'+a.id; inp.step='0.01';
+        inp.value = accPxRead(pref,a.id);
+        inp.className='sr-input'; inp.style.cssText='width:68px;font-size:11px';
+        inp.oninput=()=>{ accPxWrite(pref,a.id,inp.value); refreshAll(); };
+        td.appendChild(inp); return td;
+      };
+      tr.appendChild(td1); tr.appendChild(mk('a')); tr.appendChild(mk('p'));
+      tbody.appendChild(tr);
+    });
   });
 }
 function getPx(ep,surf){const ln=surf&&(surf.includes('Nervuré acier')||surf.includes('Nervuré/Lisse'));return parseFloat(G(`x${ep}${ln?'ln':'ll'}`)?.value)||0;}
@@ -2228,7 +2377,7 @@ function teRepriseQtes(ml,h){
 function teReprisePrix(ml,h,p){
   ml=parseFloat(ml)||0;
   const q=teRepriseQtes(ml,h);
-  const A=id=>parseFloat(G('acc-a-'+id)?.value)||0;
+  const A=id=>accPxNum('a',id);
   const mat=q.barres*A('ter_barre')+q.coulisses*A('ter_coulisse')+q.oeillets*A('ter_oeillet')+q.clips*A('ter_clip')+q.cableMl*A('ter_cable')+q.eclisses*A('ter_eclisse');
   const pose=A('ter_pose')*ml;
   const coef=(p&&p.coef)||1;
@@ -2339,7 +2488,28 @@ function swCtab(n,btn){
   btn.classList.add('active');
   G('cp-'+n).classList.add('active');
 }
-function togCollapse(id){const b=G('body-'+id),a=G('arr-'+id);const o=b.classList.toggle('open');a.classList.toggle('open',o);}
+function togCollapse(id){
+  const b=G('body-'+id),a=G('arr-'+id);const o=b.classList.toggle('open');a.classList.toggle('open',o);
+  const card=b.closest('.sr-card'); if(card) card.classList.toggle('open',o); // délimite visuellement la section ouverte
+}
+// Chaque section de la barre de droite devient une carte à liseré coloré :
+// couleur discrète repliée, franche + contour + fond blanc une fois ouverte.
+const SR_ACCENTS={'pose-mode':'blue', transport:'green', evacuation:'orange', manutention:'red', px:'grey'};
+function initSidebarCards(){
+  document.querySelectorAll('.sidebar-right .collapse-btn').forEach(btn=>{
+    if(btn.parentElement && btn.parentElement.classList.contains('sr-card')) return;
+    const body=btn.nextElementSibling;
+    if(!body || !body.classList.contains('collapse-body')) return;
+    const m=(btn.getAttribute('onclick')||'').match(/togCollapse\('([^']+)'\)/);
+    const key=m?m[1]:'';
+    const card=document.createElement('div');
+    card.className='sr-card';
+    card.setAttribute('data-accent', SR_ACCENTS[key]||'grey');
+    if(body.classList.contains('open')) card.classList.add('open');
+    btn.parentNode.insertBefore(card, btn);
+    card.appendChild(btn); card.appendChild(body);
+  });
+}
 function syncP(){refreshAll();}
 
 // ══ TOGGLE SECONDAIRE ══════════════════════════════════════
@@ -3657,8 +3827,8 @@ function collectParams(){
   px.pose_mode  = document.querySelector('input[name="pose-mode"]:checked')?.value||'budget';
   // Accessoires divers
   ACC_DEFAULTS.forEach(a=>{
-    px['acc_a_'+a.id] = parseFloat(G('acc-a-'+a.id)?.value)||a.achat;
-    px['acc_p_'+a.id] = parseFloat(G('acc-p-'+a.id)?.value)||a.pose;
+    px['acc_a_'+a.id] = accPxNum('a',a.id);
+    px['acc_p_'+a.id] = accPxNum('p',a.id);
   });
   // Prix portes saisis manuellement pour dimensions hors matrice
   px.matrix_overrides = MX_OVERRIDES;
@@ -3691,9 +3861,10 @@ function applyParams(px){
     if(radio) radio.checked = true;
   }
   ACC_DEFAULTS.forEach(a=>{
-    if(G('acc-a-'+a.id) && px['acc_a_'+a.id]!==undefined) G('acc-a-'+a.id).value = px['acc_a_'+a.id];
-    if(G('acc-p-'+a.id) && px['acc_p_'+a.id]!==undefined) G('acc-p-'+a.id).value = px['acc_p_'+a.id];
+    if(px['acc_a_'+a.id]!==undefined) accPxWrite('a',a.id,px['acc_a_'+a.id]);
+    if(px['acc_p_'+a.id]!==undefined) accPxWrite('p',a.id,px['acc_p_'+a.id]);
   });
+  try{ initAccPrices(); }catch(e){} // ré-affiche le tableau avec les prix chargés
   if(px.matrix_overrides) applyMatrixOverrides(px.matrix_overrides);
   refreshAll();
 }
@@ -4634,6 +4805,7 @@ try { renApp(); } catch(e) { console.error('renApp:', e); }
 try { renFou(); } catch(e) { console.error('renFou:', e); }
 try { initCmdSelects(); } catch(e) { console.error('initCmdSelects:', e); }
 try { initAccPrices(); } catch(e) { console.error('initAccPrices:', e); }
+try { initSidebarCards(); } catch(e) { console.error('initSidebarCards:', e); }
 try { initMissionSelect(); } catch(e) { console.error('initMissionSelect:', e); }
 try { panRender(); } catch(e) { console.error('panRender:', e); }
 try { porRender(); } catch(e) { console.error('porRender:', e); }
