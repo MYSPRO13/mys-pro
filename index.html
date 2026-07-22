@@ -971,7 +971,10 @@ select.dx-pill { cursor: pointer; border: none; outline: none; -webkit-appearanc
 .modal-title { font-size: 15px; font-weight: 600; margin-bottom: 1.125rem; letter-spacing: -.2px; }
 .modal-actions { display: flex; gap: 8px; margin-top: 1.125rem; justify-content: flex-end; }
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<!-- jsPDF hébergé en local (plus de dépendance à un CDN) : fichier officiel 2.5.1,
+     empreinte sha512 vérifiée contre celle publiée par cdnjs le 22/07/2026 —
+     qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA== -->
+<script src="vendor/jspdf-2.5.1.umd.min.js"></script>
 </head>
 <body>
 <div id="login-screen" style="position:fixed;inset:0;background:#F4F3F0;display:flex;align-items:center;justify-content:center;z-index:99999;font-family:'DM Sans',sans-serif">
@@ -1751,6 +1754,10 @@ function togglePwd(){
   <div style="padding:.75rem 1rem;border-top:1px solid var(--border2);display:flex;gap:6px">
     <button onclick="sauvegarderParams(true)" class="btn btn-green" style="flex:1;font-size:12px;padding:7px 0">💾 Sauvegarder les prix</button>
     <button onclick="resetParams()" class="btn" style="font-size:12px;padding:7px 8px" title="Réinitialiser">↺</button>
+  </div>
+  <div style="padding:0 1rem .75rem">
+    <button onclick="exporterTout()" class="btn" style="width:100%;font-size:12px;padding:7px 0" title="Télécharge sur ton ordinateur une copie complète de tous tes devis, prix et contacts">⬇ Exporter toutes mes données</button>
+    <div style="font-size:10.5px;color:var(--text3);margin-top:5px;line-height:1.4">Sauvegarde de secours sur ton ordinateur — à faire de temps en temps.</div>
   </div>
 </aside>
 
@@ -3779,6 +3786,33 @@ async function chargerMatricesContacts(){
   // Alerte visible si les tarifs portes manquent toujours (panne réseau, clé absente) :
   // sans eux, toutes les portes afficheraient « prix à saisir »
   if(!Object.keys(MX_PCIP).length) showToast('⚠ Tarifs portes non chargés — recharge la page', true);
+}
+
+// ── Export de secours : copie complète des données sur le poste de l'utilisateur ──
+// Supabase (formule gratuite) n'offre pas de sauvegarde restaurable : ce fichier
+// est le filet de sécurité. Il contient tout et reste ré-importable.
+async function exporterTout(){
+  showToast('Export en cours…');
+  try{
+    const devis = await sbFetch('/rest/v1/devis?select=*');
+    const params = await sbFetch('/rest/v1/parametres?select=cle,valeur');
+    const data = {
+      application: 'MYS Pro',
+      export_le: new Date().toISOString(),
+      nb_devis: (devis||[]).length,
+      devis: devis||[],
+      parametres: params||[]
+    };
+    const nom = 'mys-pro-sauvegarde-'+new Date().toISOString().slice(0,10)+'.json';
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
+    const a = document.createElement('a');
+    a.href=url; a.download=nom; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 1000);
+    showToast(`Sauvegarde téléchargée — ${data.nb_devis} devis`);
+  }catch(e){
+    console.error('Export:', e);
+    showToast('Erreur — export impossible (vérifie ta connexion)', true);
+  }
 }
 
 async function resetParams(){
