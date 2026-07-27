@@ -697,6 +697,7 @@ select.dx-pill { cursor: pointer; border: none; outline: none; -webkit-appearanc
 .apercu-table tr:last-child td { border-bottom: none; }
 .apercu-devis th:nth-child(n+3), .apercu-devis td:nth-child(n+3) { text-align: right; font-variant-numeric: tabular-nums; }
 .apercu-devis td { vertical-align: top; }
+.apercu-devis .ap-opt td { padding: 1px 8px; border-bottom: none; }
 .apercu-devis td:first-child { color: var(--text2); white-space: nowrap; }
 .apercu-devis .ap-sub { color: var(--text2); font-size: 11px; margin-top: 1px; }
 .apercu-devis .ap-sec td { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--text2); background: var(--bg2); padding: 6px 8px; text-align: left; }
@@ -3703,7 +3704,7 @@ function apercuDevisRows(items, travaux, p){
       const base=r2(cpv(it,p)-optLines.reduce((s,o)=>s+o.price,0)-rPv); // ligne porte = total moins options moins rideau
       const sub=[`${it._larg||''}×${it._haut||''} mm`, porMetaNoOpt(it)].filter(Boolean).join(' — ');
       h+=row(it.ref||'', porTypeName(it), sub, money(base), '1 u', money(base));
-      optLines.forEach(o=>{ h+=`<tr><td></td><td><div style="font-size:11px;color:var(--text2);padding-left:16px">↳ ${esc(o.label)}</div></td><td style="font-size:11px;color:var(--text2)">${money(o.price)}</td><td style="font-size:11px;color:var(--text2)">1 u</td><td style="font-size:11px;color:var(--text2)">${money(o.price)}</td></tr>`; });
+      optLines.forEach(o=>{ h+=`<tr class="ap-opt"><td></td><td><div style="font-size:11px;color:var(--text2);padding-left:16px">↳ ${esc(o.label)}</div></td><td style="font-size:11px;color:var(--text2)">${money(o.price)}</td><td style="font-size:11px;color:var(--text2)">1 u</td><td style="font-size:11px;color:var(--text2)">${money(o.price)}</td></tr>`; });
       if(it.rideauOn!==false && it.rauto){
         const rDim=porRideauDim(it);
         h+=row(porRideauRef(it), 'Rideau à lanières', rDim?rDim+' mm':'', money(rPv), '1 u', money(rPv));
@@ -3926,20 +3927,21 @@ function genPDF(){
     const maxDesigW=COL_W[1]-4-ind;
     sf(false,fs,small?GREY:DGREY); // police posée AVANT le découpage → largeur de wrap correcte
     const desigLines=String(desig||'').split('\n').flatMap(l=>doc.splitTextToSize(l, maxDesigW));
-    const rh=Math.max(small?5.4:6.5, desigLines.length*(small?3.5:4.2)+2);
+    const rh=Math.max(small?4.6:6.5, desigLines.length*(small?3.3:4.2)+(small?1.2:2));
+    const by=small?3.4:4.3; // ligne de base du texte
     if(y>265){doc.addPage();y=15;drawTableHeader();}
     if(alt) fillR(ML, y, TW, rh, ROWALT);
-    sf(false,6.5,GREY); doc.text(String(ref||''), ML+2, y+4.3);
+    sf(false,6.5,GREY); doc.text(String(ref||''), ML+2, y+by);
     sf(false,fs,small?GREY:DGREY);
-    doc.text(desigLines, ML+COL_W[0]+2+ind, y+4.3);
+    doc.text(desigLines, ML+COL_W[0]+2+ind, y+by);
     let cx=ML+COL_W[0]+COL_W[1];
     sf(false,fs,small?GREY:DGREY);
-    doc.text(String(prix||''), cx+COL_W[2]-2, y+4.3, {align:'right'});
+    doc.text(String(prix||''), cx+COL_W[2]-2, y+by, {align:'right'});
     cx+=COL_W[2];
-    doc.text(String(qte||''), cx+COL_W[3]-2, y+4.3, {align:'right'});
+    doc.text(String(qte||''), cx+COL_W[3]-2, y+by, {align:'right'});
     cx+=COL_W[3];
     sf(false,fs,small?GREY:BLACK);
-    doc.text(String(montant||''), cx+COL_W[4]-2, y+4.3, {align:'right'});
+    doc.text(String(montant||''), cx+COL_W[4]-2, y+by, {align:'right'});
     doc.setDrawColor(...LGREY); doc.setLineWidth(0.25);
     doc.line(ML, y+rh, ML+TW, y+rh);
     y+=rh;
