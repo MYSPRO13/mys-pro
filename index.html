@@ -1868,7 +1868,7 @@ function porTypeName(it){const code=it.subtype||(String(it.label||'').split(' �
 function porFerrage(it){const c=it.ferr||(String(it.meta||'').match(/Ferrage ([GD])/)?.[1])||'';return c==='G'?'Gauche':c==='D'?'Droite':(c||'—');}
 function porCadre(it){const e=it.ep||(String(it.meta||'').match(/Cadre (\d+)/)?.[1])||'';return e?e+' mm':'—';}
 function accDetail(it){if(it.cmdDetail)return it.cmdDetail;const s=String(it.meta||'').replace(/^\s*\d+\s+\S+\s*/,'').trim();return it.vol?((s?s+' — ':'')+it.vol+' m³'):s;}
-function porDetails(it){const cf=it.cf||(String(it.meta||'').match(/Coupe-feu (\S+)/)?.[1])||'';const parts=[];if(cf)parts.push('Coupe-feu '+cf);if(it.details)parts.push(it.details);return parts.join(' — ');}
+function porDetails(it){const cf=it.cf||(String(it.meta||'').match(/Coupe-feu (\S+)/)?.[1])||'';const parts=[];if(cf)parts.push('Coupe-feu '+cf);if(it.optDetail)parts.push('Options : '+it.optDetail);if(it.details)parts.push(it.details);return parts.join(' — ');}
 const POSE_P={PCIP:150,PCIN:150,PPIP:120,PPIN:120,PPSI:100,PPSI_CF:100,PPIP_CF:120,PVV:100,PCS:100,PPS:100,CHASSIS:80,RIDEAU:50};
 const HAS_FERR=['PCIP','PCIN','PPIP','PPIN','PPSI','PPSI_CF','PPIP_CF','PCS','PPS','PVV'];
 const HAS_NEG=['PCIN','PPIN'];
@@ -2116,8 +2116,9 @@ function cpv(it,p){
   }
   if(it.type==='por'){
     const rid = (it.rideauOn!==false && it.rauto) ? r2(it.rauto*p.coef) : 0;
-    if(p.mode==='journee') return r2(it.achat*p.coef) + rid; // pose exclue
-    return r2((it.achat+it.pose)*p.coef) + rid;
+    const opt = it.optAchat||0; // options Xpress (parts) → toujours côté matière
+    if(p.mode==='journee') return r2((it.achat+opt)*p.coef) + rid; // pose exclue
+    return r2((it.achat+it.pose+opt)*p.coef) + rid;
   }
   if(it.type==='acc'){
     if(it.accId==='te_reprise') return teReprisePrix(it.ml||0, it.hauteur||0, p).total;
@@ -3084,6 +3085,7 @@ function editItem(i){
     else if(it.ep){ qS.ep=it.ep; }
     if(it.cf) qS.cf=it.cf; else if(HAS_CF.includes(it.subtype)){ const m=String(it.meta||'').match(/Coupe-feu (\S+)/); if(m) qS.cf=m[1]; }
     if(it.ferr) qS.ferr=it.ferr;
+    qS.options=(it.options||[]).slice(); qS._optPick=null; if(qS.options.length) qS._optOpen=true;
     qS._larg=it._larg; qS._haut=it._haut;
     if(it.rideauOn===false) qS.rideauOn=false;
     showPage('config', document.querySelector('.nav-item'));
@@ -3389,6 +3391,84 @@ function applyMatrixOverrides(ov){
     const m=mxObj(key); if(m) Object.assign(m, ov[key]);
   });
 }
+// ══ OPTIONS PORTES (accessoires Xpress) ══════════════════════════════
+// Données chargées depuis Supabase (clé options_portes) : structure + prix net.
+// Le code ne contient que le moteur d'entonnoir ; aucun prix en dur.
+let OPTIONS_PORTES=[];
+const OPT_GROUPS=[
+  {key:'oculus',     label:'Oculus',               axes:['label']},
+  {key:'fermeture',  label:'Fermeture & sécurité', axes:['sub','label']},
+  {key:'protection', label:'Protection basse',     axes:['mat','ht','pl']},
+  {key:'aile',       label:"Aile d'avion",         axes:['label']},
+  {key:'passage',    label:'Passage de rail',      axes:['label']}
+];
+const OPT_AXIS_LABEL={sub:'Type',label:'Modèle',mat:'Matière',ht:'Hauteur',pl:'Largeur porte'};
+function optById(ref){ return OPTIONS_PORTES.find(o=>o.ref===ref); }
+function optNet(ref){ const o=optById(ref); return o?(parseFloat(o.net)||0):0; }
+function optLabel(o){ if(o.label) return o.label; if(o.grp==='protection') return `Protection basse ${o.mat} ht ${o.ht} — porte ${o.pl} mm${o.vv?' (Va-et-Vient)':''}`; return o.ref; }
+function optShort(o){ if(o.grp==='protection') return `Protection basse ${o.mat} ${o.ht}mm / porte ${o.pl}mm${o.vv?' (VV)':''}`; return o.label||o.ref; }
+function optCompatible(o,type){
+  if(type==='CHASSIS'||type==='RIDEAU') return false;               // pas d'options sur châssis/rideau
+  if(o.grp==='protection') return type==='PVV' ? !!o.vv : !o.vv;   // VV réservé aux va-et-vient
+  if(o.portes && o.portes.includes('TOUTES')) return type!=='CHASSIS' && type!=='RIDEAU';
+  return !!(o.portes && o.portes.includes(type));
+}
+function optGroupsForDoor(type){ return OPT_GROUPS.filter(g=>OPTIONS_PORTES.some(o=>o.grp===g.key && optCompatible(o,type))); }
+function optAxisVal(o,ax){ const v=o[ax]; if(v==null||v==='') return ''; return (ax==='ht'||ax==='pl')?String(v):String(v); }
+function optAxisChoices(grp,sel,ax,type){
+  const cand=OPTIONS_PORTES.filter(o=>o.grp===grp&&optCompatible(o,type)&&Object.keys(sel).every(k=>optAxisVal(o,k)===sel[k]));
+  let vals=[...new Set(cand.map(o=>optAxisVal(o,ax)).filter(v=>v!==''))];
+  if(ax==='ht'||ax==='pl') vals.sort((a,b)=>parseInt(a)-parseInt(b)); else vals.sort();
+  return vals;
+}
+function optResolve(grp,sel,type){
+  return OPTIONS_PORTES.find(o=>o.grp===grp&&optCompatible(o,type)&&Object.keys(sel).every(k=>optAxisVal(o,k)===sel[k]));
+}
+function optSum(){ return (qS.options||[]).reduce((s,r)=>s+optNet(r),0); }
+// ── Interactions du bandeau options ──
+function optBandToggle(){ qS._optOpen=!qS._optOpen; if(!qS._optOpen) qS._optPick=null; porRender(); }
+function optAddStart(){ qS._optPick={grp:null,sel:{}}; porRender(); }
+function optSetGroup(g){ qS._optPick={grp:g,sel:{}}; porRender(); }
+function optCancelPick(){ qS._optPick=null; porRender(); }
+function optSetAxis(ax,val){
+  const p=qS._optPick; if(!p||!p.grp) return;
+  p.sel[ax]=val;
+  const grp=OPT_GROUPS.find(g=>g.key===p.grp);
+  const done=grp.axes.every(a=>p.sel[a]!=null);
+  if(done){ const o=optResolve(p.grp,p.sel,qS.type); if(o){ (qS.options=qS.options||[]).push(o.ref); } qS._optPick=null; }
+  porRender();
+}
+function optRemove(i){ if(qS.options){ qS.options.splice(i,1); porRender(); } }
+function optBandHtml(type){
+  const groups=optGroupsForDoor(type);
+  if(!groups.length) return '';                    // aucune option compatible → bandeau masqué
+  const open=!!qS._optOpen, chosen=qS.options||[];
+  let h=`<div class="cfg-block"><div class="step-label" style="cursor:pointer;display:flex;align-items:center;gap:6px" onclick="optBandToggle()"><span>${open?'▾':'▸'} Options</span>${chosen.length?`<span style="background:var(--blue-light);color:var(--blue);font-size:10px;font-weight:600;border-radius:10px;padding:1px 8px">${chosen.length}</span>`:`<span style="font-weight:400;color:var(--text3);font-size:11px">— facultatif</span>`}</div>`;
+  if(open){
+    if(chosen.length){
+      h+=`<div style="margin:6px 0">`;
+      chosen.forEach((ref,i)=>{ const o=optById(ref); h+=`<div style="display:flex;align-items:center;gap:8px;background:var(--bg2);border-radius:6px;padding:5px 10px;margin-bottom:4px;font-size:12px"><span style="flex:1">${o?esc(optShort(o)):esc(ref)}</span><button onclick="optRemove(${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:15px;line-height:1">×</button></div>`; });
+      h+=`</div>`;
+    }
+    const p=qS._optPick;
+    if(!p){
+      h+=`<button class="btn-sec-add outline" onclick="optAddStart()" style="font-size:12px">+ Ajouter une option</button>`;
+    } else if(!p.grp){
+      h+=`<div class="step-label" style="font-size:11px;color:var(--text3);margin-top:4px">Famille</div><div class="choices">`+groups.map(g=>`<button class="choice" onclick="optSetGroup('${g.key}')"><div class="ch-label">${esc(g.label)}</div></button>`).join('')+`</div><a onclick="optCancelPick()" style="color:var(--text3);text-decoration:underline;cursor:pointer;font-size:11px">annuler</a>`;
+    } else {
+      const grp=OPT_GROUPS.find(g=>g.key===p.grp);
+      const ax=grp.axes.find(a=>p.sel[a]==null);
+      const vals=optAxisChoices(p.grp,p.sel,ax,type);
+      const trail=[grp.label].concat(grp.axes.filter(a=>p.sel[a]!=null).map(a=>p.sel[a])).join(' › ');
+      h+=`<div class="step-label" style="font-size:11px;color:var(--blue);margin-top:4px">${esc(trail)} › <b>${OPT_AXIS_LABEL[ax]||ax}</b></div><div class="choices">`;
+      h+=vals.map(v=>{ const lab=(ax==='ht'||ax==='pl')?(v+' mm'):v; return `<button class="choice" onclick="optSetAxis('${ax}',${JSON.stringify(v).replace(/"/g,'&quot;')})"><div class="ch-label">${esc(lab)}</div></button>`; }).join('');
+      h+=`</div><a onclick="optCancelPick()" style="color:var(--text3);text-decoration:underline;cursor:pointer;font-size:11px">annuler</a>`;
+    }
+  }
+  h+=`</div>`;
+  return h;
+}
+
 function porRender(){
   const t=qS.type;
   let h='';
@@ -3421,6 +3501,7 @@ function porRender(){
       h+=`<div class="field-hint" id="por-prev-hint"></div>`;
       h+=`<div id="por-manual-wrap" class="field-row" style="display:none;flex-wrap:wrap;gap:6px;background:var(--orange-light);border-radius:var(--radius-sm);padding:8px 10px"><label id="por-manual-lbl" style="min-width:100%;color:var(--orange);font-weight:600;font-size:11px;line-height:1.4"></label><input type="number" class="field-input" id="por-manual-px" step="1" placeholder="€ achat HT réel" value="${qS._manualPx!=null?qS._manualPx:''}" oninput="qS._manualPx=this.value;porPrice()"></div>`;
       h+=`</div>`;
+      h+=optBandHtml(t); // bandeau Options (discret, replié) — masqué si aucune option compatible
       h+=`<div class="cfg-block"><div class="step-label">Pièce <span style="font-size:11px;color:var(--text3);font-style:italic">(facultatif)</span></div><input type="text" class="field-input" id="por-piece" placeholder="ex : Chambre froide négative..." value="${escAttr(qS.piece)}" style="width:100%" oninput="qS.piece=this.value"></div>`;
     }
     h+=`<div class="cfg-block" id="por-summary"></div>`;
@@ -3443,14 +3524,14 @@ function porCalc(){
   const manualUsed = needManual && manual>0;
   const achat = manualUsed ? manual : (res?res.p:0);
   const ref = manualUsed ? (l+'x'+hh) : (res?res.ref:'—');
-  const pose=POSE_P[t]||0; const pv=(achat+pose)*p.coef;
+  const pose=POSE_P[t]||0; const opt=optSum(); const pv=(achat+pose+opt)*p.coef;
   let ra=0,raRes=null;
   if(HAS_NEG.includes(t)&&l&&hh){ raRes=fc(RNEG,l,hh); if(raRes) ra=raRes.p; }
   const rideauOn = qS.rideauOn!==false;
   const rideauPv = (HAS_NEG.includes(t)&&rideauOn&&ra)? ra*p.coef : 0;
   const total = pv + rideauPv;
   const valid=gate1&&l>0&&hh>0&&(!needFerr||!!qS.ferr);
-  return {valid,gate1,needFerr,needManual,manualUsed,t,l,h:hh,res,pose,achat,pv,ra,raRes,rideauOn,rideauPv,total,coef:p.coef,ref};
+  return {valid,gate1,needFerr,needManual,manualUsed,t,l,h:hh,res,pose,achat,opt,pv,ra,raRes,rideauOn,rideauPv,total,coef:p.coef,ref};
 }
 function porDim(){ const l=G('por-lg'),h=G('por-ht'); if(l)qS._larg=l.value; if(h)qS._haut=h.value; qS._manualPx=''; const mp=G('por-manual-px'); if(mp)mp.value=''; porPrice(); }
 function porPrice(){
@@ -3501,7 +3582,7 @@ function porEpChange(v){
   porRender(); // valide (Entrée/clic ailleurs) → déroule ou replie la suite
 }
 function porPick(k,v){
-  if(k==='type'){ if(qS.type!==v){ qS.type=v; delete qS.rt; delete qS.ep; delete qS.cf; delete qS.ferr; delete qS.rideauOn; delete qS._manualPx; } }
+  if(k==='type'){ if(qS.type!==v){ qS.type=v; delete qS.rt; delete qS.ep; delete qS.cf; delete qS.ferr; delete qS.rideauOn; delete qS._manualPx; qS.options=[]; qS._optPick=null; } }
   else if(k==='rt'){ qS.rt=v; }
   else if(k==='ep'){ qS.ep=v; }
   else if(k==='cf'){ qS.cf=v; qS._manualPx=''; const mp=G('por-manual-px'); if(mp)mp.value=''; }
@@ -3515,7 +3596,9 @@ function porAdd(){
   if(c.manualUsed){ setMatrixOverride(c.t, qS.rt, c.l, c.h, c.achat, qS.cf); } // mémorise le prix saisi dans la matrice (par durée pour les coupe-feu)
   const wasEdit=(editIdx!=null&&editType==='por'&&items[editIdx]);
   const ref=wasEdit?(items[editIdx].ref||genRefPor()):genRefPor(); // en modification, on garde la référence d'origine
-  const it={type:'por',subtype:qS.type,ferr:qS.ferr||'',ep:qS.ep||'',cf:qS.cf||'',ref,label:`${TL[qS.type]||qS.type} — ${c.l}×${c.h}mm${qS.rt?' '+qS.rt:''}`,meta:[qS.cf?`Coupe-feu ${qS.cf}`:null,qS.ferr?`Ferrage ${qS.ferr}`:null,qS.ep?`Cadre ${qS.ep}mm`:null,piece||null].filter(Boolean).join(' | '),achat:c.achat,pose:c.pose,rauto:c.ra||0,rautoDim:c.raRes?(c.raRes.kl+'×'+c.raRes.kh):'',rideauOn:c.rideauOn,piece:piece,_larg:c.l,_haut:c.h};
+  const optRefs=(qS.options||[]).slice();
+  const optLabels=optRefs.map(r=>{const o=optById(r);return o?optShort(o):r;});
+  const it={type:'por',subtype:qS.type,ferr:qS.ferr||'',ep:qS.ep||'',cf:qS.cf||'',ref,label:`${TL[qS.type]||qS.type} — ${c.l}×${c.h}mm${qS.rt?' '+qS.rt:''}`,meta:[qS.cf?`Coupe-feu ${qS.cf}`:null,qS.ferr?`Ferrage ${qS.ferr}`:null,qS.ep?`Cadre ${qS.ep}mm`:null,optLabels.length?('Options : '+optLabels.join(', ')):null,piece||null].filter(Boolean).join(' | '),achat:c.achat,pose:c.pose,options:optRefs,optAchat:c.opt||0,optDetail:optLabels.join(' · '),rauto:c.ra||0,rautoDim:c.raRes?(c.raRes.kl+'×'+c.raRes.kh):'',rideauOn:c.rideauOn,piece:piece,_larg:c.l,_haut:c.h};
   if(wasEdit){ items.splice(editIdx,1,it); editIdx=null; editType=null; }
   else items.push(it);
   const persist=c.manualUsed;
@@ -4151,6 +4234,11 @@ async function chargerMatricesContacts(){
     }
     else if(CLI.length){ await upsertParam(CONTACTS_KEY,{clients:CLI,poseurs:POS,apporteurs:APP,fournisseurs:FOU}); seeded=true; }
   }catch(e){ console.warn('Chargement contacts:',e); }
+  // Options portes Xpress (structure + prix net) — chargées si présentes en base
+  try{
+    const o=await sbFetch('/rest/v1/parametres?cle=eq.options_portes&select=valeur');
+    if(o&&o.length&&Array.isArray(o[0].valeur)) OPTIONS_PORTES=o[0].valeur;
+  }catch(e){ console.warn('Chargement options portes:',e); }
   if(seeded) showToast('Tarifs portes & contacts migrés vers Supabase ✓');
   // Alerte visible si les tarifs portes manquent toujours (panne réseau, clé absente) :
   // sans eux, toutes les portes afficheraient « prix à saisir »
