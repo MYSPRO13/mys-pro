@@ -3406,7 +3406,11 @@ const OPT_AXIS_LABEL={sub:'Type',label:'Modèle',mat:'Matière',ht:'Hauteur',pl:
 function optById(ref){ return OPTIONS_PORTES.find(o=>o.ref===ref); }
 function optNet(ref){ const o=optById(ref); return o?(parseFloat(o.net)||0):0; }
 function optLabel(o){ if(o.label) return o.label; if(o.grp==='protection') return `Protection basse ${o.mat} ht ${o.ht} — porte ${o.pl} mm${o.vv?' (Va-et-Vient)':''}`; return o.ref; }
-function optShort(o){ if(o.grp==='protection') return `Protection basse ${o.mat} ${o.ht}mm / porte ${o.pl}mm${o.vv?' (VV)':''}`; return o.label||o.ref; }
+function optShort(o){ if(o.grp==='protection') return `Protection basse ${o.mat} ${o.ht}ht × ${o.pl}mm${o.vv?' (VV)':''}`; if(o.grp==='passage') return 'Passage de rail'; return o.label||o.ref; }
+// Prix des options d'une porte, ligne par ligne (extraites du total de la porte sur le devis)
+function porOptionLines(it,p){ return (it.options||[]).map(ref=>{ const o=optById(ref); return {ref, label:o?optShort(o):ref, price:r2(optNet(ref)*(p.coef||1))}; }); }
+// Meta d'une porte sans le segment « Options : … » (les options ont leurs propres lignes sur le devis)
+function porMetaNoOpt(it){ return String(it.meta||'').split(' | ').filter(s=>!/^Options\s*:/.test(s)).join(' | '); }
 function optCompatible(o,type){
   if(type==='CHASSIS'||type==='RIDEAU') return false;               // pas d'options sur châssis/rideau
   if(o.grp==='protection') return type==='PVV' ? !!o.vv : !o.vv;   // VV réservé aux va-et-vient
@@ -3434,6 +3438,11 @@ function optSetAxis(ax,val){
   const p=qS._optPick; if(!p||!p.grp) return;
   p.sel[ax]=val;
   const grp=OPT_GROUPS.find(g=>g.key===p.grp);
+  // Protection basse : pré-sélectionne la largeur = largeur de la porte configurée
+  if(p.grp==='protection' && p.sel.ht!=null && p.sel.pl==null){
+    const dw=String(parseInt(qS._larg)||0);
+    if(optAxisChoices('protection',p.sel,'pl',qS.type).includes(dw)) p.sel.pl=dw;
+  }
   const done=grp.axes.every(a=>p.sel[a]!=null);
   if(done){ const o=optResolve(p.grp,p.sel,qS.type); if(o){ (qS.options=qS.options||[]).push(o.ref); } qS._optPick=null; }
   porRender();
@@ -3461,7 +3470,7 @@ function optBandHtml(type){
       const vals=optAxisChoices(p.grp,p.sel,ax,type);
       const trail=[grp.label].concat(grp.axes.filter(a=>p.sel[a]!=null).map(a=>p.sel[a])).join(' › ');
       h+=`<div class="step-label" style="font-size:11px;color:var(--blue);margin-top:4px">${esc(trail)} › <b>${OPT_AXIS_LABEL[ax]||ax}</b></div><div class="choices">`;
-      h+=vals.map(v=>{ const lab=(ax==='ht'||ax==='pl')?(v+' mm'):v; return `<button class="choice" onclick="optSetAxis('${ax}',${JSON.stringify(v).replace(/"/g,'&quot;')})"><div class="ch-label">${esc(lab)}</div></button>`; }).join('');
+      h+=vals.map(v=>{ let lab=v; if(ax==='ht') lab=v+' mm de haut'; else if(ax==='pl') lab='porte '+v+' mm'; else if(p.grp==='passage') lab='Passage de rail'; return `<button class="choice" onclick="optSetAxis('${ax}',${JSON.stringify(v).replace(/"/g,'&quot;')})"><div class="ch-label">${esc(lab)}</div></button>`; }).join('');
       h+=`</div><a onclick="optCancelPick()" style="color:var(--text3);text-decoration:underline;cursor:pointer;font-size:11px">annuler</a>`;
     }
   }
@@ -3678,11 +3687,14 @@ function apercuDevisRows(items, travaux, p){
   if(pors.length){
     h+=sec('Portes, châssis & rideaux','ap_por');
     if(secFold.ap_por) pors.forEach(it=>{
-      const dPv=(p.mode==='journee'?it.achat:(it.achat+it.pose))*p.coef;
-      const sub=[`${it._larg||''}×${it._haut||''} mm`, it.meta].filter(Boolean).join(' — ');
-      h+=row(it.ref||'', porTypeName(it), sub, money(dPv), '1 u', money(dPv));
+      const optLines=porOptionLines(it,p);
+      const rPv=(it.rideauOn!==false && it.rauto)? r2(it.rauto*p.coef) : 0;
+      const base=r2(cpv(it,p)-optLines.reduce((s,o)=>s+o.price,0)-rPv); // ligne porte = total moins options moins rideau
+      const sub=[`${it._larg||''}×${it._haut||''} mm`, porMetaNoOpt(it)].filter(Boolean).join(' — ');
+      h+=row(it.ref||'', porTypeName(it), sub, money(base), '1 u', money(base));
+      optLines.forEach(o=>{ h+=row('', 'Option — '+o.label, '', money(o.price), '1 u', money(o.price)); });
       if(it.rideauOn!==false && it.rauto){
-        const rPv=it.rauto*p.coef, rDim=porRideauDim(it);
+        const rDim=porRideauDim(it);
         h+=row(porRideauRef(it), 'Rideau à lanières', rDim?rDim+' mm':'', money(rPv), '1 u', money(rPv));
       }
     });
@@ -3951,13 +3963,17 @@ function genPDF(){
     drawSection('PORTES, CH\u00c2SSIS & RIDEAUX');
     let ri=0;
     pors.forEach((it,i)=>{
-      const dPv=(p.mode==='journee'?it.achat:(it.achat+it.pose))*p.coef; // journée : pose exclue (forfait à part)
-      // Désignation : type abrégé — dimensions — ferrage — pièce
+      const optLines=porOptionLines(it,p);
+      const rPv0=(it.rideauOn!==false && it.rauto)? r2(it.rauto*p.coef):0;
+      const dPv=r2(cpv(it,p)-optLines.reduce((s,o)=>s+o.price,0)-rPv0); // ligne porte = total moins options moins rideau
+      // Désignation : type abrégé — dimensions — ferrage — pièce (options en lignes séparées)
       const typeLbl = porTypeName(it);
       const dims = `${it._larg||''}×${it._haut||''} mm`;
-      const line2 = [dims, it.meta].filter(Boolean).join(' — ');
+      const line2 = [dims, porMetaNoOpt(it)].filter(Boolean).join(' — ');
       const desig = typeLbl + (line2 ? '\n' + line2 : '');
       drawRow(it.ref||'P'+String(i+1).padStart(3,'0'), desig, fn(dPv), '1 u', fn(dPv), ri%2===1); ri++;
+      // Une ligne par option, avec son prix (extrait du total de la porte)
+      optLines.forEach(o=>{ drawRow('', 'Option — '+o.label, fn(o.price), '1 u', fn(o.price), ri%2===1); ri++; });
       // Rideau à lanières auto (porte négative) → ligne séparée, sauf s'il a été retiré
       if(it.rideauOn!==false && it.rauto){
         const rPv=it.rauto*p.coef;
