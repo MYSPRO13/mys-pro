@@ -3085,7 +3085,7 @@ function editItem(i){
     else if(it.ep){ qS.ep=it.ep; }
     if(it.cf) qS.cf=it.cf; else if(HAS_CF.includes(it.subtype)){ const m=String(it.meta||'').match(/Coupe-feu (\S+)/); if(m) qS.cf=m[1]; }
     if(it.ferr) qS.ferr=it.ferr;
-    qS.options=(it.options||[]).slice(); qS._optPick=null; if(qS.options.length) qS._optOpen=true;
+    qS.options=(it.options||[]).map(x=>(x&&typeof x==='object')?Object.assign({},x):{ref:x,faces:1,label:optInstLabel(x),net:optNet(x)}); qS._optPick=null; if(qS.options.length) qS._optOpen=true;
     qS._larg=it._larg; qS._haut=it._haut;
     if(it.rideauOn===false) qS.rideauOn=false;
     showPage('config', document.querySelector('.nav-item'));
@@ -3398,17 +3398,17 @@ let OPTIONS_PORTES=[];
 const OPT_GROUPS=[
   {key:'oculus',     label:'Oculus',               axes:['label']},
   {key:'fermeture',  label:'Fermeture & sécurité', axes:['sub','label']},
-  {key:'protection', label:'Protection basse',     axes:['mat','ht','pl']},
+  {key:'protection', label:'Protection basse',     axes:['mat','ht','pl','faces']},
   {key:'aile',       label:"Aile d'avion",         axes:['label']},
   {key:'passage',    label:'Passage de rail',      axes:['label']}
 ];
-const OPT_AXIS_LABEL={sub:'Type',label:'Modèle',mat:'Matière',ht:'Hauteur',pl:'Largeur porte'};
+const OPT_AXIS_LABEL={sub:'Type',label:'Modèle',mat:'Matière',ht:'Hauteur',pl:'Largeur porte',faces:'Faces à protéger'};
 function optById(ref){ return OPTIONS_PORTES.find(o=>o.ref===ref); }
 function optNet(ref){ const o=optById(ref); return o?(parseFloat(o.net)||0):0; }
 function optLabel(o){ if(o.label) return o.label; if(o.grp==='protection') return `Protection basse ${o.mat} ht ${o.ht} — porte ${o.pl} mm${o.vv?' (Va-et-Vient)':''}`; return o.ref; }
 function optShort(o){ if(o.grp==='protection') return `Protection basse ${o.mat} ${o.ht}ht × ${o.pl}mm${o.vv?' (VV)':''}`; if(o.grp==='passage') return 'Passage de rail'; return o.label||o.ref; }
 // Prix des options d'une porte, ligne par ligne (extraites du total de la porte sur le devis)
-function porOptionLines(it,p){ return (it.options||[]).map(ref=>{ const o=optById(ref); return {ref, label:o?optShort(o):ref, price:r2(optNet(ref)*(p.coef||1))}; }); }
+function porOptionLines(it,p){ return (it.options||[]).map(x=>({label:optInstLabel(x), price:r2(optInstNet(x)*(p.coef||1))})); }
 // Meta d'une porte sans le segment « Options : … » (les options ont leurs propres lignes sur le devis)
 function porMetaNoOpt(it){ return String(it.meta||'').split(' | ').filter(s=>!/^Options\s*:/.test(s)).join(' | '); }
 function optCompatible(o,type){
@@ -3419,16 +3419,27 @@ function optCompatible(o,type){
 }
 function optGroupsForDoor(type){ return OPT_GROUPS.filter(g=>OPTIONS_PORTES.some(o=>o.grp===g.key && optCompatible(o,type))); }
 function optAxisVal(o,ax){ const v=o[ax]; if(v==null||v==='') return ''; return (ax==='ht'||ax==='pl')?String(v):String(v); }
+function optSelKeys(sel){ return Object.keys(sel).filter(k=>k!=='faces'); } // 'faces' est synthétique, pas un attribut d'option
 function optAxisChoices(grp,sel,ax,type){
-  const cand=OPTIONS_PORTES.filter(o=>o.grp===grp&&optCompatible(o,type)&&Object.keys(sel).every(k=>optAxisVal(o,k)===sel[k]));
+  if(ax==='faces') return ['1','2'];
+  const cand=OPTIONS_PORTES.filter(o=>o.grp===grp&&optCompatible(o,type)&&optSelKeys(sel).every(k=>optAxisVal(o,k)===sel[k]));
   let vals=[...new Set(cand.map(o=>optAxisVal(o,ax)).filter(v=>v!==''))];
   if(ax==='ht'||ax==='pl') vals.sort((a,b)=>parseInt(a)-parseInt(b)); else vals.sort();
   return vals;
 }
 function optResolve(grp,sel,type){
-  return OPTIONS_PORTES.find(o=>o.grp===grp&&optCompatible(o,type)&&Object.keys(sel).every(k=>optAxisVal(o,k)===sel[k]));
+  return OPTIONS_PORTES.find(o=>o.grp===grp&&optCompatible(o,type)&&optSelKeys(sel).every(k=>optAxisVal(o,k)===sel[k]));
 }
-function optSum(){ return (qS.options||[]).reduce((s,r)=>s+optNet(r),0); }
+// Instance d'option retenue : on FIGE le libellé et le prix sur la porte (l'affichage n'en dépend plus)
+function optMakeInstance(grp,sel,type){
+  const o=optResolve(grp,sel,type); if(!o) return null;
+  const faces=grp==='protection'?(parseInt(sel.faces)||1):1;
+  let label=optShort(o); if(grp==='protection') label+=(faces>=2?' — 2 faces':' — 1 face');
+  return {ref:o.ref, faces, label, net:r2(optNet(o.ref)*faces)};
+}
+function optInstLabel(x){ return (x&&typeof x==='object')?x.label:(optById(x)?optShort(optById(x)):x); }
+function optInstNet(x){ return (x&&typeof x==='object')?(x.net||0):optNet(x); }
+function optSum(){ return (qS.options||[]).reduce((s,x)=>s+optInstNet(x),0); }
 // ── Interactions du bandeau options ──
 function optBandToggle(){ qS._optOpen=!qS._optOpen; if(!qS._optOpen) qS._optPick=null; porRender(); }
 function optAddStart(){ qS._optPick={grp:null,sel:{}}; porRender(); }
@@ -3444,7 +3455,7 @@ function optSetAxis(ax,val){
     if(optAxisChoices('protection',p.sel,'pl',qS.type).includes(dw)) p.sel.pl=dw;
   }
   const done=grp.axes.every(a=>p.sel[a]!=null);
-  if(done){ const o=optResolve(p.grp,p.sel,qS.type); if(o){ (qS.options=qS.options||[]).push(o.ref); } qS._optPick=null; }
+  if(done){ const inst=optMakeInstance(p.grp,p.sel,qS.type); if(inst){ (qS.options=qS.options||[]).push(inst); } qS._optPick=null; }
   porRender();
 }
 function optRemove(i){ if(qS.options){ qS.options.splice(i,1); porRender(); } }
@@ -3456,7 +3467,7 @@ function optBandHtml(type){
   if(open){
     if(chosen.length){
       h+=`<div style="margin:6px 0">`;
-      chosen.forEach((ref,i)=>{ const o=optById(ref); h+=`<div style="display:flex;align-items:center;gap:8px;background:var(--bg2);border-radius:6px;padding:5px 10px;margin-bottom:4px;font-size:12px"><span style="flex:1">${o?esc(optShort(o)):esc(ref)}</span><button onclick="optRemove(${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:15px;line-height:1">×</button></div>`; });
+      chosen.forEach((inst,i)=>{ h+=`<div style="display:flex;align-items:center;gap:8px;background:var(--bg2);border-radius:6px;padding:5px 10px;margin-bottom:4px;font-size:12px"><span style="flex:1">${esc(optInstLabel(inst))}</span><button onclick="optRemove(${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:15px;line-height:1">×</button></div>`; });
       h+=`</div>`;
     }
     const p=qS._optPick;
@@ -3470,7 +3481,7 @@ function optBandHtml(type){
       const vals=optAxisChoices(p.grp,p.sel,ax,type);
       const trail=[grp.label].concat(grp.axes.filter(a=>p.sel[a]!=null).map(a=>p.sel[a])).join(' › ');
       h+=`<div class="step-label" style="font-size:11px;color:var(--blue);margin-top:4px">${esc(trail)} › <b>${OPT_AXIS_LABEL[ax]||ax}</b></div><div class="choices">`;
-      h+=vals.map(v=>{ let lab=v; if(ax==='ht') lab=v+' mm de haut'; else if(ax==='pl') lab='porte '+v+' mm'; else if(p.grp==='passage') lab='Passage de rail'; return `<button class="choice" onclick="optSetAxis('${ax}',${JSON.stringify(v).replace(/"/g,'&quot;')})"><div class="ch-label">${esc(lab)}</div></button>`; }).join('');
+      h+=vals.map(v=>{ let lab=v; if(ax==='ht') lab=v+' mm de haut'; else if(ax==='pl') lab='porte '+v+' mm'; else if(ax==='faces') lab=v+(v==='2'?' faces protégées':' face protégée'); else if(p.grp==='passage') lab='Passage de rail'; return `<button class="choice" onclick="optSetAxis('${ax}',${JSON.stringify(v).replace(/"/g,'&quot;')})"><div class="ch-label">${esc(lab)}</div></button>`; }).join('');
       h+=`</div><a onclick="optCancelPick()" style="color:var(--text3);text-decoration:underline;cursor:pointer;font-size:11px">annuler</a>`;
     }
   }
@@ -3605,9 +3616,9 @@ function porAdd(){
   if(c.manualUsed){ setMatrixOverride(c.t, qS.rt, c.l, c.h, c.achat, qS.cf); } // mémorise le prix saisi dans la matrice (par durée pour les coupe-feu)
   const wasEdit=(editIdx!=null&&editType==='por'&&items[editIdx]);
   const ref=wasEdit?(items[editIdx].ref||genRefPor()):genRefPor(); // en modification, on garde la référence d'origine
-  const optRefs=(qS.options||[]).slice();
-  const optLabels=optRefs.map(r=>{const o=optById(r);return o?optShort(o):r;});
-  const it={type:'por',subtype:qS.type,ferr:qS.ferr||'',ep:qS.ep||'',cf:qS.cf||'',ref,label:`${TL[qS.type]||qS.type} — ${c.l}×${c.h}mm${qS.rt?' '+qS.rt:''}`,meta:[qS.cf?`Coupe-feu ${qS.cf}`:null,qS.ferr?`Ferrage ${qS.ferr}`:null,qS.ep?`Cadre ${qS.ep}mm`:null,optLabels.length?('Options : '+optLabels.join(', ')):null,piece||null].filter(Boolean).join(' | '),achat:c.achat,pose:c.pose,options:optRefs,optAchat:c.opt||0,optDetail:optLabels.join(' · '),rauto:c.ra||0,rautoDim:c.raRes?(c.raRes.kl+'×'+c.raRes.kh):'',rideauOn:c.rideauOn,piece:piece,_larg:c.l,_haut:c.h};
+  const optInsts=(qS.options||[]).map(x=>(x&&typeof x==='object')?{ref:x.ref,faces:x.faces,label:x.label,net:x.net}:{ref:x,faces:1,label:optInstLabel(x),net:optNet(x)});
+  const optLabels=optInsts.map(o=>o.label);
+  const it={type:'por',subtype:qS.type,ferr:qS.ferr||'',ep:qS.ep||'',cf:qS.cf||'',ref,label:`${TL[qS.type]||qS.type} — ${c.l}×${c.h}mm${qS.rt?' '+qS.rt:''}`,meta:[qS.cf?`Coupe-feu ${qS.cf}`:null,qS.ferr?`Ferrage ${qS.ferr}`:null,qS.ep?`Cadre ${qS.ep}mm`:null,optLabels.length?('Options : '+optLabels.join(', ')):null,piece||null].filter(Boolean).join(' | '),achat:c.achat,pose:c.pose,options:optInsts,optAchat:optInsts.reduce((s,o)=>s+(o.net||0),0),optDetail:optLabels.join(' · '),rauto:c.ra||0,rautoDim:c.raRes?(c.raRes.kl+'×'+c.raRes.kh):'',rideauOn:c.rideauOn,piece:piece,_larg:c.l,_haut:c.h};
   if(wasEdit){ items.splice(editIdx,1,it); editIdx=null; editType=null; }
   else items.push(it);
   const persist=c.manualUsed;
@@ -3692,7 +3703,7 @@ function apercuDevisRows(items, travaux, p){
       const base=r2(cpv(it,p)-optLines.reduce((s,o)=>s+o.price,0)-rPv); // ligne porte = total moins options moins rideau
       const sub=[`${it._larg||''}×${it._haut||''} mm`, porMetaNoOpt(it)].filter(Boolean).join(' — ');
       h+=row(it.ref||'', porTypeName(it), sub, money(base), '1 u', money(base));
-      optLines.forEach(o=>{ h+=row('', 'Option — '+o.label, '', money(o.price), '1 u', money(o.price)); });
+      optLines.forEach(o=>{ h+=`<tr><td></td><td><div style="font-size:11px;color:var(--text2);padding-left:16px">↳ ${esc(o.label)}</div></td><td style="font-size:11px;color:var(--text2)">${money(o.price)}</td><td style="font-size:11px;color:var(--text2)">1 u</td><td style="font-size:11px;color:var(--text2)">${money(o.price)}</td></tr>`; });
       if(it.rideauOn!==false && it.rauto){
         const rDim=porRideauDim(it);
         h+=row(porRideauRef(it), 'Rideau à lanières', rDim?rDim+' mm':'', money(rPv), '1 u', money(rPv));
@@ -3910,22 +3921,24 @@ function genPDF(){
     y+=6.5;
   }
 
-  function drawRow(ref, desig, prix, qte, montant, alt){
-    const maxDesigW=COL_W[1]-4;
+  function drawRow(ref, desig, prix, qte, montant, alt, small){
+    const fs=small?6.2:7.5, ind=small?5:0;
+    const maxDesigW=COL_W[1]-4-ind;
+    sf(false,fs,small?GREY:DGREY); // police posée AVANT le découpage → largeur de wrap correcte
     const desigLines=String(desig||'').split('\n').flatMap(l=>doc.splitTextToSize(l, maxDesigW));
-    const rh=Math.max(6.5, desigLines.length*4.2+2);
+    const rh=Math.max(small?5.4:6.5, desigLines.length*(small?3.5:4.2)+2);
     if(y>265){doc.addPage();y=15;drawTableHeader();}
     if(alt) fillR(ML, y, TW, rh, ROWALT);
     sf(false,6.5,GREY); doc.text(String(ref||''), ML+2, y+4.3);
-    sf(false,7.5,DGREY);
-    doc.text(desigLines, ML+COL_W[0]+2, y+4.3);
+    sf(false,fs,small?GREY:DGREY);
+    doc.text(desigLines, ML+COL_W[0]+2+ind, y+4.3);
     let cx=ML+COL_W[0]+COL_W[1];
-    sf(false,7.5,DGREY);
+    sf(false,fs,small?GREY:DGREY);
     doc.text(String(prix||''), cx+COL_W[2]-2, y+4.3, {align:'right'});
     cx+=COL_W[2];
     doc.text(String(qte||''), cx+COL_W[3]-2, y+4.3, {align:'right'});
     cx+=COL_W[3];
-    sf(false,7.5,BLACK);
+    sf(false,fs,small?GREY:BLACK);
     doc.text(String(montant||''), cx+COL_W[4]-2, y+4.3, {align:'right'});
     doc.setDrawColor(...LGREY); doc.setLineWidth(0.25);
     doc.line(ML, y+rh, ML+TW, y+rh);
@@ -3972,8 +3985,8 @@ function genPDF(){
       const line2 = [dims, porMetaNoOpt(it)].filter(Boolean).join(' — ');
       const desig = typeLbl + (line2 ? '\n' + line2 : '');
       drawRow(it.ref||'P'+String(i+1).padStart(3,'0'), desig, fn(dPv), '1 u', fn(dPv), ri%2===1); ri++;
-      // Une ligne par option, avec son prix (extrait du total de la porte)
-      optLines.forEach(o=>{ drawRow('', 'Option — '+o.label, fn(o.price), '1 u', fn(o.price), ri%2===1); ri++; });
+      // Une ligne par option, en plus petit (sous-produit), avec son prix (extrait du total de la porte)
+      optLines.forEach(o=>{ drawRow('', '» '+o.label, fn(o.price), '1 u', fn(o.price), ri%2===1, true); ri++; });
       // Rideau à lanières auto (porte négative) → ligne séparée, sauf s'il a été retiré
       if(it.rideauOn!==false && it.rauto){
         const rPv=it.rauto*p.coef;
