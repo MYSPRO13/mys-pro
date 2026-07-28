@@ -133,8 +133,23 @@ body {
 }
 .nav-item:hover { background: var(--bg2); color: var(--text); }
 .nav-item.active { background: var(--blue-light); color: var(--blue); font-weight: 500; }
+.nav-item.active::before { content:''; position:absolute; left:0; top:6px; bottom:6px; width:3px; border-radius:0 3px 3px 0; background:var(--blue); }
 .nav-icon { width: 15px; height: 15px; flex-shrink: 0; opacity: .7; }
 .nav-item.active .nav-icon { opacity: 1; }
+/* Groupe Commandes : léger encadré, comme les cartes de la colonne de droite */
+.nav-group { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 6px 5px 8px; margin-bottom: 1rem; }
+.nav-group .nav-label { padding: 2px 8px 5px; }
+.nav-group .nav-item { font-size: 12.5px; }
+/* Zone utilitaires : poussée en bas, discrète */
+.nav-utils { margin-top: auto; border-top: 1px solid var(--border2); padding-top: .5rem; }
+.nav-util { font-size: 12px; color: var(--text3); }
+.nav-util .nav-icon { opacity: .55; }
+/* Apparition d'un élément de commande au fil du devis */
+@keyframes navReveal { from { opacity:0; transform: translateX(-8px); } to { opacity:1; transform:none; } }
+.nav-item.revealing { animation: navReveal .3s ease; }
+/* Invite à saisir le nom de l'affaire (nouveau devis) */
+@keyframes projGlow { 0%,100% { box-shadow: 0 0 0 0 rgba(27,95,168,0); border-color: var(--border); } 50% { box-shadow: 0 0 0 4px rgba(27,95,168,.18); border-color: var(--blue); } }
+.projet-inp.attn { animation: projGlow 1.5s ease-in-out infinite; }
 .nav-badge {
   font-size: 10px;
   background: var(--blue-light);
@@ -1174,7 +1189,7 @@ function togglePwd(){
   </div>
   <div class="topbar-center">
     <div class="devis-badge">N° <span id="devis-num">2026-1041</span><button onclick="nouvelleVersionDevis()" title="Créer une nouvelle version de ce devis (l'actuel est archivé tel quel)" style="margin-left:7px;border:1px solid var(--border);background:var(--surface);border-radius:6px;padding:1px 7px;font-size:11px;cursor:pointer;color:var(--blue);font-weight:600;font-family:'DM Sans',sans-serif">+V</button></div>
-    <input type="text" id="projet-nom" class="projet-inp" placeholder="Nom de l'affaire…">
+    <input type="text" id="projet-nom" class="projet-inp" placeholder="Nom de l'affaire…" oninput="this.classList.remove('attn')" onfocus="this.classList.remove('attn')">
   </div>
   <div class="topbar-right">
     <button class="btn" onclick="showPage('devis-existant')">📋 Mes devis</button>
@@ -1192,40 +1207,39 @@ function togglePwd(){
       <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 6l6-4 6 4v8H2z"/><path d="M6 14V9h4v5"/></svg>
       Configurateur
     </div>
-  </div>
-  <div class="nav-sep"></div>
-  <div class="nav-section">
-    <div class="nav-label">Documents</div>
     <div class="nav-item" onclick="showPage('devis',this)">
       <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 2h6l4 4v8H4z"/><path d="M10 2v4h4"/><path d="M5 8h6M5 11h4"/></svg>
       Devis client
       <span class="nav-badge" id="bdg">0</span>
     </div>
-    <div class="nav-item" onclick="showPage('cmdpan',this)">
+  </div>
+  <!-- Commandes : apparaissent au fil de l'avancée du devis -->
+  <div class="nav-group" id="nav-cmd-group" style="display:none">
+    <div class="nav-label">Commandes</div>
+    <div class="nav-item" id="nav-cmdpan" onclick="showPage('cmdpan',this)" style="display:none">
       <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M5 7h6M5 10h4"/></svg>
-      Cmd panneaux
+      Panneaux
     </div>
-    <div class="nav-item" onclick="showPage('cmdpor',this)">
+    <div class="nav-item" id="nav-cmdpor" onclick="showPage('cmdpor',this)" style="display:none">
       <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="2" width="10" height="12" rx="1"/><circle cx="11" cy="8" r="1"/></svg>
-      Cmd portes
+      Portes
     </div>
-    <div class="nav-item" onclick="showPage('cmdacc',this)">
+    <div class="nav-item" id="nav-cmdacc" onclick="showPage('cmdacc',this)" style="display:none">
       <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2l2 4h4l-3 3 1 4-4-2-4 2 1-4-3-3h4z"/></svg>
-      Cmd accessoires
+      Accessoires
     </div>
-    <div class="nav-item" onclick="showPage('mission',this)">
+    <div class="nav-item" id="nav-mission" onclick="showPage('mission',this)" style="display:none">
       <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5" r="2.5"/><path d="M2 14c0-3.3 2.7-5 6-5s6 1.7 6 5"/></svg>
-      Ordre mission
+      Ordre de mission
     </div>
   </div>
-  <div class="nav-sep"></div>
-  <div class="nav-section">
-    <div class="nav-label">Annuaire</div>
-    <div class="nav-item" onclick="showPage('contacts',this)">
+  <!-- Utilitaires : discrets, en bas -->
+  <div class="nav-utils">
+    <div class="nav-item nav-util" onclick="showPage('contacts',this)">
       <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="1" width="10" height="14" rx="1"/><path d="M6 5h4M6 8h4M6 11h2"/></svg>
       Contacts
     </div>
-    <div class="nav-item" onclick="showPage('catalogue',this)">
+    <div class="nav-item nav-util" onclick="showPage('catalogue',this)">
       <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h10"/><circle cx="13" cy="12" r="2"/><path d="M13 10v1M13 13v1"/></svg>
       Catalogue prix
     </div>
@@ -1802,6 +1816,19 @@ function togglePwd(){
 </div>
 
 <!-- MODAL -->
+<!-- Portail de création : nommer l'affaire avant toute action -->
+<div class="modal-overlay" id="projet-modal">
+  <div class="modal" style="width:420px;text-align:center">
+    <div style="width:46px;height:46px;border-radius:12px;background:var(--blue-light);display:flex;align-items:center;justify-content:center;margin:0 auto 14px">
+      <svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="var(--blue)" stroke-width="1.5"><path d="M4 2h6l4 4v8H4z"/><path d="M10 2v4h4"/><path d="M6 9h4M6 11.5h3"/></svg>
+    </div>
+    <div class="modal-title" style="margin-bottom:4px">Nouveau devis <span id="projet-modal-num" style="color:var(--blue)"></span></div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:18px">Donne un nom à l'affaire pour commencer.</div>
+    <input type="text" id="projet-modal-input" placeholder="ex : Intermarché Clapiers" autocomplete="off" style="width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text);text-align:center" oninput="projModalSync()" onkeydown="if(event.key==='Enter')projModalConfirm(); if(event.key==='Escape')projModalSkip()">
+    <button id="projet-modal-btn" class="btn btn-green" onclick="projModalConfirm()" style="width:100%;margin-top:14px;padding:10px 0;font-size:13.5px;opacity:.45;cursor:not-allowed" disabled>Commencer le chiffrage</button>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
   <div class="modal">
     <div class="modal-title" id="modal-title">Ajouter</div>
@@ -2792,8 +2819,20 @@ function clearClient(){
 }
 
 // ══ REFRESH ══════════════════════════════════════════════════
+// Colonne de gauche : les commandes apparaissent au fil de l'avancée du devis
+function refreshNav(){
+  const pans=items.some(i=>i.type==='pan'), pors=items.some(i=>i.type==='por'), accs=items.some(i=>i.type==='acc');
+  const any=items.length>0;
+  const show=(id,on)=>{ const el=G(id); if(!el) return; if(on){ if(el.style.display==='none'){ el.style.display=''; el.classList.add('revealing'); setTimeout(()=>el.classList.remove('revealing'),320); } } else { el.style.display='none'; } };
+  show('nav-cmdpan', pans);
+  show('nav-cmdpor', pors);
+  show('nav-cmdacc', pans||pors||accs);   // le métré accessoires s'appuie surtout sur les panneaux
+  show('nav-mission', any);
+  const grp=G('nav-cmd-group'); if(grp) grp.style.display=(pans||pors||accs||any)?'':'none';
+}
 function refreshAll(){
   renumberPortes();
+  try{ refreshNav(); }catch(e){}
   try{ saveDraft(); }catch(e){}
   const p=P();
   // Signaler des pose/acc/coef propres à ce devis (différents des défauts)
@@ -4683,7 +4722,29 @@ async function nouveauDevis(){
   showToast('Nouveau devis '+num);
   G('devis-panel').classList.remove('open');
   showPage('config', document.querySelector('.nav-item'));
+  openProjetModal(); // portail : nommer l'affaire avant toute action
 }
+// ── Portail « nommer l'affaire » (bloque tant que le nom est vide) ──
+function openProjetModal(){
+  const m=G('projet-modal'); if(!m) return;
+  const n=G('projet-modal-num'); if(n) n.textContent=G('devis-num')?.textContent||'';
+  const inp=G('projet-modal-input'); if(inp) inp.value='';
+  projModalSync();
+  m.classList.add('open');
+  setTimeout(()=>{ const i=G('projet-modal-input'); if(i) i.focus(); },60);
+}
+function projModalSync(){
+  const inp=G('projet-modal-input'), btn=G('projet-modal-btn'); if(!inp||!btn) return;
+  const ok=!!inp.value.trim();
+  btn.disabled=!ok; btn.style.opacity=ok?'1':'.45'; btn.style.cursor=ok?'pointer':'not-allowed';
+}
+function projModalConfirm(){
+  const inp=G('projet-modal-input'); const v=(inp&&inp.value||'').trim(); if(!v) return;
+  if(G('projet-nom')) G('projet-nom').value=v;
+  G('projet-modal').classList.remove('open');
+  refreshAll();
+}
+function projModalSkip(){ const m=G('projet-modal'); if(m) m.classList.remove('open'); } // échappatoire discrète (Échap)
 
 let _panelCache=[];        // liste brute du panneau latéral (pour re-rendre au dépliage)
 let panelVerOpen={};       // groupes de versions dépliés dans le panneau
