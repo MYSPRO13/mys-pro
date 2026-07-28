@@ -2826,7 +2826,7 @@ function refreshNav(){
   const show=(id,on)=>{ const el=G(id); if(!el) return; if(on){ if(el.style.display==='none'){ el.style.display=''; el.classList.add('revealing'); setTimeout(()=>el.classList.remove('revealing'),320); } } else { el.style.display='none'; } };
   show('nav-cmdpan', pans);
   show('nav-cmdpor', pors);
-  show('nav-cmdacc', pans||pors||accs);   // le métré accessoires s'appuie surtout sur les panneaux
+  show('nav-cmdacc', pans||pors||accs);   // accessoires : métré déduit des panneaux ET des portes (mousse, embouts…) OU compléments manuels
   show('nav-mission', any);
   const grp=G('nav-cmd-group'); if(grp) grp.style.display=(pans||pors||accs||any)?'':'none';
 }
