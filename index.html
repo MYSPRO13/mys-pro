@@ -1540,7 +1540,10 @@ function togglePwd(){
     <div class="card">
       <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
         <div class="card-title">Ordre de mission</div>
-        <button class="btn btn-green" onclick="genMissionPDF()" style="font-size:12px;padding:6px 14px">Générer PDF</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn" onclick="genRecapPDF()" style="font-size:12px;padding:6px 14px" title="Fiche poseur : portes + cotes de découpe, panneaux et accessoires — sans prix">Récap chantier poseur</button>
+          <button class="btn btn-green" onclick="genMissionPDF()" style="font-size:12px;padding:6px 14px">Générer PDF</button>
+        </div>
       </div>
       <div class="card-body">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem">
@@ -5089,6 +5092,89 @@ function genDecoupePDF(){
   }
   const safe=(projetNom||devisNum||'Decoupe').replace(/[^\wÀ-ž]/g,'_').replace(/_+/g,'_');
   doc.save('Cotes_decoupe_'+safe+'.pdf');
+}
+
+function genRecapPDF(){
+  if(!items.length){ if(typeof toast==='function') toast('Devis vide — rien à récapituler.'); else alert('Devis vide.'); return; }
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const W=210,ML=14,MR=196,TW=MR-ML;
+  const NAVY=[26,25,23],GREY=[110,114,120],DGREY=[60,63,70],WHITE=[255,255,255],LGREY=[240,239,237];
+  const projetNom=G('projet-nom')?.value||'';
+  const devisNum=G('devis-num')?.textContent||'';
+  function sf(bold,size,color){doc.setFont('helvetica',bold?'bold':'normal');doc.setFontSize(size);doc.setTextColor(...(color||NAVY));}
+  function fillR(x,yy,w,h,fill){doc.setFillColor(...fill);doc.rect(x,yy,w,h,'F');}
+  function hline(yy,col,lw){doc.setDrawColor(...(col||LGREY));doc.setLineWidth(lw||0.3);doc.line(ML,yy,MR,yy);}
+
+  let y=10;
+  const logoW=38,logoH=26.9;
+  try{doc.addImage(LOGO_B64,'PNG',ML,y,logoW,logoH);}catch(e){sf(true,14,NAVY);doc.text('MYS Pro',ML,y+14);}
+  sf(true,18,NAVY); doc.text('RÉCAP CHANTIER', MR, y+8, {align:'right'});
+  sf(false,8,GREY); doc.text('Document poseur — sans prix', MR, y+13, {align:'right'});
+  sf(false,8.5,GREY); doc.text('Date :', MR-28, y+19, {align:'right'});
+  sf(true,8.5,DGREY); doc.text(new Date().toLocaleDateString('fr-FR'), MR-23, y+19);
+  if(devisNum){ sf(false,8.5,GREY); doc.text('Réf. Devis :', MR-28, y+24, {align:'right'}); sf(true,8.5,DGREY); doc.text(devisNum+(projetNom?' — '+projetNom:''), MR-23, y+24); }
+  y+=logoH+5; hline(y,[180,180,180],0.5); y+=6;
+
+  function section(title, heads, cw, rowArrays, alignFrom, emphCol, emptyMsg){
+    if(y+20>282){ doc.addPage(); y=15; }
+    fillR(ML,y,TW,7,NAVY); sf(true,8.5,WHITE); doc.text(title, ML+3, y+4.9); y+=7;
+    if(!rowArrays.length){ sf(false,8,GREY); doc.text(emptyMsg||'Aucun élément.', ML+3, y+6); y+=11; return; }
+    fillR(ML,y,TW,6,LGREY); let cx=ML;
+    heads.forEach((h,i)=>{ sf(true,6.5,GREY); if(i>=alignFrom) doc.text(h,cx+cw[i]-2,y+4.1,{align:'right'}); else doc.text(h,cx+2,y+4.1); cx+=cw[i]; }); y+=6;
+    rowArrays.forEach((cells,idx)=>{
+      const wrapped=cells.map((c,i)=>doc.splitTextToSize(String(c==null?'':c), cw[i]-4));
+      const maxLines=Math.max(1,...wrapped.map(w=>w.length));
+      const rh=Math.max(7, maxLines*3.7+2.5);
+      if(y+rh>282){ doc.addPage(); y=15; }
+      if(idx%2===1) fillR(ML,y,TW,rh,[248,248,247]);
+      cx=ML;
+      wrapped.forEach((lines,i)=>{ const emph=(i===emphCol); sf(emph, emph?8:7, i===0&&emphCol!==0?DGREY:(emph?NAVY:DGREY)); if(i>=alignFrom) doc.text(lines,cx+cw[i]-2,y+4.6,{align:'right'}); else doc.text(lines,cx+2,y+4.6); cx+=cw[i]; });
+      doc.setDrawColor(...LGREY); doc.setLineWidth(0.25); doc.line(ML,y+rh,ML+TW,y+rh);
+      y+=rh;
+    });
+    y+=6;
+  }
+
+  // §1 — Portes & cotes de découpe
+  const portes=items.filter(i=>i.type==='por');
+  const porRows=portes.map(it=>{
+    const r=porReservation(it), d=POR_DECOUPE[porDecoupeCode(it)];
+    let passage='—',decoupe='—',reserv='—';
+    if(r.statut==='ok'){ passage=r.passL+' × '+r.passH; decoupe='+'+r.addL+' × +'+r.addH; reserv=r.resL+' × '+r.resH; }
+    else if(r.statut==='rideau'){ reserv='pas de découpe'; }
+    else if(r.statut==='dim'){ passage='à saisir'; decoupe='+'+d.l+' × +'+d.h; reserv='saisir dims'; }
+    else { passage=(!isNaN(parseFloat(it._larg))&&!isNaN(parseFloat(it._haut)))?(Math.round(it._larg)+' × '+Math.round(it._haut)):'—'; decoupe='?'; reserv='cote à définir'; }
+    return [it.ref||'', it.piece||'—', porTypeName(it), passage, decoupe, reserv];
+  });
+  section('1 — Portes & cotes de découpe', ['Réf.','Pièce','Type','Passage','Découpe','Réservation'], [12,34,42,24,22,48], porRows, 3, 5, 'Aucune porte dans ce devis.');
+
+  // §2 — Panneaux
+  const pans=items.filter(i=>i.type==='pan');
+  const panRows=pans.map(it=>{
+    const isBrio=it.mousse==='BRIO';
+    const desig=isBrio?`BRIO ${it.ep}mm`:`${it.paroi} ${it.ep}mm — ${it.mousse}${it.surface?' — '+it.surface:''}`;
+    const haut=it._h?String(Math.round(parseFloat(it._h)*1000)):'—';
+    return [it.piece||'—', desig, haut, it.nbPan||'—'];
+  });
+  section('2 — Panneaux', ['Pièce','Désignation','Hauteur (mm)','Nb'], [40,96,26,20], panRows, 2, 3, 'Aucun panneau dans ce devis.');
+
+  // §3 — Accessoires & consommables (métré + ajouts manuels, quantités seules)
+  let accRows=[];
+  try{ const g=cmdAccGroupes('celtek'); const arr=g['Celtek']||g[Object.keys(g)[0]]||[]; accRows=arr.map(r=>[r[0], r[1]]); }catch(e){ accRows=[]; }
+  section('3 — Accessoires & consommables', ['Désignation','Quantité'], [130,52], accRows, 1, 1, 'Aucun accessoire — renseigne le métré dans « Cmd accessoires ».');
+
+  // Pied de page
+  const pc=doc.internal.getNumberOfPages();
+  for(let i=1;i<=pc;i++){
+    doc.setPage(i);
+    fillR(0,284,W,9,NAVY); sf(false,6,WHITE);
+    doc.text('Siret N° 977 511 237 00017 — RCS Montpellier — Code NAF 46.69C — TVA N°FR41977511237',W/2,288,{align:'center'});
+    doc.text('MYS Pro — 9 Avenue de l\'Europe Module 6, 34830 Clapiers — Tél. 06 26 31 92 37',W/2,291,{align:'center'});
+    sf(false,6.5,WHITE); doc.text('Page '+i+'/'+pc,MR,290,{align:'right'});
+  }
+  const safe=(projetNom||devisNum||'Recap').replace(/[^\wÀ-ž]/g,'_').replace(/_+/g,'_');
+  doc.save('Recap_chantier_'+safe+'.pdf');
 }
 
 function genMissionPDF(){
