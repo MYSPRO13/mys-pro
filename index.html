@@ -1444,7 +1444,10 @@ function togglePwd(){
     <div class="card">
       <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
         <div class="card-title">Commande portes & rideaux</div>
-        <button class="btn btn-green" onclick="genCmdPDF('por')" style="font-size:12px;padding:6px 14px">Générer PDF</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn" onclick="genDecoupePDF()" style="font-size:12px;padding:6px 14px" title="Fiche poseur : réservations à découper dans les panneaux">Cotes de découpe</button>
+          <button class="btn btn-green" onclick="genCmdPDF('por')" style="font-size:12px;padding:6px 14px">Générer PDF</button>
+        </div>
       </div>
       <div class="card-body">
         <div id="cmd-por-form" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem">
@@ -1901,6 +1904,18 @@ const POSE_P={PCIP:150,PCIN:150,PPIP:120,PPIN:120,PPSI:100,PPSI_CF:100,PPIP_CF:1
 const HAS_FERR=['PCIP','PCIN','PPIP','PPIN','PPSI','PPSI_CF','PPIP_CF','PCS','PPS','PVV'];
 const HAS_NEG=['PCIN','PPIN'];
 const DIM_INFO={PCIP:'600→3000 larg. | 1800→3000 haut.',PCIN:'700→3000 larg. | 1800→3000 haut.',PPIP:'600→1400 | 1800→2200',PPIN:'600→1200 | 1800→2200',PPSI:'600→2000 | 1800→2200',PPSI_CF:'dimensions libres — prix saisi',PPIP_CF:'dimensions libres — prix saisi',PVV:'700→2000 | 1800→2500',PCS:'600→2000 | 1800→2500',PPS:'796/896 larg. | 2028 haut.',CHASSIS:'600→1200 | 800→2000',RIDEAU:'Dimensions selon matrice'};
+// Cotes de découpe portes (fiche poseur) — supplément en mm à AJOUTER au passage saisi pour obtenir la réservation à découper dans le panneau. Ordre = largeur × hauteur. Source : classeur Coldkit « Ajout Manuel » (confirmé Clément 2026-07-29). Coupe-feu PPSI_CF/PPIP_CF : cotes à venir. RIDEAU : pas de découpe.
+const POR_DECOUPE={PPSI:{l:75,h:40},PVV:{l:80,h:10},PPIP:{l:100,h:50},PPIN:{l:100,h:50},PCIP:{l:100,h:50},PCIN:{l:100,h:50},PPS:{l:60,h:30},PCS:{l:20,h:10},CHASSIS:{l:120,h:120}};
+function porDecoupeCode(it){return it.subtype||(String(it.label||'').split(' — ')[0]||'').trim();}
+function porReservation(it){
+  const code=porDecoupeCode(it);
+  if(code==='RIDEAU') return {statut:'rideau'};      // pas de découpe
+  const d=POR_DECOUPE[code];
+  if(!d) return {statut:'nc'};                        // cote inconnue (coupe-feu…)
+  const L=parseFloat(it._larg), H=parseFloat(it._haut);
+  if(isNaN(L)||isNaN(H)) return {statut:'dim'};       // dimensions manquantes
+  return {statut:'ok', passL:Math.round(L), passH:Math.round(H), addL:d.l, addH:d.h, resL:Math.round(L)+d.l, resH:Math.round(H)+d.h};
+}
 const SOL_LENGTHS=[2000,2200,2400,2600,2800,3000];
 
 // Contacts chargés depuis Supabase après connexion (clé base_contacts)
@@ -4994,6 +5009,86 @@ function genCmdPDF(type, ov){
   const safe=(projetNom||devisNum||'Cmd').replace(/[^\w\u00C0-\u017E]/g,'_').replace(/_+/g,'_');
   const foupart = ov.fouNom ? '_'+String(ov.fouNom).replace(/[^\w\u00C0-\u017E]/g,'_').replace(/_+/g,'_') : '';
   doc.save(`Cmd_${label}${foupart}_${safe}.pdf`);
+}
+
+function genDecoupePDF(){
+  const portes=items.filter(i=>i.type==='por');
+  if(!portes.length){ if(typeof toast==='function') toast('Aucune porte dans ce devis — rien à découper.'); else alert('Aucune porte dans ce devis.'); return; }
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const W=210,ML=14,MR=196,TW=MR-ML;
+  const NAVY=[26,25,23],GREY=[110,114,120],DGREY=[60,63,70],BLACK=[26,25,23],WHITE=[255,255,255],LGREY=[240,239,237];
+  const projetNom=G('projet-nom')?.value||'';
+  const devisNum=G('devis-num')?.textContent||'';
+  function sf(bold,size,color){doc.setFont('helvetica',bold?'bold':'normal');doc.setFontSize(size);doc.setTextColor(...(color||BLACK));}
+  function hline(y,col,lw){doc.setDrawColor(...(col||LGREY));doc.setLineWidth(lw||0.3);doc.line(ML,y,MR,y);}
+  function fillR(x,y,w,h,fill){doc.setFillColor(...fill);doc.rect(x,y,w,h,'F');}
+
+  let y=10;
+  const logoW=38,logoH=26.9;
+  try{doc.addImage(LOGO_B64,'PNG',ML,y,logoW,logoH);}catch(e){sf(true,14,NAVY);doc.text('MYS Pro',ML,y+14);}
+  sf(true,18,NAVY); doc.text('COTES DE DÉCOUPE', MR, y+8, {align:'right'});
+  sf(false,8,GREY); doc.text('Document poseur', MR, y+13, {align:'right'});
+  sf(false,8.5,GREY); doc.text('Date :', MR-28, y+19, {align:'right'});
+  sf(true,8.5,DGREY); doc.text(new Date().toLocaleDateString('fr-FR'), MR-23, y+19);
+  if(devisNum){ sf(false,8.5,GREY); doc.text('Réf. Devis :', MR-28, y+24, {align:'right'}); sf(true,8.5,DGREY); doc.text(devisNum+(projetNom?' — '+projetNom:''), MR-23, y+24); }
+  y+=logoH+5; hline(y,[180,180,180],0.5); y+=6;
+
+  // Bandeau explicatif
+  doc.setFillColor(248,247,244); doc.setDrawColor(222,220,214); doc.setLineWidth(0.35);
+  doc.roundedRect(ML,y,TW,15,2.5,2.5,'FD');
+  sf(true,7.5,DGREY); doc.text('Réservation à découper dans le panneau = passage de la porte + cote de découpe.', ML+4, y+6);
+  sf(false,7.5,GREY); doc.text('Toutes les cotes en millimètres, indiquées largeur × hauteur.', ML+4, y+11);
+  y+=15+6;
+
+  // En-tête tableau
+  const headers=['Réf.','Pièce','Type de porte','Passage','Découpe','Réservation à découper'];
+  const cw=[12,40,46,24,22,38];
+  fillR(ML,y,TW,7,NAVY);
+  let cx=ML;
+  headers.forEach((h,i)=>{ sf(true,7,WHITE); if(i>=3) doc.text(h,cx+cw[i]-2,y+4.8,{align:'right'}); else doc.text(h,cx+2,y+4.8); cx+=cw[i]; });
+  y+=7;
+
+  let anyNC=false;
+  portes.forEach((it,idx)=>{
+    const r=porReservation(it);
+    const d=POR_DECOUPE[porDecoupeCode(it)];
+    let passage='—', decoupe='—', reserv='—';
+    if(r.statut==='ok'){ passage=r.passL+' × '+r.passH; decoupe='+'+r.addL+' × +'+r.addH; reserv=r.resL+' × '+r.resH; }
+    else if(r.statut==='rideau'){ reserv='pas de découpe'; }
+    else if(r.statut==='dim'){ passage='à saisir'; decoupe='+'+d.l+' × +'+d.h; reserv='saisir les dims'; }
+    else { anyNC=true; passage=(!isNaN(parseFloat(it._larg))&&!isNaN(parseFloat(it._haut)))?(Math.round(it._larg)+' × '+Math.round(it._haut)):'—'; decoupe='?'; reserv='cote à définir'; }
+    const cells=[it.ref||'', it.piece||'—', porTypeName(it), passage, decoupe, reserv];
+    const wrapped=cells.map((c,i)=>doc.splitTextToSize(String(c==null?'':c), cw[i]-4));
+    const maxLines=Math.max(1,...wrapped.map(w=>w.length));
+    const rh=Math.max(8, maxLines*3.8+3);
+    if(y+rh>276){doc.addPage();y=15;}
+    if(idx%2===1) fillR(ML,y,TW,rh,[248,248,247]);
+    cx=ML;
+    wrapped.forEach((lines,i)=>{
+      const emph=(i===5 && r.statut==='ok');
+      sf(emph, emph?8.5:7, i===0?GREY:(emph?NAVY:DGREY));
+      if(i>=3) doc.text(lines,cx+cw[i]-2,y+5,{align:'right'});
+      else doc.text(lines,cx+2,y+5);
+      cx+=cw[i];
+    });
+    doc.setDrawColor(...LGREY);doc.setLineWidth(0.25); doc.line(ML,y+rh,ML+TW,y+rh);
+    y+=rh;
+  });
+
+  if(anyNC){ y+=5; sf(false,7,GREY); doc.text('« cote à définir » : portes coupe-feu — cotes de découpe non encore renseignées.', ML+2, y); y+=4; }
+
+  // Pied de page
+  const pc=doc.internal.getNumberOfPages();
+  for(let i=1;i<=pc;i++){
+    doc.setPage(i);
+    fillR(0,284,W,9,NAVY); sf(false,6,WHITE);
+    doc.text('Siret N° 977 511 237 00017 — RCS Montpellier — Code NAF 46.69C — TVA N°FR41977511237',W/2,288,{align:'center'});
+    doc.text('MYS Pro — 9 Avenue de l\'Europe Module 6, 34830 Clapiers — Tél. 06 26 31 92 37',W/2,291,{align:'center'});
+    sf(false,6.5,WHITE); doc.text('Page '+i+'/'+pc,MR,290,{align:'right'});
+  }
+  const safe=(projetNom||devisNum||'Decoupe').replace(/[^\wÀ-ž]/g,'_').replace(/_+/g,'_');
+  doc.save('Cotes_decoupe_'+safe+'.pdf');
 }
 
 function genMissionPDF(){
