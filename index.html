@@ -1799,14 +1799,22 @@ function togglePwd(){
   <button class="collapse-btn" onclick="togCollapse('px')">Prix achat panneaux<span class="collapse-arrow" id="arr-px">▼</span></button>
   <div class="collapse-body" id="body-px">
     <table class="px-table">
-      <tr><th>Ép.</th><th>LL</th><th>LN</th></tr>
-      <tr><td>40</td><td><input id="x40ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="x40ln" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
-      <tr><td>60</td><td><input id="x60ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="x60ln" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
-      <tr><td>80</td><td><input id="x80ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="x80ln" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
-      <tr><td>100</td><td><input id="x100ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="x100ln" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
-      <tr><td>120</td><td><input id="x120ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="x120ln" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
-      <tr><td>150</td><td><input id="x150ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="x150ln" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
+      <tr><th>Ép.</th><th>PIR €/m²</th><th>LR €/m²</th></tr>
+      <tr><td>40</td><td><input id="x40ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xLR40" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
+      <tr><td>60</td><td><input id="x60ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xLR60" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
+      <tr><td>80</td><td><input id="x80ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xLR80" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
+      <tr><td>100</td><td><input id="x100ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xLR100" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
+      <tr><td>120</td><td><input id="x120ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xLR120" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
+      <tr><td>150</td><td><input id="x150ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xLR150" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
     </table>
+    <div style="padding:.5rem .25rem;font-size:12px;color:var(--text2)">
+      <div style="margin-bottom:4px;font-weight:600">Supplément d'achat par face (€/m²)</div>
+      <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+        <label style="display:flex;gap:6px;align-items:center">PET55 <input id="sup_pet55" type="number" value="" step="0.01" style="width:80px" oninput="refreshAll()"></label>
+        <label style="display:flex;gap:6px;align-items:center">Inox <input id="sup_inox" type="number" value="" step="0.01" style="width:80px" oninput="refreshAll()"></label>
+      </div>
+      <div style="margin-top:4px;color:var(--text3);font-style:italic">Lisse et Nervuré = pas de supplément. Le supplément s'applique par face (2 faces = ×2).</div>
+    </div>
   </div>
 
   <div style="padding:.75rem 1rem;border-top:1px solid var(--border2);display:flex;gap:6px">
@@ -2146,7 +2154,16 @@ function initAccPrices(){
     });
   });
 }
-function getPx(ep,surf){const ln=surf&&(surf.includes('Nervuré acier')||surf.includes('Nervuré/Lisse'));return parseFloat(G(`x${ep}${ln?'ln':'ll'}`)?.value)||0;}
+// Prix panneau (achat/m²) = base(isolant, épaisseur) + supplément face intérieure + supplément face extérieure.
+// Base : PIR = x{ep}ll ; LR = xLR{ep}. Suppléments d'achat PAR FACE : Lisse/Nervuré = 0, PET55 = sup_pet55, Inox = sup_inox.
+// La surface est stockée « faceInt/faceExt » (ex. "Lisse/Inox"). Tous les prix viennent de Supabase.
+const FACE_OPTS=[['Lisse','Lisse','Standard'],['Nervuré','Nervuré','Standard'],['PET55','PET55','Alimentaire +'],['Inox','Inox','Inox +']];
+function normFace(f){f=String(f||'').trim();if(/inox/i.test(f))return'Inox';if(/pet/i.test(f))return'PET55';if(/nervur/i.test(f))return'Nervuré';if(/lisse/i.test(f))return'Lisse';return f||'Lisse';}
+function splitFaces(surface){const p=String(surface||'').split('/');return [normFace(p[0]||'Lisse'), normFace(p[1]!=null&&p[1]!==''?p[1]:(p[0]||'Lisse'))];}
+function panBaseAchat(mousse,ep){return parseFloat(G(mousse==='LR'?('xLR'+ep):('x'+ep+'ll'))?.value)||0;}
+function faceSupp(face){const f=String(face||'');if(/inox/i.test(f))return parseFloat(G('sup_inox')?.value)||0;if(/pet/i.test(f))return parseFloat(G('sup_pet55')?.value)||0;return 0;}
+function surfSupp(surf){return String(surf||'').split('/').reduce((s,f)=>s+faceSupp(f),0);}
+function getPx(ep,surf,mousse){return panBaseAchat(mousse,ep)+surfSupp(surf);}
 function fc(m,l,h,f){const ks=[`${l}x${h}${f||''}`,`${l}x${h}D`,`${l}x${h}G`,`${l}x${h}`];for(const k of ks)if(m[k]!==undefined)return{p:m[k],ref:k,exact:true,kl:l,kh:h};let b=null,bd=Infinity;for(const[k,p] of Object.entries(m)){const ps=k.replace(/[DG]$/,'').split('x');if(ps.length<2)continue;const kl=parseInt(ps[0]),kh=parseInt(ps[1]);if(kl>=l&&kh>=h){const d=(kl-l)+(kh-h);if(d<bd){bd=d;b={p,ref:k,exact:false,kl,kh};}}}return b;}
 function rr(l,v,hl){return`<div class="recap-row"><span class="rk">${l}</span><span class="rv"${hl?' style="color:var(--blue)"':''}>${v}</span></div>`;}
 function r2(n){return Math.round((Number(n)||0)*100)/100;}
@@ -2155,7 +2172,7 @@ function r2(n){return Math.round((Number(n)||0)*100)/100;}
 // vérifie à la calculatrice (PU × Qté = Montant, au centime).
 function cpv(it,p){
   if(it.type==='pan'){
-    const a=getPx(it.ep,it.surface);
+    const a=getPx(it.ep,it.surface,it.mousse);
     const s=it.surf||it.surfExact||0; // la quantité FACTURÉE = celle affichée sur le devis
     if(p.mode==='journee') return r2(r2(a*p.coef)*s);
     return r2(r2((a+p.pose+p.acc)*p.coef)*s);
@@ -2181,7 +2198,7 @@ function calcMarge(p){
   items.forEach(it=>{
     const v=cpv(it,p);
     if(it.type==='pan'){
-      const a=getPx(it.ep,it.surface), s=it.surf||it.surfExact||0;
+      const a=getPx(it.ep,it.surface,it.mousse), s=it.surf||it.surfExact||0;
       if(a>0){ vFerme+=v; cFerme+=(p.mode==='journee'?a:(a+p.pose+p.acc))*s; }
       else { vFlou+=v; flou.push('Panneau — '+it.label+' (prix/m² non renseigné)'); }
     } else if(it.type==='por'){
@@ -3129,6 +3146,7 @@ function editItem(i){
   if(it.type==='pan'){
     editIdx=i; editType='pan';
     pS={paroi:it.paroi, mousse:it.mousse, ep:it.ep, surface:it.surface, piece:it.piece||''};
+    if(it.paroi!=='Sol négatif' && it.mousse!=='BRIO'){ const [f1,f2]=splitFaces(it.surface); pS.face1=f1; pS.face2=f2; }
     if(it.dimsIncomplete){ pS._surfManual=it.surfExact||it.surf; }
     else if(it.paroi==='Sol négatif'){ pS._ml=it._ml; pS._lg=it._lg!=null?it._lg:(it._ml>0&&it.surfExact?Math.round(it.surfExact/it._ml*100)/100:''); }
     else if(it.paroi==='Plafond'){ pS._ml=it._ml; pS._lg=it._lg!=null?it._lg:(it.nbPan>0?Math.round(it.nbPan*1.15*100)/100:''); }
@@ -3271,7 +3289,7 @@ function panRender(){
       h+=panPiece();
     } else {
       h+=cfgBlock('Type de mousse',
-        [['PIR','PIR','Polyisocyanurate',true],['PUR','PUR','Polyuréthane',false],['LR','LR','Laine de roche',false],['BRIO','BRIO','Paroi BRIO',false]]
+        [['PIR','PIR','Polyisocyanurate',true],['LR','LR','Laine de roche',false],['BRIO','BRIO','Paroi BRIO',false]]
           .map(([v,l,hint,def])=>cfgChoice('panPick','mousse',v,l,hint,pS.mousse===v,def&&!pS.mousse)).join(''));
       if(pS.mousse==='BRIO'){
         h+=cfgBlock('Épaisseur',['2','3','5'].map(e=>cfgChoice('panPick','ep',e,e+' mm','',pS.ep===e,false)).join(''));
@@ -3286,12 +3304,15 @@ function panRender(){
         const isPlaf=paroi==='Plafond';
         h+=cfgBlock('Épaisseur',(isPlaf?EP_PL:EP_CL).map(e=>cfgChoice('panPick','ep',e.v,e.l,e.h,pS.ep===e.v,e.pre&&!pS.ep)).join(''));
         if(pS.ep){
-          h+=cfgBlock('Type de surface',(isPlaf?SF_PL:SF_CL).map(s=>cfgChoice('panPick','surface',s.v,s.v,s.h,pS.surface===s.v,s.pre&&!pS.surface)).join(''));
-          if(pS.surface){
-            h+=cfgPill(`${paroi} — ${pS.mousse} — ${pS.ep}mm — ${pS.surface}`);
+          const def2=isPlaf?'Nervuré':'Lisse';
+          h+=cfgBlock('Face intérieure',FACE_OPTS.map(([v,l,hint])=>cfgChoice('panPick','face1',v,l,hint,pS.face1===v,(v==='Lisse')&&!pS.face1)).join(''));
+          h+=cfgBlock('Face extérieure',FACE_OPTS.map(([v,l,hint])=>cfgChoice('panPick','face2',v,l,hint,pS.face2===v,(v===def2)&&!pS.face2)).join(''));
+          if(pS.face1&&pS.face2){
+            pS.surface=pS.face1+'/'+pS.face2;
+            h+=cfgPill(`${paroi} — ${pS.mousse} — ${pS.ep}mm — faces ${pS.face1} / ${pS.face2}`);
             h+=panDims(isPlaf?'plafond':'cloison');
             if(isPlaf) h+=panPiece();
-          }
+          } else { delete pS.surface; }
         }
       }
     }
@@ -3356,7 +3377,7 @@ function panCalc(){
     }
     valid=!!pS.ep&&!!pS.surface&&surf>0;
   }
-  const p=P(); const a=getPx(pS.ep,pS.surface); const m2=(a+p.pose+p.acc)*p.coef; const tot=m2*surf;
+  const p=P(); const a=getPx(pS.ep,pS.surface,pS.mousse); const m2=(a+p.pose+p.acc)*p.coef; const tot=m2*surf;
   return {valid,paroi,isSol,isPlaf,isBrio,ml,lg,h:hUsed,nb,surf,surfExact,dimLabel,dimsIncomplete,a,coef:p.coef,pose:p.pose,acc:p.acc,tot};
 }
 function panDim(){
@@ -3386,11 +3407,16 @@ function panPrice(){
 }
 function panPick(k,v){
   if(k==='paroi'){
-    if(pS.paroi!==v){ pS={paroi:v}; }
-    if(v==='Sol négatif'){ pS.ep='100'; pS.surface='Phénolique résine'; pS.mousse=pS.mousse||'PIR'; }
+    if(pS.paroi!==v){
+      pS={paroi:v};
+      if(v==='Sol négatif'){ pS.ep='100'; pS.surface='Phénolique résine'; pS.mousse='PIR'; }
+      else if(v==='Cloison'){ pS.mousse='PIR'; pS.ep='60'; pS.face1='Lisse'; pS.face2='Lisse'; pS.surface='Lisse/Lisse'; }
+    }
   } else if(k==='mousse'){
     if(pS.mousse!==v){ pS.mousse=v; delete pS.ep; delete pS.surface; }
   } else if(k==='ep'){ pS.ep=v; }
+  else if(k==='face1'){ pS.face1=v; }
+  else if(k==='face2'){ pS.face2=v; }
   else if(k==='surface'){ pS.surface=v; }
   panRender();
 }
@@ -4169,11 +4195,14 @@ let DEFAULT_PARAMS = { pp:18, pa:6, pc:1.5 };
 
 function collectParams(){
   const px = {};
-  // Prix panneaux LL/LN
+  // Prix panneaux : base PIR (x{ep}ll) + base LR (xLR{ep})
   ['40','60','80','100','120','150'].forEach(ep=>{
     px['x'+ep+'ll'] = parseFloat(G('x'+ep+'ll')?.value)||0;
-    px['x'+ep+'ln'] = parseFloat(G('x'+ep+'ln')?.value)||0;
+    px['xLR'+ep]    = parseFloat(G('xLR'+ep)?.value)||0;
   });
+  // Suppléments d'achat par face
+  px.sup_pet55 = parseFloat(G('sup_pet55')?.value)||0;
+  px.sup_inox  = parseFloat(G('sup_inox')?.value)||0;
   // Pose, acc, coef
   // Pose/acc/coef : on enregistre les DÉFAUTS (pas les valeurs du devis en cours,
   // qui sont propres à chaque devis et sauvegardées avec lui)
@@ -4208,8 +4237,10 @@ function applyParams(px){
   if(!px) return;
   ['40','60','80','100','120','150'].forEach(ep=>{
     if(G('x'+ep+'ll') && px['x'+ep+'ll']!==undefined) G('x'+ep+'ll').value = px['x'+ep+'ll'];
-    if(G('x'+ep+'ln') && px['x'+ep+'ln']!==undefined) G('x'+ep+'ln').value = px['x'+ep+'ln'];
+    if(G('xLR'+ep) && px['xLR'+ep]!==undefined) G('xLR'+ep).value = px['xLR'+ep];
   });
+  if(G('sup_pet55') && px.sup_pet55!==undefined) G('sup_pet55').value = px.sup_pet55;
+  if(G('sup_inox')  && px.sup_inox!==undefined)  G('sup_inox').value  = px.sup_inox;
   if(px.pp) DEFAULT_PARAMS.pp = px.pp;
   if(px.pa) DEFAULT_PARAMS.pa = px.pa;
   if(px.pc) DEFAULT_PARAMS.pc = px.pc;
