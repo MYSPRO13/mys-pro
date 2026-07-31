@@ -972,6 +972,10 @@ select.dx-pill { cursor: pointer; border: none; outline: none; -webkit-appearanc
 .px-table tr:last-child td { border-bottom: none; }
 .px-table input { width: 68px; border: 1px solid var(--border); border-radius: 4px; padding: 3px 3px; font-size: 11px; font-family: 'DM Mono', monospace; text-align: right; background: var(--surface); color: var(--text); box-sizing: border-box; }
 .px-table input:focus { outline: none; border-color: var(--blue); }
+/* Catalogue accessoires : lisibilité des lignes sur écran large (zébrage + survol) */
+#acc-prices-body tr.acc-row td { border-bottom: 1px solid var(--border2); }
+#acc-prices-body tr.acc-alt td { background: var(--bg2); }
+#acc-prices-body tr.acc-row:hover td { background: var(--blue-light); }
 .acc-placeholder { margin: .25rem 1rem .5rem; padding: .5rem; font-size: 11px; color: var(--text3); font-style: italic; border: 1px dashed var(--border); border-radius: var(--radius-sm); text-align: center; }
 .acc-step { }
 .acc-field { display:flex;align-items:center;gap:10px;margin-bottom:.625rem; }
@@ -1740,7 +1744,7 @@ function togglePwd(){
       <div class="card" style="margin-bottom:1.25rem">
         <div class="card-header"><div class="card-title">Accessoires &amp; matériaux</div></div>
         <div class="card-body" style="padding-top:.5rem">
-          <table style="width:100%;border-collapse:collapse;font-size:11px">
+          <table style="width:100%;max-width:760px;border-collapse:collapse;font-size:11px">
             <thead><tr style="color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.05em">
               <th style="text-align:left;padding:4px 2px;border-bottom:1px solid var(--border2)">Matériau</th>
               <th style="text-align:right;padding:4px 2px;border-bottom:1px solid var(--border2);width:90px">Achat</th>
@@ -2176,8 +2180,9 @@ function initAccPrices(){
     tdH.onclick=()=>togAccCat(cle);
     trH.appendChild(tdH); tbody.appendChild(trH);
     if(!ouvert) return;
-    lignes.forEach(a=>{
+    lignes.forEach((a,i)=>{
       const tr = document.createElement('tr');
+      tr.className = 'acc-row' + (i%2 ? ' acc-alt' : '');
       const td1 = document.createElement('td');
       td1.style.cssText = 'padding:3px 2px;font-size:11px;color:var(--text2);line-height:1.3';
       td1.textContent = a.nom;
