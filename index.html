@@ -54,6 +54,9 @@ body {
   height: 100vh;
   overflow: hidden;
 }
+/* Pages sans devis en cours (Base client, Catalogue prix) : on récupère la colonne de droite */
+.shell.no-right { grid-template-columns: 200px 1fr; }
+.shell.no-right .sidebar-right { display: none; }
 
 /* ── TOPBAR ── */
 .topbar {
@@ -1237,7 +1240,7 @@ function togglePwd(){
   <div class="nav-utils">
     <div class="nav-item nav-util" onclick="showPage('contacts',this)">
       <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="1" width="10" height="14" rx="1"/><path d="M6 5h4M6 8h4M6 11h2"/></svg>
-      Contacts
+      Base client
     </div>
     <div class="nav-item nav-util" onclick="showPage('catalogue',this)">
       <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h10"/><circle cx="13" cy="12" r="2"/><path d="M13 10v1M13 13v1"/></svg>
@@ -1832,7 +1835,8 @@ function togglePwd(){
 <!-- MODAL -->
 <!-- Portail de création : nommer l'affaire avant toute action -->
 <div class="modal-overlay" id="projet-modal">
-  <div class="modal" style="width:420px;text-align:center">
+  <div class="modal" style="width:420px;text-align:center;position:relative">
+    <button onclick="projModalQuit()" aria-label="Fermer et revenir au menu" title="Revenir au menu principal" style="position:absolute;top:10px;right:12px;background:none;border:none;font-size:22px;line-height:1;color:var(--text3);cursor:pointer;padding:2px 6px">×</button>
     <div style="width:46px;height:46px;border-radius:12px;background:var(--blue-light);display:flex;align-items:center;justify-content:center;margin:0 auto 14px">
       <svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="var(--blue)" stroke-width="1.5"><path d="M4 2h6l4 4v8H4z"/><path d="M10 2v4h4"/><path d="M6 9h4M6 11.5h3"/></svg>
     </div>
@@ -2172,7 +2176,7 @@ function r2(n){return Math.round((Number(n)||0)*100)/100;}
 // vérifie à la calculatrice (PU × Qté = Montant, au centime).
 function cpv(it,p){
   if(it.type==='pan'){
-    const a=getPx(it.ep,it.surface,it.mousse);
+    const a=(it.achatOverride!=null&&!isNaN(it.achatOverride))?Number(it.achatOverride):getPx(it.ep,it.surface,it.mousse);
     const s=it.surf||it.surfExact||0; // la quantité FACTURÉE = celle affichée sur le devis
     if(p.mode==='journee') return r2(r2(a*p.coef)*s);
     return r2(r2((a+p.pose+p.acc)*p.coef)*s);
@@ -2198,7 +2202,7 @@ function calcMarge(p){
   items.forEach(it=>{
     const v=cpv(it,p);
     if(it.type==='pan'){
-      const a=getPx(it.ep,it.surface,it.mousse), s=it.surf||it.surfExact||0;
+      const a=(it.achatOverride!=null&&!isNaN(it.achatOverride))?Number(it.achatOverride):getPx(it.ep,it.surface,it.mousse), s=it.surf||it.surfExact||0;
       if(a>0){ vFerme+=v; cFerme+=(p.mode==='journee'?a:(a+p.pose+p.acc))*s; }
       else { vFlou+=v; flou.push('Panneau — '+it.label+' (prix/m² non renseigné)'); }
     } else if(it.type==='por'){
@@ -2714,13 +2718,14 @@ function cmdAccGenerer(fou){
 }
 function cmdAccGenererIdx(i){ const f=window._cmdAccFouKeys[i]; if(f) cmdAccGenerer(f); }
 
-const PAGE_TITLES={config:'Configurateur',devis:'Devis client','devis-existant':'Devis existant',cmdpan:'Cmd panneaux',cmdpor:'Cmd portes',cmdacc:'Cmd accessoires',mission:'Ordre de mission',contacts:'Annuaire',catalogue:'Catalogue prix'};
+const PAGE_TITLES={config:'Configurateur',devis:'Devis client','devis-existant':'Devis existant',cmdpan:'Cmd panneaux',cmdpor:'Cmd portes',cmdacc:'Cmd accessoires',mission:'Ordre de mission',contacts:'Base client',catalogue:'Catalogue prix'};
 function showPage(name, el){
   document.querySelectorAll('.page-content').forEach(p=>p.style.display='none');
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   G('page-'+name).style.display='block';
   if(el) el.classList.add('active');
   G('page-title').textContent=PAGE_TITLES[name]||name;
+  const shell=document.querySelector('.shell'); if(shell) shell.classList.toggle('no-right', name==='contacts'||name==='catalogue');
   if(name==='catalogue') renderCatalogue();
   if(name==='devis-existant') loadDevisExistant();
   if(name==='cmdacc') try{ metreRenderPanel(); }catch(e){ console.error('metre:',e); }
@@ -3147,6 +3152,7 @@ function editItem(i){
     editIdx=i; editType='pan';
     pS={paroi:it.paroi, mousse:it.mousse, ep:it.ep, surface:it.surface, piece:it.piece||''};
     if(it.paroi!=='Sol négatif' && it.mousse!=='BRIO'){ const [f1,f2]=splitFaces(it.surface); pS.face1=f1; pS.face2=f2; }
+    if(it.achatOverride!=null) pS.achatOverride=it.achatOverride;
     if(it.dimsIncomplete){ pS._surfManual=it.surfExact||it.surf; }
     else if(it.paroi==='Sol négatif'){ pS._ml=it._ml; pS._lg=it._lg!=null?it._lg:(it._ml>0&&it.surfExact?Math.round(it.surfExact/it._ml*100)/100:''); }
     else if(it.paroi==='Plafond'){ pS._ml=it._ml; pS._lg=it._lg!=null?it._lg:(it.nbPan>0?Math.round(it.nbPan*1.15*100)/100:''); }
@@ -3316,6 +3322,7 @@ function panRender(){
         }
       }
     }
+    h+=panAchatBlock();
     h+=`<div class="cfg-block" id="pan-summary"></div>`;
   }
   G('pan-config').innerHTML=h;
@@ -3344,6 +3351,18 @@ function panDims(kind){
 function panPiece(){
   return `<div class="cfg-block"><div class="step-label">Pièce <span style="font-size:11px;color:var(--text3);font-style:italic">(facultatif)</span></div><input type="text" class="field-input" id="pan-piece" placeholder="ex : Chambre froide négative..." value="${escAttr(pS.piece)}" style="width:100%" oninput="pS.piece=this.value"></div>`;
 }
+// Prix d'achat panneau modifiable POUR CE DEVIS (override du tarif catalogue) — utile après une demande de prix fournisseur (le prix varie selon la quantité).
+function panAchatBlock(){
+  if(!pS.ep||!pS.surface||!pS.mousse) return '';
+  if(pS.mousse!=='PIR') return ''; // prix d'achat négocié par devis : panneaux PIR uniquement (pour l'instant)
+  const ref=getPx(pS.ep,pS.surface,pS.mousse);
+  const ov=pS.achatOverride;
+  const has=(ov!=null&&String(ov).trim()!==''&&!isNaN(parseFloat(ov)));
+  return `<div class="cfg-block"><div class="step-label">Prix d'achat <span style="font-size:11px;color:var(--text3);font-style:italic">(ce devis — si négocié fournisseur)</span></div>`
+    +`<div style="font-size:12px;color:var(--text2);margin-bottom:6px">Tarif catalogue : <b>${fmt(ref)} €/m²</b>${has?` &nbsp;·&nbsp; <span style="color:var(--orange)">négocié : ${fmt(parseFloat(ov))} €/m²</span>`:''}</div>`
+    +`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input type="number" step="0.01" min="0" class="field-input" id="pan-achat-ov" placeholder="${fmt(ref)}" value="${has?escAttr(String(ov)):''}" oninput="panAchatInput(this.value)" style="max-width:150px"><span style="font-size:11.5px;color:var(--text3)">€/m² — laisse vide = tarif catalogue</span></div></div>`;
+}
+function panAchatInput(v){ if(v===''||v==null) delete pS.achatOverride; else pS.achatOverride=v; panPrice(); }
 function panCalc(){
   const paroi=pS.paroi; if(!paroi) return {valid:false,surf:0,nb:0};
   const isSol=paroi==='Sol négatif', isPlaf=paroi==='Plafond', isBrio=pS.mousse==='BRIO';
@@ -3377,8 +3396,12 @@ function panCalc(){
     }
     valid=!!pS.ep&&!!pS.surface&&surf>0;
   }
-  const p=P(); const a=getPx(pS.ep,pS.surface,pS.mousse); const m2=(a+p.pose+p.acc)*p.coef; const tot=m2*surf;
-  return {valid,paroi,isSol,isPlaf,isBrio,ml,lg,h:hUsed,nb,surf,surfExact,dimLabel,dimsIncomplete,a,coef:p.coef,pose:p.pose,acc:p.acc,tot};
+  const p=P();
+  const refA=getPx(pS.ep,pS.surface,pS.mousse);
+  const ov=pS.achatOverride;
+  const a=(ov!=null&&String(ov).trim()!==''&&!isNaN(parseFloat(ov)))?parseFloat(ov):refA;
+  const m2=(a+p.pose+p.acc)*p.coef; const tot=m2*surf;
+  return {valid,paroi,isSol,isPlaf,isBrio,ml,lg,h:hUsed,nb,surf,surfExact,dimLabel,dimsIncomplete,a,refA,aOver:(a!==refA),coef:p.coef,pose:p.pose,acc:p.acc,tot};
 }
 function panDim(){
   const ml=G('pan-ml'),h=G('pan-h'),lg=G('pan-lg');
@@ -3430,6 +3453,7 @@ function panAdd(){
   const label=isBrio?`BRIO ${pS.ep}mm — ${c.h}m`:`${pS.paroi} ${pS.ep}mm — ${pS.mousse}${hLabel}`;
   const meta=c.dimsIncomplete?`${fmt(c.surf)} m² · dimensions à compléter${piece?' | '+piece:''}`:`${c.nb} pan. | ${fmt(c.surf)} m²${piece?' | '+piece:''}`;
   const it={type:'pan',ref,label,meta,ep:pS.ep,surface:pS.surface,paroi:pS.paroi,surf:c.surf,surfExact:c.surfExact,nbPan:c.nb,piece:piece,_h:c.h,mousse:pS.mousse,_ml:c.ml,_lg:c.lg,dimsIncomplete:c.dimsIncomplete};
+  if(c.aOver) it.achatOverride=c.a; // prix d'achat négocié pour CE devis (override du tarif catalogue)
   const wasEdit=(editIdx!=null&&editType==='pan'&&items[editIdx]);
   if(wasEdit){ items.splice(editIdx,1,it); editIdx=null; editType=null; }
   else items.push(it);
@@ -4794,6 +4818,7 @@ function projModalConfirm(){
   refreshAll();
 }
 function projModalSkip(){ const m=G('projet-modal'); if(m) m.classList.remove('open'); } // échappatoire discrète (Échap)
+function projModalQuit(){ const m=G('projet-modal'); if(m) m.classList.remove('open'); if(typeof showHome==='function') showHome(); } // croix : ferme la modale et revient au menu principal
 
 let _panelCache=[];        // liste brute du panneau latéral (pour re-rendre au dépliage)
 let panelVerOpen={};       // groupes de versions dépliés dans le panneau
