@@ -1244,7 +1244,7 @@ function togglePwd(){
     </div>
     <div class="nav-item nav-util" onclick="showPage('catalogue',this)">
       <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h10"/><circle cx="13" cy="12" r="2"/><path d="M13 10v1M13 13v1"/></svg>
-      Catalogue prix
+      Paramètres
     </div>
   </div>
 </nav>
@@ -1691,9 +1691,53 @@ function togglePwd(){
   <!-- PAGE CATALOGUE PRIX -->
   <div id="page-catalogue" class="page-content" style="display:none">
     <div class="cnt">
-      <div style="font-size:15px;font-weight:600;margin-bottom:.25rem;letter-spacing:-.2px">Catalogue prix</div>
-      <div style="font-size:12.5px;color:var(--text2);margin-bottom:1.25rem">Prix d'achat de référence, communs à tous les devis. Déplie une famille pour saisir, puis <strong>💾 Sauvegarder les prix</strong> dans la barre de droite.</div>
-      <div class="card" style="margin-bottom:1.5rem">
+      <div style="font-size:15px;font-weight:600;margin-bottom:.25rem;letter-spacing:-.2px">Paramètres</div>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:1.25rem">Tous les prix de référence, communs à tous les devis. Modifie puis <strong>💾 Sauvegarder les prix</strong> en bas de page.</div>
+
+      <!-- ── PANNEAUX ── -->
+      <div class="card" style="margin-bottom:1.25rem">
+        <div class="card-header"><div class="card-title">Panneaux</div></div>
+        <div class="card-body">
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Prix d'achat €/m² par épaisseur</div>
+          <table class="px-table" style="max-width:380px">
+            <tr><th>Ép.</th><th>PIR €/m²</th><th>LR €/m²</th></tr>
+            <tr><td>40</td><td><input id="x40ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xLR40" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
+            <tr><td>60</td><td><input id="x60ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xLR60" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
+            <tr><td>80</td><td><input id="x80ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xLR80" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
+            <tr><td>100</td><td><input id="x100ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xLR100" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
+            <tr><td>120</td><td><input id="x120ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xLR120" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
+            <tr><td>150</td><td><input id="x150ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xLR150" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
+          </table>
+          <div style="margin-top:14px">
+            <div style="font-weight:600;font-size:12px;margin-bottom:5px">Supplément d'achat par face (€/m²)</div>
+            <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-size:12px">
+              <label style="display:flex;gap:6px;align-items:center">PET55 <input id="sup_pet55" type="number" value="" step="0.01" style="width:80px" oninput="refreshAll()"></label>
+              <label style="display:flex;gap:6px;align-items:center">Inox <input id="sup_inox" type="number" value="" step="0.01" style="width:80px" oninput="refreshAll()"></label>
+            </div>
+            <div style="margin-top:4px;color:var(--text3);font-style:italic;font-size:11px">Lisse et Nervuré = pas de supplément. Par face (2 faces = ×2).</div>
+          </div>
+          <div style="margin-top:16px">
+            <div style="font-weight:600;font-size:12px;margin-bottom:5px">Plaque BRIO (€/m²)</div>
+            <table class="px-table" style="max-width:220px">
+              <tr><th>Ép.</th><th>€/m²</th></tr>
+              <tr><td>2 mm</td><td><input id="xBRIO2" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
+              <tr><td>3 mm</td><td><input id="xBRIO3" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
+              <tr><td>5 mm</td><td><input id="xBRIO5" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── PORTES (placeholder) ── -->
+      <div class="card" style="margin-bottom:1.25rem">
+        <div class="card-header"><div class="card-title">Portes</div></div>
+        <div class="card-body">
+          <div style="font-size:12.5px;color:var(--text3);font-style:italic;padding:.5rem 0">Section à venir — les matrices de prix des portes sont gérées directement dans Supabase pour l'instant (elles bougent peu). On les intégrera ici plus tard.</div>
+        </div>
+      </div>
+
+      <!-- ── ACCESSOIRES ── -->
+      <div class="card" style="margin-bottom:1.25rem">
         <div class="card-header"><div class="card-title">Accessoires &amp; matériaux</div></div>
         <div class="card-body" style="padding-top:.5rem">
           <table style="width:100%;border-collapse:collapse;font-size:11px">
@@ -1706,7 +1750,39 @@ function togglePwd(){
           </table>
         </div>
       </div>
-      <div id="cat-sections"></div>
+
+      <!-- ── DIVERS ── -->
+      <div class="card" style="margin-bottom:1.25rem">
+        <div class="card-header"><div class="card-title">Divers</div></div>
+        <div class="card-body">
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Défauts d'un nouveau devis</div>
+          <div style="display:flex;gap:18px;flex-wrap:wrap;font-size:12.5px;margin-bottom:16px">
+            <label style="display:flex;gap:6px;align-items:center">Pose <input id="def-pp" type="number" value="18" step="0.5" style="width:72px" oninput="divDefInput()"> €/m²</label>
+            <label style="display:flex;gap:6px;align-items:center">Accessoires <input id="def-pa" type="number" value="6" step="0.5" style="width:72px" oninput="divDefInput()"> €/m²</label>
+            <label style="display:flex;gap:6px;align-items:center">Coefficient <input id="def-pc" type="number" value="1.5" step="0.05" style="width:72px" oninput="divDefInput()"> ×</label>
+          </div>
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Transport — taux de référence</div>
+          <div style="display:grid;grid-template-columns:1fr auto auto;gap:7px 10px;max-width:360px;font-size:12.5px;align-items:center">
+            <span>Franco panneaux si ≥</span><input id="tr-pan-franco" type="number" value="500" step="10" style="width:82px" oninput="refreshAll()"><span style="color:var(--text3)">m²</span>
+            <span>Sinon forfait panneaux</span><input id="tr-pan-forfait" type="number" value="200" step="10" style="width:82px" oninput="refreshAll()"><span style="color:var(--text3)">€</span>
+            <span>Taux portes</span><input id="tr-por-taux" type="number" value="12" step="1" style="width:82px" oninput="refreshAll()"><span style="color:var(--text3)">%</span>
+            <span>Portes — min</span><input id="tr-por-min" type="number" value="65" step="5" style="width:82px" oninput="refreshAll()"><span style="color:var(--text3)">€</span>
+            <span>Portes — max</span><input id="tr-por-max" type="number" value="650" step="10" style="width:82px" oninput="refreshAll()"><span style="color:var(--text3)">€</span>
+            <span>Forfait accessoires</span><input id="tr-acc-forfait" type="number" value="150" step="10" style="width:82px" oninput="refreshAll()"><span style="color:var(--text3)">€</span>
+          </div>
+          <div style="font-size:11px;color:var(--text3);font-style:italic;margin-top:10px;line-height:1.5">Le total transport, l'évacuation et la manutention de l'affaire en cours restent réglables dans la barre latérale (valeurs propres au devis).</div>
+        </div>
+      </div>
+
+      <!-- ── Enregistrement ── -->
+      <div style="display:flex;gap:8px;margin-top:.5rem;max-width:480px">
+        <button onclick="sauvegarderParams(true)" class="btn btn-green" style="flex:1;font-size:13px;padding:9px 0">💾 Sauvegarder les prix</button>
+        <button onclick="resetParams()" class="btn" style="font-size:13px;padding:9px 12px" title="Recharger depuis Supabase (annule les modifs non sauvegardées)">↺ Recharger</button>
+      </div>
+      <div style="margin-top:8px;max-width:480px">
+        <button onclick="exporterTout()" class="btn" style="width:100%;font-size:12.5px;padding:8px 0" title="Télécharge une copie complète de tous tes devis, prix et contacts">⬇ Exporter toutes mes données</button>
+        <div style="font-size:10.5px;color:var(--text3);margin-top:5px;line-height:1.4">Sauvegarde de secours sur ton ordinateur — à faire de temps en temps.</div>
+      </div>
     </div>
   </div>
 
@@ -1740,16 +1816,7 @@ function togglePwd(){
   </div>
   <button class="collapse-btn" onclick="togCollapse('transport')">Transport<span class="collapse-arrow" id="arr-transport">▼</span></button>
   <div class="collapse-body" id="body-transport">
-    <div class="sr-row" style="font-size:10px;font-weight:600;color:var(--text3);padding-bottom:2px;text-transform:uppercase;letter-spacing:.06em">Panneaux (ESQUISS)</div>
-    <div class="sr-row" style="padding-top:2px"><span class="sr-label">Franco si ≥</span><span><input class="sr-input" id="tr-pan-franco" type="number" value="500" step="10" oninput="syncP()"><span class="sr-unit">m²</span></span></div>
-    <div class="sr-row" style="padding-bottom:6px"><span class="sr-label">Sinon forfait</span><span><input class="sr-input" id="tr-pan-forfait" type="number" value="200" step="10" oninput="syncP()"><span class="sr-unit">€</span></span></div>
-    <div class="sr-row" style="font-size:10px;font-weight:600;color:var(--text3);padding-bottom:2px;text-transform:uppercase;letter-spacing:.06em">Portes (fournisseur)</div>
-    <div class="sr-row" style="padding-top:2px"><span class="sr-label">Taux</span><span><input class="sr-input" id="tr-por-taux" type="number" value="12" step="1" oninput="syncP()"><span class="sr-unit">%</span></span></div>
-    <div class="sr-row"><span class="sr-label">Min</span><span><input class="sr-input" id="tr-por-min" type="number" value="65" step="5" oninput="syncP()"><span class="sr-unit">€</span></span></div>
-    <div class="sr-row" style="padding-bottom:6px"><span class="sr-label">Max</span><span><input class="sr-input" id="tr-por-max" type="number" value="650" step="10" oninput="syncP()"><span class="sr-unit">€</span></span></div>
-    <div class="sr-row" style="font-size:10px;font-weight:600;color:var(--text3);padding-bottom:2px;text-transform:uppercase;letter-spacing:.06em">Accessoires</div>
-    <div class="sr-row" style="padding-top:2px"><span class="sr-label">Forfait</span><span><input class="sr-input" id="tr-acc-forfait" type="number" value="150" step="10" oninput="syncP()"><span class="sr-unit">€</span></span></div>
-    <div class="sr-row" style="font-size:9px;color:var(--text3);padding:0 0 6px">↳ compté seulement si panneaux dans le devis</div>
+    <div class="sr-row" style="font-size:9px;color:var(--text3);padding:.4rem 0 4px;font-style:italic">Taux de référence → Paramètres › Divers</div>
     <div class="sr-row" style="padding-top:4px;border-top:1px solid var(--border2);margin-top:2px">
       <span class="sr-label" style="font-weight:600;color:var(--text2)">Total transport HT</span>
       <span><input class="sr-input" id="tr-total" type="number" step="10" oninput="trOverride()" style="font-weight:600;color:var(--blue)"><span class="sr-unit">€</span></span>
@@ -1794,39 +1861,19 @@ function togglePwd(){
     </div>
   </div>
 
-  <!-- ── Bloc 2 : tarifs de référence — rarement touchés, volontairement discrets ── -->
-  <div class="sr-refblock">
-    <div class="sr-refhead">Tarifs de référence</div>
-    <div class="sr-refnote">Communs à tous les devis. Le catalogue complet (82 matériaux) se gère dans <a onclick="showPage('catalogue', document.querySelector('.nav-item[onclick*=&quot;catalogue&quot;]'))">Catalogue prix →</a></div>
-  </div>
-  <button class="collapse-btn" onclick="togCollapse('px')">Prix achat panneaux<span class="collapse-arrow" id="arr-px">▼</span></button>
+  <!-- Prix panneaux PIR : référence rapide pendant le devis (catalogue complet → page Paramètres) -->
+  <button class="collapse-btn" onclick="togCollapse('px')">Prix achat panneaux PIR<span class="collapse-arrow" id="arr-px">▼</span></button>
   <div class="collapse-body" id="body-px">
     <table class="px-table">
-      <tr><th>Ép.</th><th>PIR €/m²</th><th>LR €/m²</th></tr>
-      <tr><td>40</td><td><input id="x40ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xLR40" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
-      <tr><td>60</td><td><input id="x60ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xLR60" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
-      <tr><td>80</td><td><input id="x80ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xLR80" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
-      <tr><td>100</td><td><input id="x100ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xLR100" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
-      <tr><td>120</td><td><input id="x120ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xLR120" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
-      <tr><td>150</td><td><input id="x150ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xLR150" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
+      <tr><th>Ép.</th><th>PIR €/m²</th></tr>
+      <tr><td>40</td><td><input id="srp-40" type="number" step="0.01" oninput="srPirInput('40',this.value)"></td></tr>
+      <tr><td>60</td><td><input id="srp-60" type="number" step="0.01" oninput="srPirInput('60',this.value)"></td></tr>
+      <tr><td>80</td><td><input id="srp-80" type="number" step="0.01" oninput="srPirInput('80',this.value)"></td></tr>
+      <tr><td>100</td><td><input id="srp-100" type="number" step="0.01" oninput="srPirInput('100',this.value)"></td></tr>
+      <tr><td>120</td><td><input id="srp-120" type="number" step="0.01" oninput="srPirInput('120',this.value)"></td></tr>
+      <tr><td>150</td><td><input id="srp-150" type="number" step="0.01" oninput="srPirInput('150',this.value)"></td></tr>
     </table>
-    <div style="padding:.5rem .25rem;font-size:12px;color:var(--text2)">
-      <div style="margin-bottom:4px;font-weight:600">Supplément d'achat par face (€/m²)</div>
-      <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
-        <label style="display:flex;gap:6px;align-items:center">PET55 <input id="sup_pet55" type="number" value="" step="0.01" style="width:80px" oninput="refreshAll()"></label>
-        <label style="display:flex;gap:6px;align-items:center">Inox <input id="sup_inox" type="number" value="" step="0.01" style="width:80px" oninput="refreshAll()"></label>
-      </div>
-      <div style="margin-top:4px;color:var(--text3);font-style:italic">Lisse et Nervuré = pas de supplément. Le supplément s'applique par face (2 faces = ×2).</div>
-    </div>
-  </div>
-
-  <div style="padding:.75rem 1rem;border-top:1px solid var(--border2);display:flex;gap:6px">
-    <button onclick="sauvegarderParams(true)" class="btn btn-green" style="flex:1;font-size:12px;padding:7px 0">💾 Sauvegarder les prix</button>
-    <button onclick="resetParams()" class="btn" style="font-size:12px;padding:7px 8px" title="Réinitialiser">↺</button>
-  </div>
-  <div style="padding:0 1rem .75rem">
-    <button onclick="exporterTout()" class="btn" style="width:100%;font-size:12px;padding:7px 0" title="Télécharge sur ton ordinateur une copie complète de tous tes devis, prix et contacts">⬇ Exporter toutes mes données</button>
-    <div style="font-size:10.5px;color:var(--text3);margin-top:5px;line-height:1.4">Sauvegarde de secours sur ton ordinateur — à faire de temps en temps.</div>
+    <div style="font-size:10px;color:var(--text3);padding:.35rem .25rem;font-style:italic;line-height:1.4">LR, PET55, Inox et tous les autres prix → <a onclick="showPage('catalogue', document.querySelector('.nav-item[onclick*=&quot;catalogue&quot;]'))" style="color:var(--blue);cursor:pointer">page Paramètres →</a></div>
   </div>
 </aside>
 
@@ -2063,9 +2110,6 @@ const ACC_DEFAULTS = [
   {id:'brio_plaque', cat:'sol', fou:'Plastiques des Neiges', u:'plaque', nom:'Plaque BRIO RAL 9010 3000 × 1220 mm'},
   {id:'tole_larmee', cat:'sol', fou:'FIC', u:'m²',     nom:'Tôle larmée 4 mm'},
   // ── Plafond & suspension ──
-  {id:'te_alu_4m',        cat:'plafond', fou:'Fixone', u:'barre 4 m', nom:'Té aluminium laqué blanc 4 ml'},
-  {id:'clameau_reprise',  cat:'plafond', fou:'Fixone', u:'unité', nom:'Clameau de reprise avec manchon réducteur ø8/10 mm'},
-  {id:'clameau_contin',   cat:'plafond', fou:'Fixone', u:'unité', nom:'Clameau de continuité avec manchon réducteur ø8/10 mm'},
   {id:'tige_filetee_1m',  cat:'plafond', fou:'Fixone', u:'unité', nom:'Tige filetée ø10 mm de 1000 mm'},
   {id:'tendeur_10',       cat:'plafond', fou:'Fixone', u:'unité', nom:'Tendeur ø10 mm 125 × 40 × 43 mm'},
   {id:'ecrou_pom_10',     cat:'plafond', fou:'Fixone', u:'unité', nom:'Écrou POM ø10 mm sans rondelle'},
@@ -2080,12 +2124,12 @@ const ACC_DEFAULTS = [
   {id:'lisse_embout',  cat:'equip', fou:'Plastiques des Neiges', u:'unité',     nom:'Embout de lisse de protection'},
   {id:'tampon_porte',  cat:'equip', fou:'Celtek', u:'unité',     nom:'Tampon de porte'},
   // ── Té de reprise (système Fixone, calcul en kit) ──
-  {id:'ter_barre',    cat:'te', fou:'Fixone', u:'barre 4 m', nom:'Barre de Té 4 m'},
-  {id:'ter_coulisse', cat:'te', fou:'Fixone', u:'unité',     nom:'Coulisse'},
-  {id:'ter_oeillet',  cat:'te', fou:'Fixone', u:'unité',     nom:'Œillet à vis'},
-  {id:'ter_clip',     cat:'te', fou:'Fixone', u:'unité',     nom:'Clip de fixation câble'},
-  {id:'ter_cable',    cat:'te', fou:'Fixone', u:'ml',        nom:'Câble (prix au ml)'},
-  {id:'ter_eclisse',  cat:'te', fou:'Fixone', u:'unité',     nom:'Éclisse'},
+  {id:'ter_barre',    cat:'te', fou:'Fixone', u:'barre 4 m', nom:'Profil Té alu — laqué blanc — oméga 120 — 4 ML'},
+  {id:'ter_coulisse', cat:'te', fou:'Fixone', u:'unité',     nom:'Coulisse pour Té alu — ø10 mm'},
+  {id:'ter_oeillet',  cat:'te', fou:'Fixone', u:'unité',     nom:'Œillet à vis ø10 × 200 mm'},
+  {id:'ter_clip',     cat:'te', fou:'Fixone', u:'unité',     nom:'Clip fixation 120 kg — 3 mm'},
+  {id:'ter_cable',    cat:'te', fou:'Fixone', u:'bobine 100 ml', nom:'Bobine câble 100 ml — 3 mm'},
+  {id:'ter_eclisse',  cat:'te', fou:'Fixone', u:'unité',     nom:'Éclisse pour Té alu — ø10 mm'},
   {id:'ter_pose',     cat:'te', fou:'Fixone', u:'ml',        nom:'POSE du Té — €/ml (colonne Achat)'},
   // ── Anciennes lignes : conservées pour que les devis déjà enregistrés gardent leur prix ──
   {id:'te',       cat:'legacy', u:'ml',    nom:'Té alu système (ancien — €/ML)'},
@@ -2164,10 +2208,13 @@ function initAccPrices(){
 const FACE_OPTS=[['Lisse','Lisse','Standard'],['Nervuré','Nervuré','Standard'],['PET55','PET55','Alimentaire +'],['Inox','Inox','Inox +']];
 function normFace(f){f=String(f||'').trim();if(/inox/i.test(f))return'Inox';if(/pet/i.test(f))return'PET55';if(/nervur/i.test(f))return'Nervuré';if(/lisse/i.test(f))return'Lisse';return f||'Lisse';}
 function splitFaces(surface){const p=String(surface||'').split('/');return [normFace(p[0]||'Lisse'), normFace(p[1]!=null&&p[1]!==''?p[1]:(p[0]||'Lisse'))];}
-function panBaseAchat(mousse,ep){return parseFloat(G(mousse==='LR'?('xLR'+ep):('x'+ep+'ll'))?.value)||0;}
+function panBaseAchat(mousse,ep){return parseFloat(G(mousse==='BRIO'?('xBRIO'+ep):mousse==='LR'?('xLR'+ep):('x'+ep+'ll'))?.value)||0;}
 function faceSupp(face){const f=String(face||'');if(/inox/i.test(f))return parseFloat(G('sup_inox')?.value)||0;if(/pet/i.test(f))return parseFloat(G('sup_pet55')?.value)||0;return 0;}
 function surfSupp(surf){return String(surf||'').split('/').reduce((s,f)=>s+faceSupp(f),0);}
 function getPx(ep,surf,mousse){return panBaseAchat(mousse,ep)+surfSupp(surf);}
+// Barre latérale : grille PIR (srp-{ep}) = miroir de la grille canonique (x{ep}ll) de la page Paramètres.
+function srPirInput(ep,v){ const c=G('x'+ep+'ll'); if(c) c.value=v; refreshAll(); }
+function updateSidebarPir(){ ['40','60','80','100','120','150'].forEach(ep=>{ const s=G('srp-'+ep), c=G('x'+ep+'ll'); if(s&&c&&document.activeElement!==s) s.value=c.value; }); }
 function fc(m,l,h,f){const ks=[`${l}x${h}${f||''}`,`${l}x${h}D`,`${l}x${h}G`,`${l}x${h}`];for(const k of ks)if(m[k]!==undefined)return{p:m[k],ref:k,exact:true,kl:l,kh:h};let b=null,bd=Infinity;for(const[k,p] of Object.entries(m)){const ps=k.replace(/[DG]$/,'').split('x');if(ps.length<2)continue;const kl=parseInt(ps[0]),kh=parseInt(ps[1]);if(kl>=l&&kh>=h){const d=(kl-l)+(kh-h);if(d<bd){bd=d;b={p,ref:k,exact:false,kl,kh};}}}return b;}
 function rr(l,v,hl){return`<div class="recap-row"><span class="rk">${l}</span><span class="rv"${hl?' style="color:var(--blue)"':''}>${v}</span></div>`;}
 function r2(n){return Math.round((Number(n)||0)*100)/100;}
@@ -2448,7 +2495,7 @@ function teReprisePrix(ml,h,p){
   ml=parseFloat(ml)||0;
   const q=teRepriseQtes(ml,h);
   const A=id=>accPxNum('a',id);
-  const mat=q.barres*A('ter_barre')+q.coulisses*A('ter_coulisse')+q.oeillets*A('ter_oeillet')+q.clips*A('ter_clip')+q.cableMl*A('ter_cable')+q.eclisses*A('ter_eclisse');
+  const mat=q.barres*A('ter_barre')+q.coulisses*A('ter_coulisse')+q.oeillets*A('ter_oeillet')+q.clips*A('ter_clip')+q.bobines*A('ter_cable')+q.eclisses*A('ter_eclisse');
   const pose=A('ter_pose')*ml;
   const coef=(p&&p.coef)||1;
   const brut=(mat+pose)*coef;
@@ -2499,7 +2546,7 @@ function accAdd(){
   else if(pid==='plinthe'){const au=parseFloat(G('af-pl-auto')?.value)||0;const se=parseFloat(G('af-pl-sep')?.value)||0;qty=Math.ceil((au+se)/3);meta=`${qty} barres 3m — ${(au+se).toFixed(1)}ML`;}
   else if(pid==='mousse_pu'){const p2=parseInt(G('af-pu-portes')?.value)||0;const s=parseInt(G('af-pu-sup')?.value)||0;qty=p2+s;meta=`${qty} unité${qty>1?'s':''}`;}
   else if(pid==='usol'){const eps=['40','60','80','100'];const usols=eps.map(ep=>({ep,nb:parseInt(G('af-usol-'+ep)?.value)||0})).filter(u=>u.nb>0);qty=usols.reduce((s,u)=>s+u.nb,0);meta=usols.map(u=>`${u.nb} barres ${u.ep}mm`).join(' + ');}
-  const px=getPrix(pid);
+  const px=getAccPx(pid).achat; // prix d'achat canonique (le calcul réel passe de toute façon par cpv → getAccPx)
   accPush({type:'acc',label,meta,qty,vol,nbU,unit,px,achat:px,pose:0,rauto:0,surf:0,ep:'',piece:'',accId:pid,formVals});
   renderAccList();refreshAll();accReset();
 }
@@ -2718,7 +2765,7 @@ function cmdAccGenerer(fou){
 }
 function cmdAccGenererIdx(i){ const f=window._cmdAccFouKeys[i]; if(f) cmdAccGenerer(f); }
 
-const PAGE_TITLES={config:'Configurateur',devis:'Devis client','devis-existant':'Devis existant',cmdpan:'Cmd panneaux',cmdpor:'Cmd portes',cmdacc:'Cmd accessoires',mission:'Ordre de mission',contacts:'Base client',catalogue:'Catalogue prix'};
+const PAGE_TITLES={config:'Configurateur',devis:'Devis client','devis-existant':'Devis existant',cmdpan:'Cmd panneaux',cmdpor:'Cmd portes',cmdacc:'Cmd accessoires',mission:'Ordre de mission',contacts:'Base client',catalogue:'Paramètres'};
 function showPage(name, el){
   document.querySelectorAll('.page-content').forEach(p=>p.style.display='none');
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
@@ -2726,7 +2773,7 @@ function showPage(name, el){
   if(el) el.classList.add('active');
   G('page-title').textContent=PAGE_TITLES[name]||name;
   const shell=document.querySelector('.shell'); if(shell) shell.classList.toggle('no-right', name==='contacts'||name==='catalogue');
-  if(name==='catalogue') renderCatalogue();
+  if(name==='catalogue') try{ initAccPrices(); }catch(e){}
   if(name==='devis-existant') loadDevisExistant();
   if(name==='cmdacc') try{ metreRenderPanel(); }catch(e){ console.error('metre:',e); }
   refreshAll();
@@ -2777,6 +2824,8 @@ function initSidebarCards(){
   });
 }
 function syncP(){refreshAll();}
+// Divers › Défauts nouveau devis : les champs def-* pilotent DEFAULT_PARAMS (valeurs de départ d'un nouveau devis).
+function divDefInput(){ const n=(id,d)=>{const v=parseFloat(G(id)?.value); return isNaN(v)?d:v;}; DEFAULT_PARAMS.pp=n('def-pp',DEFAULT_PARAMS.pp); DEFAULT_PARAMS.pa=n('def-pa',DEFAULT_PARAMS.pa); DEFAULT_PARAMS.pc=n('def-pc',DEFAULT_PARAMS.pc); refreshAll(); }
 
 // ══ TOGGLE SECONDAIRE ══════════════════════════════════════
 function toggleSec(){
@@ -2873,6 +2922,7 @@ function refreshNav(){
 function refreshAll(){
   renumberPortes();
   try{ refreshNav(); }catch(e){}
+  try{ updateSidebarPir(); }catch(e){}
   try{ saveDraft(); }catch(e){}
   const p=P();
   // Signaler des pose/acc/coef propres à ce devis (différents des défauts)
@@ -4224,6 +4274,8 @@ function collectParams(){
     px['x'+ep+'ll'] = parseFloat(G('x'+ep+'ll')?.value)||0;
     px['xLR'+ep]    = parseFloat(G('xLR'+ep)?.value)||0;
   });
+  // Base BRIO (épaisseurs 2/3/5 mm)
+  ['2','3','5'].forEach(ep=>{ px['xBRIO'+ep]=parseFloat(G('xBRIO'+ep)?.value)||0; });
   // Suppléments d'achat par face
   px.sup_pet55 = parseFloat(G('sup_pet55')?.value)||0;
   px.sup_inox  = parseFloat(G('sup_inox')?.value)||0;
@@ -4263,14 +4315,19 @@ function applyParams(px){
     if(G('x'+ep+'ll') && px['x'+ep+'ll']!==undefined) G('x'+ep+'ll').value = px['x'+ep+'ll'];
     if(G('xLR'+ep) && px['xLR'+ep]!==undefined) G('xLR'+ep).value = px['xLR'+ep];
   });
+  ['2','3','5'].forEach(ep=>{ if(G('xBRIO'+ep) && px['xBRIO'+ep]!==undefined) G('xBRIO'+ep).value = px['xBRIO'+ep]; });
   if(G('sup_pet55') && px.sup_pet55!==undefined) G('sup_pet55').value = px.sup_pet55;
   if(G('sup_inox')  && px.sup_inox!==undefined)  G('sup_inox').value  = px.sup_inox;
+  try{ updateSidebarPir(); }catch(e){}
   if(px.pp) DEFAULT_PARAMS.pp = px.pp;
   if(px.pa) DEFAULT_PARAMS.pa = px.pa;
   if(px.pc) DEFAULT_PARAMS.pc = px.pc;
   if(G('pp') && px.pp) G('pp').value = px.pp;
   if(G('pa') && px.pa) G('pa').value = px.pa;
   if(G('pc') && px.pc) G('pc').value = px.pc;
+  if(G('def-pp') && px.pp) G('def-pp').value = px.pp;
+  if(G('def-pa') && px.pa) G('def-pa').value = px.pa;
+  if(G('def-pc') && px.pc) G('def-pc').value = px.pc;
   if(G('tr-pan-franco')  && px.tr_pan_franco)  G('tr-pan-franco').value  = px.tr_pan_franco;
   if(G('tr-pan-forfait') && px.tr_pan_forfait) G('tr-pan-forfait').value = px.tr_pan_forfait;
   if(G('tr-por-taux')     && px.tr_por_pct)     G('tr-por-taux').value     = px.tr_por_pct;
@@ -4297,7 +4354,7 @@ async function sauvegarderParams(fromButton){
   // Le bouton « Sauvegarder les prix » fige aussi pose/acc/coef courants comme nouveaux défauts ;
   // les sauvegardes automatiques (ex. prix porte hors matrice) n'y touchent pas.
   if(fromButton===true){
-    DEFAULT_PARAMS = { pp:parseFloat(G('pp')?.value)||18, pa:parseFloat(G('pa')?.value)||6, pc:parseFloat(G('pc')?.value)||1.5 };
+    DEFAULT_PARAMS = { pp:parseFloat(G('def-pp')?.value)||parseFloat(G('pp')?.value)||18, pa:parseFloat(G('def-pa')?.value)||parseFloat(G('pa')?.value)||6, pc:parseFloat(G('def-pc')?.value)||parseFloat(G('pc')?.value)||1.5 };
     refreshAll();
   }
   const px = collectParams();
