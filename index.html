@@ -1500,7 +1500,7 @@ function togglePwd(){
     <div class="card">
       <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
         <div class="card-title">Commande accessoires</div>
-        <button class="btn btn-green" onclick="genCmdPDF('acc')" style="font-size:12px;padding:6px 14px">Générer PDF</button>
+        <button class="btn btn-green" onclick="cmdAccGenererTout()" style="font-size:12px;padding:6px 14px">Générer PDF</button>
       </div>
       <div class="card-body">
         <div id="cmd-acc-form" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem">
@@ -1982,8 +1982,6 @@ function porReservation(it){
   if(isNaN(L)||isNaN(H)) return {statut:'dim'};       // dimensions manquantes
   return {statut:'ok', passL:Math.round(L), passH:Math.round(H), addL:d.l, addH:d.h, resL:Math.round(L)+d.l, resH:Math.round(H)+d.h};
 }
-const SOL_LENGTHS=[2000,2200,2400,2600,2800,3000];
-
 // Contacts chargés depuis Supabase après connexion (clé base_contacts)
 let CLI=[];
 let POS=[];
@@ -2444,9 +2442,21 @@ function renderAccForm(pid){
       <div class="acc-result" id="af-res-lisse">Saisir les ML</div>`,
     soupape:`<div class="acc-field"><label>Quantité</label><input type="number" id="af-qty" value="1" min="1" step="1"><span class="acc-unit">unité(s)</span></div>
       <div class="acc-field"><label>Volume chambre</label><input type="number" id="af-soup-vol" value="0" min="0" step="0.5"><span class="acc-unit">m³</span></div>`,
-    sol_phen:`<div class="acc-field"><label>Surface à couvrir</label><input type="number" id="af-surf" value="0" min="0" step="0.1" oninput="calcSolPhen()"><span class="acc-unit">m²</span></div>
-      <div class="acc-field"><label>Longueur panneau</label><select id="af-sol-l" onchange="calcSolPhen()"><option value="2000">2.00m</option><option value="2200">2.20m</option><option value="2400" selected>2.40m</option><option value="2600">2.60m</option><option value="2800">2.80m</option><option value="3000">3.00m</option></select></div>
-      <div class="acc-result" id="af-res-sol">Saisir la surface</div>`,
+    sol_phen:`<div class="acc-field"><label>Mode de saisie</label>
+      <div style="display:flex;gap:6px">
+        <button type="button" id="af-sol-btn-dim" onclick="solSetMode('dim')" style="font-size:12px;padding:5px 11px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif">Dimensions L × l</button>
+        <button type="button" id="af-sol-btn-surf" onclick="solSetMode('surf')" style="font-size:12px;padding:5px 11px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif">Surface m²</button>
+      </div></div>
+      <input type="hidden" id="af-sol-mode" value="dim">
+      <div id="af-sol-dimfields">
+        <div class="acc-field"><label>Longueur (L)</label><input type="number" id="af-sol-L" value="0" min="0" step="0.05" oninput="calcSolPhen()"><span class="acc-unit">m</span></div>
+        <div class="acc-field"><label>Largeur (l)</label><input type="number" id="af-sol-w" value="0" min="0" step="0.05" oninput="calcSolPhen()"><span class="acc-unit">m</span></div>
+      </div>
+      <div id="af-sol-surffields" style="display:none">
+        <div class="acc-field"><label>Surface à couvrir</label><input type="number" id="af-surf" value="0" min="0" step="0.1" oninput="calcSolPhen()"><span class="acc-unit">m²</span></div>
+      </div>
+      <div class="acc-result" id="af-res-sol">Saisir les dimensions</div>
+      <div id="af-sol-schema" style="margin-top:8px;overflow-x:auto"></div>`,
     brio:`<div class="acc-field"><label>Épaisseur</label><select id="af-brio-ep"><option value="2">2mm</option><option value="3">3mm</option><option value="5">5mm</option></select></div>
       <div class="acc-field"><label>Hauteur</label><select id="af-brio-h"><option value="2600">2.60m</option><option value="3000">3.00m</option></select></div>
       <div class="acc-field"><label>Longueur (ML)</label><input type="number" id="af-brio-ml" value="0" min="0" step="0.1" oninput="calcBrio()"><span class="acc-unit">m</span></div>
@@ -2478,10 +2488,116 @@ function renderAccForm(pid){
       ${[mlCl40,mlCl60,mlCl80,mlClNeg].every(m=>m===0)?'<div class="acc-note">Aucune cloison dans le devis</div>':''}`
   };
   el.innerHTML=forms[pid]||`<div class="acc-field"><label>Quantité</label><input type="number" id="af-qty" value="1" min="1" step="1"><span class="acc-unit">unité(s)</span></div>`;
-  if(pid==='lisse')calcLisse();if(pid==='corn_int')calcCornInt();if(pid==='plinthe')calcPlinthe();if(pid==='mousse_pu')calcPU();if(pid==='te_reprise')calcTeReprise();
+  if(pid==='lisse')calcLisse();if(pid==='corn_int')calcCornInt();if(pid==='plinthe')calcPlinthe();if(pid==='mousse_pu')calcPU();if(pid==='te_reprise')calcTeReprise();if(pid==='sol_phen')calcSolPhen();
 }
 function calcLisse(){const ml=parseFloat(G('af-ml')?.value)||0;const niv=parseInt(G('af-niv')?.value)||1;const nb=Math.ceil(ml/3)*niv;const r=G('af-res-lisse');if(r)r.innerHTML=`${nb} barre${nb>1?'s':''} 3m × ${niv} niv. | ${nb*2} cache-vis | ${nb*2} embouts`;}
-function calcSolPhen(){const surf=parseFloat(G('af-surf')?.value)||0;const l=parseInt(G('af-sol-l')?.value)||2400;const sp=1.2*(l/1000);const nb=surf>0?Math.ceil(surf/sp):0;const r=G('af-res-sol');if(r)r.innerHTML=`${nb} panneau${nb>1?'x':''} ${(l/1000).toFixed(1)}m×1.2m = ${(nb*sp).toFixed(2)}m²`;}
+// ══ SOL PHÉNOLIQUE — optimiseur de plaques (1,2 m de large × 2/2,2/2,4/2,6/2,8/3 m) ══
+// Modèle ruban : chaque rangée fait 1,2 m de large ; on couvre la longueur avec un mélange
+// de plaques, chute mini, réutilisation d'une chute uniquement si elle fait ≥ 1 m (Clément).
+const SOL_LENGTHS=[2.0,2.2,2.4,2.6,2.8,3.0], SOL_W=1.2, SOL_MINREUSE=1.0;
+const SOL_COLORS={2:'#8ecae6',2.2:'#a3c4a8',2.4:'#ffd166',2.6:'#f4a261',2.8:'#e07a5f',3:'#7f77dd'};
+function solPick(rem){ for(const L of SOL_LENGTHS){ if(L>=rem-1e-9) return L; } return SOL_LENGTHS[SOL_LENGTHS.length-1]; }
+function solSimulate(L,l){
+  let best=null;
+  for(const [w,rowLen,sens] of [[l,L,'L'],[L,l,'l']]){
+    const nrows=Math.ceil(Math.round(w/SOL_W*1e6)/1e6);
+    const lastW=Math.round((w-(nrows-1)*SOL_W)*1000)/1000;
+    const rows=[]; let carry=0.0; const newpl=[];
+    for(let r=0;r<nrows;r++){
+      let pos=0.0; const pieces=[]; let guard=0;
+      while(rowLen-pos>1e-6 && guard++<400){
+        const rem=rowLen-pos;
+        if(carry>=SOL_MINREUSE){
+          const use=Math.min(carry,rem); pieces.push([pos,pos+use,carry,true]); pos+=use;
+          carry = (pos>=rowLen-1e-6 && carry>use) ? +(carry-use).toFixed(3) : 0.0;
+        } else {
+          if(carry>0) carry=0.0;
+          const pl=solPick(rem); newpl.push(pl); const end=pos+pl;
+          if(end>=rowLen-1e-6){ pieces.push([pos,rowLen,pl,false]); carry=+(end-rowLen).toFixed(3); pos=rowLen; }
+          else { pieces.push([pos,end,pl,false]); pos=end; }
+        }
+      }
+      rows.push(pieces);
+    }
+    const cnt={}; newpl.forEach(p=>cnt[p]=(cnt[p]||0)+1);
+    const boughtM2=+(newpl.reduce((a,b)=>a+b,0)*SOL_W).toFixed(2);
+    const res={sens,w,rowLen,nrows,lastW,rows,plaques:cnt,nb:newpl.length,boughtM2,chute:+(boughtM2-L*l).toFixed(2)};
+    if(!best || res.boughtM2<best.boughtM2) best=res;
+  }
+  return best;
+}
+function solFmtMix(cnt){ return Object.keys(cnt).map(Number).sort((a,b)=>a-b).map(k=>`${cnt[k]}×${String(+k).replace('.',',')} m`).join(' + '); }
+function solSchemaSVG(L,l,res){
+  const w=res.w, rl=res.rowLen;
+  const PX=Math.max(22, Math.min(64, 300/Math.max(w,rl)));
+  const mx=34,my=22;
+  const Wpx=w*PX, Hpx=rl*PX;
+  const mix=Object.keys(res.plaques).map(Number).sort((a,b)=>a-b);
+  const lgW=mix.reduce((s,k)=>s+18+String(res.plaques[k]+'×'+String(+k).replace('.',',')+'m').length*5.4+8,0);
+  const vbW=Math.max(Wpx+2*mx, lgW+2*mx), lgd=48;
+  const strokeC='#9a9a9a', textC='#6e7278';
+  let s=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${vbW.toFixed(0)} ${(Hpx+2*my+lgd).toFixed(0)}" style="max-width:100%;height:auto;font-family:'DM Sans',sans-serif">`;
+  let x=0;
+  res.rows.forEach(pieces=>{
+    const stripW=Math.min(SOL_W, w-x);
+    pieces.forEach(([a,b,src,off])=>{
+      const X=mx+x*PX, Y=my+a*PX, PW=stripW*PX, PH=(b-a)*PX;
+      const col=SOL_COLORS[src]||'#cccccc';
+      s+=`<rect x="${X.toFixed(1)}" y="${Y.toFixed(1)}" width="${PW.toFixed(1)}" height="${PH.toFixed(1)}" fill="${col}" fill-opacity="${off?0.35:0.85}" stroke="#1A1917" stroke-width="0.7"/>`;
+      if(PH>15&&PW>16) s+=`<text x="${(X+PW/2).toFixed(1)}" y="${(Y+PH/2+3).toFixed(1)}" font-size="9" text-anchor="middle" fill="#1A1917">${String(+src).replace('.',',')}m${off?' ♻':''}</text>`;
+    });
+    x+=stripW;
+  });
+  s+=`<rect x="${mx}" y="${my}" width="${Wpx.toFixed(1)}" height="${Hpx.toFixed(1)}" fill="none" stroke="${strokeC}" stroke-width="1.5"/>`;
+  s+=`<text x="${(mx+Wpx/2).toFixed(1)}" y="${(my-7).toFixed(1)}" font-size="10" text-anchor="middle" fill="${textC}">${String(+w.toFixed(2)).replace('.',',')} m</text>`;
+  s+=`<text x="${(mx-9).toFixed(1)}" y="${(my+Hpx/2).toFixed(1)}" font-size="10" text-anchor="middle" fill="${textC}" transform="rotate(-90 ${(mx-9).toFixed(1)} ${(my+Hpx/2).toFixed(1)})">${String(+rl.toFixed(2)).replace('.',',')} m</text>`;
+  const ly=my+Hpx+22; let lx=mx;
+  mix.forEach(k=>{
+    s+=`<rect x="${lx.toFixed(1)}" y="${(ly-9).toFixed(1)}" width="12" height="9" fill="${SOL_COLORS[k]}" stroke="#1A1917" stroke-width="0.5"/>`;
+    const lab=`${res.plaques[k]}×${String(+k).replace('.',',')}m`;
+    s+=`<text x="${(lx+15).toFixed(1)}" y="${ly.toFixed(1)}" font-size="9" fill="${textC}">${lab}</text>`;
+    lx+=18+lab.length*5.4+8;
+  });
+  s+=`</svg>`;
+  return s;
+}
+function solSyncMode(){
+  const m=(G('af-sol-mode')?.value)||'dim';
+  const df=G('af-sol-dimfields'), sf=G('af-sol-surffields');
+  if(df) df.style.display=m==='dim'?'':'none';
+  if(sf) sf.style.display=m==='surf'?'':'none';
+  const on=b=>{ if(b){ b.style.background='var(--blue-light)'; b.style.borderColor='var(--blue)'; b.style.color='var(--blue)'; } };
+  const off=b=>{ if(b){ b.style.background='var(--surface)'; b.style.borderColor='var(--border)'; b.style.color='var(--text2)'; } };
+  const bd=G('af-sol-btn-dim'), bs=G('af-sol-btn-surf');
+  if(m==='dim'){ on(bd); off(bs); } else { on(bs); off(bd); }
+}
+function solSetMode(m){ const h=G('af-sol-mode'); if(h) h.value=m; solSyncMode(); calcSolPhen(); }
+// Résultat sol commun (aperçu + ajout) : {nb, qty(m² achetés), meta, cmdDetail, res, L, l}
+function solResult(){
+  const mode=(G('af-sol-mode')?.value)||'dim';
+  if(mode==='surf'){
+    const surf=parseFloat(G('af-surf')?.value)||0;
+    if(surf<=0) return null;
+    const nb=Math.ceil(surf/(SOL_W*3.0));
+    const boughtM2=Math.ceil(nb*SOL_W*3.0*100)/100;
+    return {mode,nb,qty:boughtM2,meta:`≈ ${nb} plaque${nb>1?'s':''} de 3 m × 1,2 m — ${boughtM2} m² (estimation, sans calepinage)`,cmdDetail:`≈ ${nb} plaque${nb>1?'s':''} 3 m × 1,2 m (surface saisie ${String(surf).replace('.',',')} m²)`,res:null};
+  }
+  const L=parseFloat(G('af-sol-L')?.value)||0, l=parseFloat(G('af-sol-w')?.value)||0;
+  if(L<=0||l<=0) return null;
+  const res=solSimulate(L,l);
+  return {mode,nb:res.nb,qty:res.boughtM2,L,l,res,
+    meta:`${res.nb} plaque${res.nb>1?'s':''} : ${solFmtMix(res.plaques)} — acheté ${res.boughtM2} m² · chute ${res.chute} m²`,
+    cmdDetail:`${solFmtMix(res.plaques)} — plaques ×1,2 m (sol ${String(L).replace('.',',')}×${String(l).replace('.',',')} m)`};
+}
+function calcSolPhen(){
+  solSyncMode();
+  const out=solResult();
+  const r=G('af-res-sol'), sch=G('af-sol-schema');
+  const mode=(G('af-sol-mode')?.value)||'dim';
+  if(!out){ if(r) r.innerHTML=mode==='surf'?'Saisir la surface':'Saisir la longueur et la largeur'; if(sch) sch.innerHTML=''; return; }
+  if(r) r.innerHTML=out.meta;
+  if(sch) sch.innerHTML=(out.mode==='dim'&&out.res)?solSchemaSVG(out.L,out.l,out.res):'';
+}
 function calcBrio(){const ml=parseFloat(G('af-brio-ml')?.value)||0;const ep=G('af-brio-ep')?.value;const h=parseInt(G('af-brio-h')?.value)||2600;const nb=Math.ceil(Math.round(ml/1.22*1e10)/1e10);const r=G('af-res-brio');if(r)r.innerHTML=`${nb} panneau${nb>1?'x':''} BRIO ${ep}mm × ${(h/1000).toFixed(2)}m × 1.22m`;}
 function calcTole(){const surf=parseFloat(G('af-tole-surf')?.value)||0;const fmt=parseFloat(G('af-tole-fmt')?.value)||2;const nb=surf>0?Math.ceil(surf/fmt):0;const r=G('af-res-tole');if(r)r.innerHTML=`${nb} tôle${nb>1?'s':''} — ${(nb*fmt).toFixed(2)}m² couverts`;}
 function calcTe(){const ml=parseFloat(G('af-te-ml')?.value)||0;const cable=parseFloat(G('af-te-cable')?.value)||2;const nb=Math.ceil(ml/4);const clRep=Math.ceil(ml);const clCont=nb;const tot=clRep+clCont;const r=G('af-res-te');if(r)r.innerHTML=`${nb} barres Té 4m = ${nb*4} ML facturés | ${clRep} cl.reprise | ${clCont} cl.cont. | ${tot} zip+oeillet | ~${Math.ceil(tot*cable)}m câble`;}
@@ -2528,7 +2644,7 @@ function calcPU(){const p=parseInt(G('af-pu-portes')?.value)||0;const s=parseInt
 function accAdd(){
   const pid=accProd;if(!pid)return;
   const prodDef=ACC_PRODS[accCat]?.find(x=>x.id===pid);if(!prodDef)return;
-  let label=prodDef.n,meta='',qty=1,vol=0,nbU=0,unit='';
+  let label=prodDef.n,meta='',qty=1,vol=0,nbU=0,unit='',cmdDetail='';
   const formVals=accFormVals(); // mémorisé pour pouvoir rouvrir la ligne en modification
   if(pid==='te_reprise'){
     const ml=parseFloat(G('af-ter-ml')?.value)||0;
@@ -2542,7 +2658,7 @@ function accAdd(){
   if(pid==='soupape'){qty=parseInt(G('af-qty')?.value)||1;vol=parseFloat(G('af-soup-vol')?.value)||0;meta=`${qty} unité${qty>1?'s':''}`;}
   else if(['trappe','silicone'].includes(pid)){qty=parseInt(G('af-qty')?.value)||1;meta=`${qty} unité${qty>1?'s':''}`;}
   else if(pid==='lisse'){const ml=parseFloat(G('af-ml')?.value)||0;const niv=parseInt(G('af-niv')?.value)||1;qty=Math.ceil(ml/3)*niv;meta=`${qty} barres 3m — ${ml}ML × ${niv} niv.`;}
-  else if(pid==='sol_phen'){const surf=parseFloat(G('af-surf')?.value)||0;const l=parseInt(G('af-sol-l')?.value)||2400;const sp=1.2*(l/1000);const nb=Math.ceil(surf/sp);const m2=Math.ceil(nb*sp*100)/100;qty=m2;nbU=nb;unit='m²';meta=`${nb} panneaux ${(l/1000).toFixed(1)}m×1.2m — ${m2} m²`;}
+  else if(pid==='sol_phen'){const out=solResult();if(!out){alert((G('af-sol-mode')?.value)==='surf'?'Saisir la surface.':'Saisir la longueur et la largeur.');return;}qty=out.qty;nbU=out.nb;unit='m²';meta=out.meta;cmdDetail=out.cmdDetail;}
   else if(pid==='brio'){const ml=parseFloat(G('af-brio-ml')?.value)||0;const ep=G('af-brio-ep')?.value;const h=G('af-brio-h')?.value;qty=Math.ceil(Math.round(ml/1.22*1e10)/1e10);meta=`${qty} panneaux BRIO ${ep}mm × ${(parseInt(h)/1000).toFixed(2)}m`;}
   else if(pid==='tole'){const surf=parseFloat(G('af-tole-surf')?.value)||0;const fmt=parseFloat(G('af-tole-fmt')?.value)||2;const nb=Math.ceil(surf/fmt);const m2=Math.ceil(nb*fmt*100)/100;qty=m2;nbU=nb;unit='m²';meta=`${nb} tôles — ${m2} m²`;}
   else if(pid==='te_systeme'){const ml=parseFloat(G('af-te-ml')?.value)||0;const cable=parseFloat(G('af-te-cable')?.value)||2;const nb=Math.ceil(ml/4);const mlFact=nb*4;const clRep=Math.ceil(ml);const clCont=nb;const tot=clRep+clCont;qty=mlFact;nbU=nb;unit='ML';meta=`${nb} barres Té 4m (${mlFact} ML) | ${clRep} cl.rep. | ${clCont} cl.cont. | ${tot} zip+oeillet | ~${Math.ceil(tot*cable)}m câble`;}
@@ -2552,7 +2668,7 @@ function accAdd(){
   else if(pid==='mousse_pu'){const p2=parseInt(G('af-pu-portes')?.value)||0;const s=parseInt(G('af-pu-sup')?.value)||0;qty=p2+s;meta=`${qty} unité${qty>1?'s':''}`;}
   else if(pid==='usol'){const eps=['40','60','80','100'];const usols=eps.map(ep=>({ep,nb:parseInt(G('af-usol-'+ep)?.value)||0})).filter(u=>u.nb>0);qty=usols.reduce((s,u)=>s+u.nb,0);meta=usols.map(u=>`${u.nb} barres ${u.ep}mm`).join(' + ');}
   const px=getAccPx(pid).achat; // prix d'achat canonique (le calcul réel passe de toute façon par cpv → getAccPx)
-  accPush({type:'acc',label,meta,qty,vol,nbU,unit,px,achat:px,pose:0,rauto:0,surf:0,ep:'',piece:'',accId:pid,formVals});
+  accPush({type:'acc',label,meta,qty,vol,nbU,unit,px,achat:px,pose:0,rauto:0,surf:0,ep:'',piece:'',accId:pid,cmdDetail,formVals});
   renderAccList();refreshAll();accReset();
 }
 function renderAccList(){
@@ -2752,10 +2868,10 @@ window._cmdAccFouKeys=[];
 function cmdAccGroupes(mode){
   const r=metreCalc(), rows={};
   const push=(fou,cells)=>{ (rows[fou]=rows[fou]||[]).push(cells); };
-  r.lines.forEach(L=>push(L.fou, [L.nom, L.affiche+' '+(L.cond||L.u), L.formule]));
+  r.lines.forEach(L=>{ let u=L.cond||L.u; if(u==='unité'&&(+L.affiche)>1) u='unités'; push(L.fou, [L.nom, L.affiche+' '+u, '']); });
   items.filter(i=>i.type==='acc').forEach(it=>{
     const def=accById(it.accId)||{}, fou=def.fou||'(non attribué)';
-    const q=it.accId==='te_reprise'?((it.ml||0)+' ml'):String(it.nbU||it.qty||1);
+    const q=it.accId==='te_reprise'?((it.ml||0)+' ml'):it.accId==='sol_phen'?((it.nbU||0)+' plaque'+((it.nbU||0)>1?'s':'')):String(it.nbU||it.qty||1);
     push(fou, [it.label, q, (it.cmdDetail||accDetail(it)||'')]);
   });
   if(mode==='celtek'){ const all=[]; Object.keys(rows).forEach(f=>rows[f].forEach(c=>all.push(c))); return {'Celtek':all}; }
@@ -2769,6 +2885,13 @@ function cmdAccGenerer(fou){
   genCmdPDF('acc', {fouNom:fou, rows});
 }
 function cmdAccGenererIdx(i){ const f=window._cmdAccFouKeys[i]; if(f) cmdAccGenerer(f); }
+// Bouton « Générer PDF » (haut de page) : toute la liste accessoires (métré + manuels) sur une seule fiche.
+function cmdAccGenererTout(){
+  const g=cmdAccGroupes('celtek'), rows=g['Celtek']||[];
+  if(!rows.length){ showToast('Aucun accessoire dans le devis', true); return; }
+  const sel=G('cmd-acc-fou')?.value;
+  genCmdPDF('acc', {fouNom: sel||'Celtek', rows});
+}
 
 const PAGE_TITLES={config:'Configurateur',devis:'Devis client','devis-existant':'Devis existant',cmdpan:'Cmd panneaux',cmdpor:'Cmd portes',cmdacc:'Cmd accessoires',mission:'Ordre de mission',contacts:'Base client',catalogue:'Paramètres'};
 function showPage(name, el){
@@ -3341,7 +3464,7 @@ function panRender(){
   let h='';
   if(editIdx!=null&&editType==='pan'&&items[editIdx]) h+=`<div class="conf-pill" style="background:var(--orange-light)"><span style="color:var(--orange);font-weight:600">✎ Modification : ${esc(items[editIdx].label)}</span><a onclick="cancelEdit()" style="margin-left:auto;color:var(--orange);text-decoration:underline;cursor:pointer;font-size:11px">annuler</a></div>`;
   h+=cfgBlock('Type de paroi',
-    [['Cloison','Cloison'],['Plafond','Plafond'],['Sol négatif','Sol négatif']]
+    [['Cloison','Cloison'],['Plafond','Plafond']]
       .map(([v,l])=>cfgChoice('panPick','paroi',v,l,'',paroi===v,false)).join(''));
   if(paroi){
     if(paroi==='Sol négatif'){
