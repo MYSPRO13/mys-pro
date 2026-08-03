@@ -5108,15 +5108,16 @@ function genCmdPDF(type, ov){
   // Type doc en grand
   sf(true,18,NAVY);
   doc.text(docType.toUpperCase()+' :', MR, y+8, {align:'right'});
-  sf(false,8.5,GREY);
-  doc.text('Date :', MR-28, y+15, {align:'right'});
-  sf(true,8.5,DGREY);
-  doc.text(new Date().toLocaleDateString('fr-FR'), MR-23, y+15);
+  // Date + Réf : valeur calée sur la marge de droite, libellé juste à sa gauche
+  const dVal=new Date().toLocaleDateString('fr-FR');
+  sf(true,8.5,DGREY); const wDV=doc.getTextWidth(dVal);
+  doc.text(dVal, MR, y+15, {align:'right'});
+  sf(false,8.5,GREY); doc.text('Date :', MR-wDV-2, y+15, {align:'right'});
   if(devisNum){
-    sf(false,8.5,GREY);
-    doc.text('Réf. Devis :', MR-28, y+20, {align:'right'});
-    sf(true,8.5,DGREY);
-    doc.text(devisNum+(projetNom?' — '+projetNom:''), MR-23, y+20);
+    const rVal=devisNum+(projetNom?' — '+projetNom:'');
+    sf(true,8.5,DGREY); const wRV=doc.getTextWidth(rVal);
+    doc.text(rVal, MR, y+20, {align:'right'});
+    sf(false,8.5,GREY); doc.text('Réf. Devis :', MR-wRV-2, y+20, {align:'right'});
   }
 
   y+=logoH+5;
@@ -5277,9 +5278,8 @@ function genDecoupePDF(){
   try{doc.addImage(LOGO_B64,'PNG',ML,y,logoW,logoH);}catch(e){sf(true,14,NAVY);doc.text('MYS Pro',ML,y+14);}
   sf(true,18,NAVY); doc.text('COTES DE DÉCOUPE', MR, y+8, {align:'right'});
   sf(false,8,GREY); doc.text('Document poseur', MR, y+13, {align:'right'});
-  sf(false,8.5,GREY); doc.text('Date :', MR-28, y+19, {align:'right'});
-  sf(true,8.5,DGREY); doc.text(new Date().toLocaleDateString('fr-FR'), MR-23, y+19);
-  if(devisNum){ sf(false,8.5,GREY); doc.text('Réf. Devis :', MR-28, y+24, {align:'right'}); sf(true,8.5,DGREY); doc.text(devisNum+(projetNom?' — '+projetNom:''), MR-23, y+24); }
+  { const dVal=new Date().toLocaleDateString('fr-FR'); sf(true,8.5,DGREY); const wDV=doc.getTextWidth(dVal); doc.text(dVal, MR, y+19, {align:'right'}); sf(false,8.5,GREY); doc.text('Date :', MR-wDV-2, y+19, {align:'right'}); }
+  if(devisNum){ const rVal=devisNum+(projetNom?' — '+projetNom:''); sf(true,8.5,DGREY); const wRV=doc.getTextWidth(rVal); doc.text(rVal, MR, y+24, {align:'right'}); sf(false,8.5,GREY); doc.text('Réf. Devis :', MR-wRV-2, y+24, {align:'right'}); }
   y+=logoH+5; hline(y,[180,180,180],0.5); y+=6;
 
   // Bandeau explicatif
@@ -5356,9 +5356,8 @@ function genRecapPDF(){
   try{doc.addImage(LOGO_B64,'PNG',ML,y,logoW,logoH);}catch(e){sf(true,14,NAVY);doc.text('MYS Pro',ML,y+14);}
   sf(true,18,NAVY); doc.text('RÉCAP CHANTIER', MR, y+8, {align:'right'});
   sf(false,8,GREY); doc.text('Document poseur — sans prix', MR, y+13, {align:'right'});
-  sf(false,8.5,GREY); doc.text('Date :', MR-28, y+19, {align:'right'});
-  sf(true,8.5,DGREY); doc.text(new Date().toLocaleDateString('fr-FR'), MR-23, y+19);
-  if(devisNum){ sf(false,8.5,GREY); doc.text('Réf. Devis :', MR-28, y+24, {align:'right'}); sf(true,8.5,DGREY); doc.text(devisNum+(projetNom?' — '+projetNom:''), MR-23, y+24); }
+  { const dVal=new Date().toLocaleDateString('fr-FR'); sf(true,8.5,DGREY); const wDV=doc.getTextWidth(dVal); doc.text(dVal, MR, y+19, {align:'right'}); sf(false,8.5,GREY); doc.text('Date :', MR-wDV-2, y+19, {align:'right'}); }
+  if(devisNum){ const rVal=devisNum+(projetNom?' — '+projetNom:''); sf(true,8.5,DGREY); const wRV=doc.getTextWidth(rVal); doc.text(rVal, MR, y+24, {align:'right'}); sf(false,8.5,GREY); doc.text('Réf. Devis :', MR-wRV-2, y+24, {align:'right'}); }
   y+=logoH+5; hline(y,[180,180,180],0.5); y+=6;
 
   function section(title, heads, cw, rowArrays, alignFrom, emphCol, emptyMsg){
@@ -5449,10 +5448,8 @@ function genMissionPDF(){
   try{doc.addImage(LOGO_B64,'PNG',ML,y,38,26.9);}catch(e){sf(true,14,NAVY);doc.text('MYS Pro',ML,y+14);}
 
   sf(true,18,NAVY); doc.text('ORDRE DE MISSION', MR, y+8, {align:'right'});
-  sf(false,8.5,GREY); doc.text('N° Devis :', MR-28, y+15, {align:'right'});
-  sf(true,8.5,DGREY); doc.text(devisNum, MR-23, y+15);
-  sf(false,8.5,GREY); doc.text('Date :', MR-28, y+20, {align:'right'});
-  sf(true,8.5,DGREY); doc.text(new Date().toLocaleDateString('fr-FR'), MR-23, y+20);
+  { sf(true,8.5,DGREY); const w1=doc.getTextWidth(devisNum); doc.text(devisNum, MR, y+15, {align:'right'}); sf(false,8.5,GREY); doc.text('N° Devis :', MR-w1-2, y+15, {align:'right'}); }
+  { const dVal=new Date().toLocaleDateString('fr-FR'); sf(true,8.5,DGREY); const w2=doc.getTextWidth(dVal); doc.text(dVal, MR, y+20, {align:'right'}); sf(false,8.5,GREY); doc.text('Date :', MR-w2-2, y+20, {align:'right'}); }
 
   y+=26.9+5;
   hline(y,[180,180,180],0.5);
