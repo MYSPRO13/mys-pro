@@ -2742,8 +2742,12 @@ function metreCalc(){
   const nbCI=f.angIntNeg*hFac;
   add('corn_int_50x50',nbCI,`${f.angIntNeg} angles int. négatif${hFac>1?` × ${hFac}`:''}`,{cond:'barre'});
   add('vis_autofor_blanche',12*nbCI,`12 × ${nbCI} cornières int.`,{cond:'boite',condSize:500});
-  const nbQR=f.angIntPos*hFac;
-  add('conge_quart_rond',nbQR,`${f.angIntPos} angles int. positif${hFac>1?` × ${hFac}`:''}`,{cond:'barre'});
+  // Congé 1/4 de rond = liaison plafond/cloison AU LINÉAIRE (comme la plinthe au sol) :
+  // pourtour positif + séparatrices (2 côtés), ÷ 3 → barres, + une pièce par angle.
+  const bCongeLin=Math.ceil((d.mlPos+f.sepa)/3);
+  const nbAngConge=f.angIntPos;   // SEUL l'angle intérieur positif va au congé (l'extérieur va à la cornière 50×150)
+  const nbQR=bCongeLin+nbAngConge;
+  add('conge_quart_rond',nbQR,`(${d.mlPos.toFixed(1)} ml pourtour + ${f.sepa} sépa.) ÷ 3 = ${bCongeLin} + ${nbAngConge} angle${nbAngConge>1?'s':''} int.`,{cond:'barre'});
   add('support_conge',nbQR,`= nb 1/4 de rond`,{cond:'unit'});
   // Plinthes (positive) + accessoires de plinthe
   const bPlinthe=Math.ceil((d.mlPos+f.sepa)/3);
@@ -2803,13 +2807,13 @@ function metreRenderPanel(){
   el.innerHTML=`<div style="border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:1.25rem;background:var(--bg2)">
     <div style="font-size:13px;font-weight:600;margin-bottom:2px">Métré chantier <span style="font-weight:400;color:var(--text3);font-size:11px">— saisi au passage en commande, sert au calcul auto des quantités</span></div>
     ${!hasPan?'<div style="font-size:12px;color:var(--orange);margin-top:6px">Aucun panneau dans le devis — le calcul sera vide.</div>':''}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 20px;margin-top:12px">
-      <label style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text2)">ML cloisons séparatrices ${inp('me-sepa',METRE.sepa)}</label>
-      <label style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text2)">Angles int. <b style="color:var(--blue)">positive</b> ${inp('me-aip',METRE.angIntPos)}</label>
-      <label style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text2)">Angles int. <b style="color:var(--text)">négative</b> ${inp('me-ain',METRE.angIntNeg)}</label>
-      <label style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text2)">Angles extérieurs ${inp('me-aex',METRE.angExt)}</label>
-      <label style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text2)">Espacement chevrons (cm) ${inp('me-esp',METRE.chevronEsp)}</label>
-      <label style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text2)">Marge % <span style="color:var(--text3);font-size:10px">(auto si vide)</span> ${inp('me-marge',METRE.margeOverride)}</label>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,255px);gap:9px 36px;justify-content:start;margin-top:12px">
+      <label style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;color:var(--text2)">ML cloisons séparatrices ${inp('me-sepa',METRE.sepa)}</label>
+      <label style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;color:var(--text2)">Angles int. <b style="color:var(--blue)">positive</b> ${inp('me-aip',METRE.angIntPos)}</label>
+      <label style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;color:var(--text2)">Angles int. <b style="color:var(--text)">négative</b> ${inp('me-ain',METRE.angIntNeg)}</label>
+      <label style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;color:var(--text2)">Angles extérieurs ${inp('me-aex',METRE.angExt)}</label>
+      <label style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;color:var(--text2)">Espacement chevrons (cm) ${inp('me-esp',METRE.chevronEsp)}</label>
+      <label style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;color:var(--text2)">Marge % <span style="color:var(--text3);font-size:10px">(auto si vide)</span> ${inp('me-marge',METRE.margeOverride)}</label>
     </div>
     <div style="margin-top:12px">
       <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Chambres froides négatives <span style="text-transform:none;letter-spacing:0">(pour chevrons + soupapes)</span></div>
@@ -2825,7 +2829,7 @@ function metreRenderResults(){
   const r=metreCalc();
   if(!r.lines.length){ el.innerHTML='<div style="font-size:12px;color:var(--text3);font-style:italic;border-top:1px solid var(--border);padding-top:.75rem">Rien à calculer pour l\'instant.</div>'; return; }
   const groups={}; r.lines.forEach(L=>{ (groups[L.fou]=groups[L.fou]||[]).push(L); });
-  let h=`<div style="border-top:1px solid var(--border);padding-top:.75rem"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px"><span style="font-size:13px;font-weight:600">Quantités calculées</span><span style="font-size:11px;color:var(--text3)">marge ${(r.marge*100).toFixed(0)} % · surface ${r.data.surfTot.toFixed(0)} m²</span></div>`;
+  let h=`<div style="border-top:1px solid var(--border);padding-top:.75rem;max-width:620px"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px"><span style="font-size:13px;font-weight:600">Quantités calculées</span><span style="font-size:11px;color:var(--text3)">marge ${(r.marge*100).toFixed(0)} % · surface ${r.data.surfTot.toFixed(0)} m²</span></div>`;
   Object.keys(groups).sort().forEach(fou=>{
     h+=`<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--blue);margin:10px 0 4px">${esc(fou)}</div>`;
     h+=`<table style="width:100%;border-collapse:collapse;font-size:12px">`;
