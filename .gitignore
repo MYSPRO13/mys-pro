@@ -1,0 +1,4 @@
+# Exports de données MYS Pro (prix + clients + devis) — confidentiels, jamais en ligne
+mys-pro-sauvegarde-*.json
+*sauvegarde*.json
+index-avec-prix*.html
