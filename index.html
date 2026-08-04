@@ -5071,6 +5071,20 @@ function cmdAdrFromClient(t){
   showToast('Adresse du client reprise');
 }
 
+// Style commun en-tête PDF : titre affiné (capitales espacées, bord droit calé
+// sur la marge) + fin filet d'accent aux couleurs du logo.
+const PDF_INK=[26,25,23], PDF_ACCENT=[199,42,118];
+function pdfTitleAccent(doc, MR, yBase, titleStr){
+  const CS=0.6;
+  doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(...PDF_INK);
+  doc.setCharSpace(0);
+  const tW=doc.getTextWidth(titleStr)+titleStr.length*CS; // largeur + interlettrage (marge anti-débordement)
+  doc.setCharSpace(CS);
+  doc.text(titleStr, MR-tW, yBase);                       // calé à gauche → bord droit sur MR, jamais au-delà
+  doc.setCharSpace(0);
+  doc.setDrawColor(...PDF_ACCENT); doc.setLineWidth(1);
+  doc.line(MR-tW, yBase+3, MR, yBase+3);
+}
 function genCmdPDF(type, ov){
   ov = ov || {};
   const {jsPDF} = window.jspdf;
@@ -5105,39 +5119,40 @@ function genCmdPDF(type, ov){
   const logoW=38,logoH=26.9;
   try{doc.addImage(LOGO_B64,'PNG',ML,y,logoW,logoH);}catch(e){sf(true,14,NAVY);doc.text('MYS Pro',ML,y+14);}
 
-  // Type doc en grand
-  sf(true,18,NAVY);
-  doc.text(docType.toUpperCase()+' :', MR, y+8, {align:'right'});
+  // ── En-tête : titre affiné + fin filet d'accent (couleur de marque) ──
+  const INK=PDF_INK;
+  pdfTitleAccent(doc, MR, y+7, docType.toUpperCase());
   // Date + Réf : valeur calée sur la marge de droite, libellé juste à sa gauche
   const dVal=new Date().toLocaleDateString('fr-FR');
   sf(true,8.5,DGREY); const wDV=doc.getTextWidth(dVal);
-  doc.text(dVal, MR, y+15, {align:'right'});
-  sf(false,8.5,GREY); doc.text('Date :', MR-wDV-2, y+15, {align:'right'});
+  doc.text(dVal, MR, y+16.5, {align:'right'});
+  sf(false,8.5,GREY); doc.text('Date :', MR-wDV-2, y+16.5, {align:'right'});
   if(devisNum){
     const rVal=devisNum+(projetNom?' — '+projetNom:'');
     sf(true,8.5,DGREY); const wRV=doc.getTextWidth(rVal);
-    doc.text(rVal, MR, y+20, {align:'right'});
-    sf(false,8.5,GREY); doc.text('Réf. Devis :', MR-wRV-2, y+20, {align:'right'});
+    doc.text(rVal, MR, y+21.5, {align:'right'});
+    sf(false,8.5,GREY); doc.text('Réf. Devis :', MR-wRV-2, y+21.5, {align:'right'});
   }
 
   y+=logoH+5;
-  hline(y,[180,180,180],0.5);
-  y+=5;
+  hline(y,[228,226,222],0.4);
+  y+=6;
 
-  // Blocs MYS PRO / Fournisseur
-  const blkH=28,colW=TW/2-3,rx=ML+colW+6;
-  strokeR(ML,y,colW,blkH,[221,219,215]);
-  sf(true,9,NAVY); doc.text('MYS PRO',ML+3,y+6);
+  // Blocs ÉMETTEUR / DESTINATAIRE — cartes claires (mêmes codes que le bloc livraison)
+  const blkH=31,colW=TW/2-3,rx=ML+colW+6;
+  const card=(x)=>{ doc.setFillColor(248,247,244); doc.setDrawColor(226,224,219); doc.setLineWidth(0.3); doc.roundedRect(x,y,colW,blkH,2.5,2.5,'FD'); };
+  const capLabel=(x,txt)=>{ try{doc.setCharSpace(0.8);}catch(e){} sf(true,6,GREY); doc.text(txt,x+4.5,y+5.5); try{doc.setCharSpace(0);}catch(e){} };
+  card(ML); capLabel(ML,'ÉMETTEUR');
+  sf(true,9.5,INK); doc.text('MYS PRO',ML+4.5,y+11.5);
   sf(false,7.5,GREY);
-  ['9 Avenue de l\'Europe — Module 6','34830 Clapiers','Tél. : 06 26 31 92 37','Siret : 977 511 237 00017'].forEach((l,i)=>doc.text(l,ML+3,y+11+i*3.8));
+  ['9 Avenue de l\'Europe — Module 6','34830 Clapiers','Tél. : 06 26 31 92 37','Siret : 977 511 237 00017'].forEach((l,i)=>doc.text(l,ML+4.5,y+16.5+i*3.6));
 
-  strokeR(rx,y,colW,blkH,[221,219,215]);
-  sf(false,7.5,GREY); doc.text('A :',rx+3,y+6);
-  sf(true,9,DGREY); doc.text(fouNom||'—',rx+10,y+6);
+  card(rx); capLabel(rx,'DESTINATAIRE');
+  sf(true,9.5,INK); doc.text(fouNom||'—',rx+4.5,y+11.5);
   if(fouObj.det){
     sf(false,7.5,GREY);
     const detParts=fouObj.det.split(' — ');
-    detParts.forEach((p,i)=>doc.text(p,rx+3,y+11+i*3.8));
+    detParts.forEach((p,i)=>doc.text(p,rx+4.5,y+16.5+i*3.6));
   }
 
   y+=blkH+5;
@@ -5276,11 +5291,11 @@ function genDecoupePDF(){
   let y=10;
   const logoW=38,logoH=26.9;
   try{doc.addImage(LOGO_B64,'PNG',ML,y,logoW,logoH);}catch(e){sf(true,14,NAVY);doc.text('MYS Pro',ML,y+14);}
-  sf(true,18,NAVY); doc.text('COTES DE DÉCOUPE', MR, y+8, {align:'right'});
-  sf(false,8,GREY); doc.text('Document poseur', MR, y+13, {align:'right'});
-  { const dVal=new Date().toLocaleDateString('fr-FR'); sf(true,8.5,DGREY); const wDV=doc.getTextWidth(dVal); doc.text(dVal, MR, y+19, {align:'right'}); sf(false,8.5,GREY); doc.text('Date :', MR-wDV-2, y+19, {align:'right'}); }
-  if(devisNum){ const rVal=devisNum+(projetNom?' — '+projetNom:''); sf(true,8.5,DGREY); const wRV=doc.getTextWidth(rVal); doc.text(rVal, MR, y+24, {align:'right'}); sf(false,8.5,GREY); doc.text('Réf. Devis :', MR-wRV-2, y+24, {align:'right'}); }
-  y+=logoH+5; hline(y,[180,180,180],0.5); y+=6;
+  pdfTitleAccent(doc, MR, y+7, 'COTES DE DÉCOUPE');
+  sf(false,8,GREY); doc.text('Document poseur', MR, y+14.5, {align:'right'});
+  { const dVal=new Date().toLocaleDateString('fr-FR'); sf(true,8.5,DGREY); const wDV=doc.getTextWidth(dVal); doc.text(dVal, MR, y+20, {align:'right'}); sf(false,8.5,GREY); doc.text('Date :', MR-wDV-2, y+20, {align:'right'}); }
+  if(devisNum){ const rVal=devisNum+(projetNom?' — '+projetNom:''); sf(true,8.5,DGREY); const wRV=doc.getTextWidth(rVal); doc.text(rVal, MR, y+25, {align:'right'}); sf(false,8.5,GREY); doc.text('Réf. Devis :', MR-wRV-2, y+25, {align:'right'}); }
+  y+=logoH+5; hline(y,[228,226,222],0.4); y+=6;
 
   // Bandeau explicatif
   doc.setFillColor(248,247,244); doc.setDrawColor(222,220,214); doc.setLineWidth(0.35);
@@ -5354,11 +5369,11 @@ function genRecapPDF(){
   let y=10;
   const logoW=38,logoH=26.9;
   try{doc.addImage(LOGO_B64,'PNG',ML,y,logoW,logoH);}catch(e){sf(true,14,NAVY);doc.text('MYS Pro',ML,y+14);}
-  sf(true,18,NAVY); doc.text('RÉCAP CHANTIER', MR, y+8, {align:'right'});
-  sf(false,8,GREY); doc.text('Document poseur — sans prix', MR, y+13, {align:'right'});
-  { const dVal=new Date().toLocaleDateString('fr-FR'); sf(true,8.5,DGREY); const wDV=doc.getTextWidth(dVal); doc.text(dVal, MR, y+19, {align:'right'}); sf(false,8.5,GREY); doc.text('Date :', MR-wDV-2, y+19, {align:'right'}); }
-  if(devisNum){ const rVal=devisNum+(projetNom?' — '+projetNom:''); sf(true,8.5,DGREY); const wRV=doc.getTextWidth(rVal); doc.text(rVal, MR, y+24, {align:'right'}); sf(false,8.5,GREY); doc.text('Réf. Devis :', MR-wRV-2, y+24, {align:'right'}); }
-  y+=logoH+5; hline(y,[180,180,180],0.5); y+=6;
+  pdfTitleAccent(doc, MR, y+7, 'RÉCAP CHANTIER');
+  sf(false,8,GREY); doc.text('Document poseur — sans prix', MR, y+14.5, {align:'right'});
+  { const dVal=new Date().toLocaleDateString('fr-FR'); sf(true,8.5,DGREY); const wDV=doc.getTextWidth(dVal); doc.text(dVal, MR, y+20, {align:'right'}); sf(false,8.5,GREY); doc.text('Date :', MR-wDV-2, y+20, {align:'right'}); }
+  if(devisNum){ const rVal=devisNum+(projetNom?' — '+projetNom:''); sf(true,8.5,DGREY); const wRV=doc.getTextWidth(rVal); doc.text(rVal, MR, y+25, {align:'right'}); sf(false,8.5,GREY); doc.text('Réf. Devis :', MR-wRV-2, y+25, {align:'right'}); }
+  y+=logoH+5; hline(y,[228,226,222],0.4); y+=6;
 
   function section(title, heads, cw, rowArrays, alignFrom, emphCol, emptyMsg){
     if(y+20>282){ doc.addPage(); y=15; }
@@ -5447,28 +5462,29 @@ function genMissionPDF(){
   // Logo
   try{doc.addImage(LOGO_B64,'PNG',ML,y,38,26.9);}catch(e){sf(true,14,NAVY);doc.text('MYS Pro',ML,y+14);}
 
-  sf(true,18,NAVY); doc.text('ORDRE DE MISSION', MR, y+8, {align:'right'});
-  { sf(true,8.5,DGREY); const w1=doc.getTextWidth(devisNum); doc.text(devisNum, MR, y+15, {align:'right'}); sf(false,8.5,GREY); doc.text('N° Devis :', MR-w1-2, y+15, {align:'right'}); }
-  { const dVal=new Date().toLocaleDateString('fr-FR'); sf(true,8.5,DGREY); const w2=doc.getTextWidth(dVal); doc.text(dVal, MR, y+20, {align:'right'}); sf(false,8.5,GREY); doc.text('Date :', MR-w2-2, y+20, {align:'right'}); }
+  pdfTitleAccent(doc, MR, y+7, 'ORDRE DE MISSION');
+  { sf(true,8.5,DGREY); const w1=doc.getTextWidth(devisNum); doc.text(devisNum, MR, y+16, {align:'right'}); sf(false,8.5,GREY); doc.text('N° Devis :', MR-w1-2, y+16, {align:'right'}); }
+  { const dVal=new Date().toLocaleDateString('fr-FR'); sf(true,8.5,DGREY); const w2=doc.getTextWidth(dVal); doc.text(dVal, MR, y+21, {align:'right'}); sf(false,8.5,GREY); doc.text('Date :', MR-w2-2, y+21, {align:'right'}); }
 
   y+=26.9+5;
-  hline(y,[180,180,180],0.5);
-  y+=5;
+  hline(y,[228,226,222],0.4);
+  y+=6;
 
-  // Blocs MYS PRO / Poseur
-  const blkH=28,colW=TW/2-3,rx=ML+colW+6;
-  strokeR(ML,y,colW,blkH,[221,219,215]);
-  sf(true,9,NAVY); doc.text('MYS PRO',ML+3,y+6);
+  // Blocs ÉMETTEUR / POSEUR — cartes claires
+  const blkH=31,colW=TW/2-3,rx=ML+colW+6;
+  const card=(x)=>{ doc.setFillColor(248,247,244); doc.setDrawColor(226,224,219); doc.setLineWidth(0.3); doc.roundedRect(x,y,colW,blkH,2.5,2.5,'FD'); };
+  const capLabel=(x,txt)=>{ try{doc.setCharSpace(0.8);}catch(e){} sf(true,6,GREY); doc.text(txt,x+4.5,y+5.5); try{doc.setCharSpace(0);}catch(e){} };
+  card(ML); capLabel(ML,'ÉMETTEUR');
+  sf(true,9.5,BLACK); doc.text('MYS PRO',ML+4.5,y+11.5);
   sf(false,7.5,GREY);
-  ['9 Avenue de l\'Europe — Module 6','34830 Clapiers','Tél. : 06 26 31 92 37','Siret : 977 511 237 00017'].forEach((l,i)=>doc.text(l,ML+3,y+11+i*3.8));
+  ['9 Avenue de l\'Europe — Module 6','34830 Clapiers','Tél. : 06 26 31 92 37','Siret : 977 511 237 00017'].forEach((l,i)=>doc.text(l,ML+4.5,y+16.5+i*3.6));
 
-  strokeR(rx,y,colW,blkH,[221,219,215]);
-  sf(false,7.5,GREY); doc.text('À :',rx+3,y+6);
-  sf(true,9,DGREY); doc.text(poseurNom||'—',rx+10,y+6);
+  card(rx); capLabel(rx,'POSEUR');
+  sf(true,9.5,BLACK); doc.text(poseurNom||'—',rx+4.5,y+11.5);
   const posObj=POS.find(p=>p.nom===poseurNom);
   if(posObj){
     sf(false,7.5,GREY);
-    [posObj.tel,posObj.email].filter(Boolean).forEach((l,i)=>doc.text(l,rx+3,y+11+i*3.8));
+    [posObj.tel,posObj.email].filter(Boolean).forEach((l,i)=>doc.text(l,rx+4.5,y+16.5+i*3.6));
   }
 
   y+=blkH+5;
