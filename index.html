@@ -2696,7 +2696,7 @@ function accQtyChange(i,d){if(items[i]){items[i].qty=Math.max(1,(items[i].qty||1
 // Déduit les quantités de consommables/finitions du contenu du devis + quelques
 // mesures de chantier saisies au passage en commande. Sert UNIQUEMENT à la
 // commande (jamais facturé — le coût est dans le paramètre « Accessoires €/m² »).
-let METRE={ sepa:0, angIntPos:0, angIntNeg:0, angExt:0, margeOverride:'', chevronEsp:40, chambres:[], overrides:{} };
+let METRE={ sepa:0, cornFinH:0, angIntPos:0, angIntNeg:0, angExt:0, margeOverride:'', chevronEsp:40, chambres:[], overrides:{} };
 function accById(id){ return ACC_DEFAULTS.find(a=>a.id===id); }
 function metreMarge(surfTot, ov){
   if(ov!==''&&ov!=null&&!isNaN(parseFloat(ov))) return parseFloat(ov)/100;
@@ -2738,7 +2738,16 @@ function metreCalc(){
   add('colle',d.surfBrio,`1 × ${d.surfBrio.toFixed(1)} m² BRIO`,{cond:'unit'});
   // Cornières / 1/4 de rond (× hauteur si > 3 m)
   const ceId=d.epMax<=150?'corn_ext_50x150':(d.epMax>=200?'corn_ext_50x250':'corn_ext_50x200');
-  add(ceId,f.angExt*hFac,`${f.angExt} angles ext.${hFac>1?` × ${hFac} (haut.)`:''}`,{cond:'barre'});
+  const bFinH=Math.ceil((f.cornFinH||0)/3);   // cornière 50×150 de finition horizontale (jonction haute cloison/plafond, ext.)
+  const angDesc=`${f.angExt} angles ext.${hFac>1?` × ${hFac} (haut.)`:''}`;
+  if(ceId==='corn_ext_50x150'){
+    // finition = même produit que la cornière d'angle → une seule ligne cumulée
+    const parts=[]; if(f.angExt>0)parts.push(angDesc); if(bFinH>0)parts.push(`${f.cornFinH} ml finition ÷ 3`);
+    add('corn_ext_50x150', f.angExt*hFac+bFinH, parts.join(' + '), {cond:'barre'});
+  } else {
+    add(ceId, f.angExt*hFac, angDesc, {cond:'barre'});
+    add('corn_ext_50x150', bFinH, `${f.cornFinH} ml finition horizontale ÷ 3`, {cond:'barre'});
+  }
   const nbCI=f.angIntNeg*hFac;
   add('corn_int_50x50',nbCI,`${f.angIntNeg} angles int. négatif${hFac>1?` × ${hFac}`:''}`,{cond:'barre'});
   add('vis_autofor_blanche',12*nbCI,`12 × ${nbCI} cornières int.`,{cond:'boite',condSize:500});
@@ -2783,6 +2792,7 @@ function metreCalc(){
 function metreReadForm(){
   const g=id=>G(id)?G(id).value:'';
   METRE.sepa=parseFloat(g('me-sepa'))||0;
+  METRE.cornFinH=parseFloat(g('me-cornfh'))||0;
   METRE.angIntPos=parseInt(g('me-aip'))||0;
   METRE.angIntNeg=parseInt(g('me-ain'))||0;
   METRE.angExt=parseInt(g('me-aex'))||0;
@@ -2809,6 +2819,7 @@ function metreRenderPanel(){
     ${!hasPan?'<div style="font-size:12px;color:var(--orange);margin-top:6px">Aucun panneau dans le devis — le calcul sera vide.</div>':''}
     <div style="display:grid;grid-template-columns:repeat(auto-fit,255px);gap:9px 36px;justify-content:start;margin-top:12px">
       <label style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;color:var(--text2)">ML cloisons séparatrices ${inp('me-sepa',METRE.sepa)}</label>
+      <label style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;color:var(--text2)" title="Cornière 50×150 de finition, posée à l'horizontale sur la jonction haute cloison/plafond, à l'extérieur">ML cornière finition horiz. ${inp('me-cornfh',METRE.cornFinH)}</label>
       <label style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;color:var(--text2)">Angles int. <b style="color:var(--blue)">positive</b> ${inp('me-aip',METRE.angIntPos)}</label>
       <label style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;color:var(--text2)">Angles int. <b style="color:var(--text)">négative</b> ${inp('me-ain',METRE.angIntNeg)}</label>
       <label style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;color:var(--text2)">Angles extérieurs ${inp('me-aex',METRE.angExt)}</label>
