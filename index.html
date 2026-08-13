@@ -18,9 +18,14 @@
   --text: #1A1917;
   --text2: #6B6860;
   --text3: #A09D99;
-  --blue: #1B5FA8;
-  --blue-light: #EBF2FB;
-  --blue-mid: #C5D9F0;
+  /* Charte MYS Pro : violet = structure, magenta = action (les noms --blue/--green historiques sont conservés) */
+  --blue: #29235C;
+  --blue-light: #EFEDF6;
+  --blue-mid: #CBC7E0;
+  --violet-hover: #332C6E;
+  --magenta: #A2185B;
+  --magenta-hover: #8C114D;
+  --magenta-light: #F8EAF1;
   --green: #1A9E72;
   --green-light: #E2F5EE;
   --orange: #B87316;
@@ -68,13 +73,23 @@ body {
   justify-content: space-between;
   padding: 0 1.5rem;
   gap: 1rem;
+  position: relative;
+}
+/* Signature de marque : fin liseré violet → magenta (écho du filet des PDF) */
+.topbar::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--blue) 0%, var(--blue) 55%, var(--magenta) 100%);
+  pointer-events: none;
 }
 .topbar-left { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; }
 /* Identité du devis : centrée dans la barre, quelles que soient les largeurs des côtés */
 .topbar-center { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .topbar-center .projet-inp { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 5px 11px; font-size: 12.5px; font-family: 'DM Sans', sans-serif; background: var(--surface); color: var(--text); width: 230px; text-align: center; font-weight: 500; }
 .topbar-center .projet-inp::placeholder { font-weight: 400; color: var(--text3); }
-.topbar-center .projet-inp:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(27,95,168,.10); }
+.topbar-center .projet-inp:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(41,35,92,.10); }
 /* Barre latérale : séparation nette entre les réglages du devis et les tarifs de référence */
 .sr-refblock { margin: 1.25rem 0 .5rem; padding: .75rem 1rem .25rem; border-top: 1px solid var(--border); background: var(--bg2); }
 .sr-refhead { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: var(--text3); }
@@ -88,34 +103,35 @@ body {
 .devis-badge {
   font-family: 'DM Mono', monospace;
   font-size: 11px;
-  background: var(--bg2);
-  border: 1px solid var(--border);
+  background: var(--blue-light);
+  border: 1px solid var(--blue-mid);
   padding: 2px 8px;
   border-radius: 20px;
-  color: var(--text2);
+  color: var(--blue);
 }
 .topbar-right { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
 .btn { font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500; padding: 6px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text2); cursor: pointer; transition: all .15s; }
 .btn:hover { background: var(--bg2); color: var(--text); }
 .btn-primary { background: var(--blue); color: #fff; border-color: var(--blue); }
-.btn-primary:hover { background: #1650a0; }
-.btn-green { background: var(--green); color: #fff; border-color: var(--green); }
-.btn-green:hover { background: #178A62; }
+.btn-primary:hover { background: var(--violet-hover); }
+/* Historiquement vert — désormais magenta charte : c'est LE bouton d'action (PDF, valider, sauvegarder) */
+.btn-green { background: var(--magenta); color: #fff; border-color: var(--magenta); }
+.btn-green:hover { background: var(--magenta-hover); }
 
 /* ── SIDEBAR GAUCHE ── */
+/* Barre de navigation en violet charte (validé Clément 2026-08-14) */
 .sidebar-left {
-  background: var(--surface);
-  border-right: 1px solid var(--border);
+  background: linear-gradient(180deg, var(--blue) 0%, #211B4D 100%);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  padding: .75rem .625rem;
+  padding: 1rem .625rem .75rem;
 }
 .nav-section { margin-bottom: 1.25rem; }
 .nav-label {
   font-size: 9px;
   font-weight: 600;
-  color: var(--text3);
+  color: rgba(255,255,255,.42);
   text-transform: uppercase;
   letter-spacing: .1em;
   padding: 0 .5rem;
@@ -129,41 +145,47 @@ body {
   border-radius: var(--radius-sm);
   font-size: 13px;
   cursor: pointer;
-  color: var(--text2);
+  color: rgba(255,255,255,.80);
   margin-bottom: 1px;
   transition: all .1s;
   position: relative;
 }
-.nav-item:hover { background: var(--bg2); color: var(--text); }
-.nav-item.active { background: var(--blue-light); color: var(--blue); font-weight: 500; }
-.nav-item.active::before { content:''; position:absolute; left:0; top:6px; bottom:6px; width:3px; border-radius:0 3px 3px 0; background:var(--blue); }
-.nav-icon { width: 15px; height: 15px; flex-shrink: 0; opacity: .7; }
+.nav-item:hover { background: rgba(255,255,255,.07); color: #fff; }
+.nav-item.active { background: rgba(255,255,255,.12); color: #fff; font-weight: 500; }
+.nav-item.active::before { content:''; position:absolute; left:0; top:6px; bottom:6px; width:3px; border-radius:0 3px 3px 0; background:var(--magenta); }
+.nav-icon { width: 15px; height: 15px; flex-shrink: 0; opacity: .75; }
 .nav-item.active .nav-icon { opacity: 1; }
-/* Groupe Commandes : léger encadré, comme les cartes de la colonne de droite */
-.nav-group { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 6px 5px 8px; margin-bottom: 1rem; }
+/* Groupe Commandes : encart plus sombre dans la barre violette */
+.nav-group { background: rgba(0,0,0,.16); border: 1px solid rgba(255,255,255,.09); border-radius: var(--radius-sm); padding: 6px 5px 8px; margin-bottom: 1rem; }
 .nav-group .nav-label { padding: 2px 8px 5px; }
 .nav-group .nav-item { font-size: 12.5px; }
 /* Zone utilitaires : poussée en bas, discrète */
-.nav-utils { margin-top: auto; border-top: 1px solid var(--border2); padding-top: .5rem; }
-.nav-util { font-size: 12px; color: var(--text3); }
+.nav-utils { margin-top: auto; border-top: 1px solid rgba(255,255,255,.09); padding-top: .5rem; }
+.nav-util { font-size: 12px; color: rgba(255,255,255,.55); }
 .nav-util .nav-icon { opacity: .55; }
+/* Utilisateur connecté, en bas de la barre */
+.nav-user { display: flex; align-items: center; gap: 9px; padding: 9px 10px 3px; margin-top: 4px; }
+.nav-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--magenta); color: #fff; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.nav-user-name { font-size: 12px; color: rgba(255,255,255,.80); font-weight: 500; line-height: 1.25; max-width: 130px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nav-user-sub { font-size: 10px; color: rgba(255,255,255,.42); cursor: pointer; }
+.nav-user-sub:hover { color: #fff; text-decoration: underline; }
 /* Apparition d'un élément de commande au fil du devis */
 @keyframes navReveal { from { opacity:0; transform: translateX(-8px); } to { opacity:1; transform:none; } }
 .nav-item.revealing { animation: navReveal .3s ease; }
 /* Invite à saisir le nom de l'affaire (nouveau devis) */
-@keyframes projGlow { 0%,100% { box-shadow: 0 0 0 0 rgba(27,95,168,0); border-color: var(--border); } 50% { box-shadow: 0 0 0 4px rgba(27,95,168,.18); border-color: var(--blue); } }
+@keyframes projGlow { 0%,100% { box-shadow: 0 0 0 0 rgba(41,35,92,0); border-color: var(--border); } 50% { box-shadow: 0 0 0 4px rgba(41,35,92,.18); border-color: var(--blue); } }
 .projet-inp.attn { animation: projGlow 1.5s ease-in-out infinite; }
 .nav-badge {
   font-size: 10px;
-  background: var(--blue-light);
-  color: var(--blue);
+  background: rgba(255,255,255,.14);
+  color: rgba(255,255,255,.85);
   padding: 1px 6px;
   border-radius: 10px;
   margin-left: auto;
   font-weight: 600;
 }
-.nav-item.active .nav-badge { background: var(--blue); color: #fff; }
-.nav-sep { height: 1px; background: var(--border2); margin: .5rem .375rem; }
+.nav-item.active .nav-badge { background: var(--magenta); color: #fff; }
+.nav-sep { height: 1px; background: rgba(255,255,255,.09); margin: .5rem .375rem; }
 
 /* ── MAIN ── */
 .main {
@@ -198,8 +220,16 @@ body {
   box-shadow: var(--shadow);
 }
 .stat-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
-.stat-value { font-size: 22px; font-weight: 600; letter-spacing: -.5px; }
+.stat-value { font-family: 'DM Mono', monospace; font-size: 21px; font-weight: 500; letter-spacing: -.5px; }
 .stat-value.blue { color: var(--blue); }
+/* Carte mise en avant (Total HT) : violet plein */
+.stat-card.hero { background: linear-gradient(135deg, var(--blue) 0%, #372F6E 100%); border-color: var(--blue); }
+.stat-card.hero .stat-label { color: rgba(255,255,255,.55); }
+.stat-card.hero .stat-value { color: #fff; }
+.stat-card.hero .stat-sub { font-family: 'DM Mono', monospace; font-size: 11px; color: rgba(255,255,255,.65); margin-top: 3px; }
+/* Client sélectionné : pastille initiales */
+.client-line { display: flex; align-items: center; gap: 8px; padding-top: 2px; min-width: 0; }
+.client-chip { width: 26px; height: 26px; border-radius: 7px; background: var(--blue-light); color: var(--blue); font-size: 10.5px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 
 /* ── CARDS ── */
 .card {
@@ -216,25 +246,34 @@ body {
   padding: 1rem 1.375rem;
   border-bottom: 1px solid var(--border2);
 }
-.card-title { font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .07em; }
+.card-title { font-size: 11px; font-weight: 600; color: var(--blue); text-transform: uppercase; letter-spacing: .07em; }
 .card-body { padding: 1.375rem; }
 
 /* ── ENTONNOIR ── */
-.cfg-tabs { display: flex; gap: 6px; margin-bottom: 1.125rem; }
+/* Onglets « segmentés » : pilule commune, actif violet */
+.cfg-tabs {
+  display: inline-flex;
+  gap: 3px;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 9px;
+  padding: 3px;
+  margin-bottom: 1.125rem;
+}
 .cfg-tab {
   padding: 7px 18px;
   font-size: 13px;
   font-family: 'DM Sans', sans-serif;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--bg2);
+  border-radius: 7px;
+  border: none;
+  background: transparent;
   color: var(--text2);
   cursor: pointer;
-  font-weight: 400;
+  font-weight: 500;
   transition: all .15s;
 }
-.cfg-tab.active { background: var(--blue); color: #fff; border-color: var(--blue); font-weight: 500; }
-.cfg-tab:not(.active):hover { background: var(--bg3); color: var(--text); }
+.cfg-tab.active { background: var(--blue); color: #fff; box-shadow: 0 1px 4px rgba(41,35,92,.25); }
+.cfg-tab:not(.active):hover { color: var(--blue); }
 
 .step { display: none; }
 .step.active { display: block; }
@@ -266,7 +305,7 @@ body {
 .step-label { font-size: 13px; color: var(--text2); margin-bottom: .625rem; }
 .choices { display: flex; flex-wrap: wrap; gap: 8px; }
 .choice {
-  background: var(--bg2);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 9px 16px;
@@ -282,10 +321,10 @@ body {
 .choice.default { border: 2px solid var(--blue); background: var(--blue-light); color: var(--blue); }
 .choice .ch-label { font-weight: 500; }
 .choice .ch-hint { font-size: 10px; color: var(--text3); margin-top: 2px; }
-.choice.default .ch-hint { color: #5a8bc8; }
+.choice.default .ch-hint { color: #6B63A8; }
 .default-badge { font-size: 8px; background: var(--blue); color: #fff; border-radius: 3px; padding: 1px 4px; margin-left: 3px; vertical-align: middle; }
 .choice.selected { border: 2px solid var(--blue); background: var(--blue-light); color: var(--blue); font-weight: 500; }
-.choice.selected .ch-hint { color: #5a8bc8; }
+.choice.selected .ch-hint { color: #6B63A8; }
 .cfg-block { margin-bottom: 1.15rem; }
 .cfg-block:last-child { margin-bottom: 0; }
 .cfg-block .step-label { margin-bottom: .5rem; }
@@ -303,7 +342,7 @@ body {
   color: var(--text);
   transition: border-color .15s;
 }
-.field-input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(27,95,168,.08); }
+.field-input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(41,35,92,.08); }
 .field-hint {
   background: var(--blue-light);
   border-radius: var(--radius-sm);
@@ -315,11 +354,12 @@ body {
   display: none;
 }
 .conf-pill {
-  background: var(--bg2);
+  background: var(--blue-light);
   border-radius: var(--radius-sm);
   padding: 6px 12px;
   font-size: 12px;
-  color: var(--text2);
+  color: var(--blue);
+  font-weight: 500;
   margin-bottom: .625rem;
   display: flex;
   align-items: center;
@@ -351,7 +391,7 @@ body {
   padding: .625rem 1rem;
   margin-top: .5rem;
 }
-.price-formula { font-size: 11px; color: #5a8bc8; margin-bottom: 3px; }
+.price-formula { font-size: 11px; color: #6B63A8; margin-bottom: 3px; }
 .price-final { font-size: 18px; font-weight: 600; color: var(--blue); letter-spacing: -.3px; }
 .rideau-auto-box {
   background: var(--green-light);
@@ -365,9 +405,9 @@ body {
 
 .action-row { display: flex; gap: 8px; margin-top: .875rem; }
 .btn-validate {
-  background: var(--blue-light);
-  color: var(--blue);
-  border: 1.5px solid var(--blue);
+  background: var(--magenta);
+  color: #fff;
+  border: 1.5px solid var(--magenta);
   font-family: 'DM Sans', sans-serif;
   font-size: 13px;
   font-weight: 600;
@@ -376,7 +416,7 @@ body {
   cursor: pointer;
   transition: all .15s;
 }
-.btn-validate:hover { background: var(--blue); color: #fff; }
+.btn-validate:hover { background: var(--magenta-hover); border-color: var(--magenta-hover); }
 .btn-cancel {
   background: var(--bg2);
   color: var(--text2);
@@ -399,7 +439,7 @@ body {
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
-.btn-continue:hover { background: #1650a0; }
+.btn-continue:hover { background: var(--violet-hover); }
 
 /* ── ZONE SECONDAIRE ── */
 .zone-sec-header {
@@ -473,7 +513,7 @@ body {
   white-space: nowrap;
   transition: background .15s;
 }
-.btn-sec-add:hover { background: #1650a0; }
+.btn-sec-add:hover { background: var(--violet-hover); }
 .btn-sec-add.outline {
   background: none;
   color: var(--text2);
@@ -644,7 +684,7 @@ body {
   background: var(--surface);
   color: var(--text);
 }
-.trv-row input:focus, .trv-row select:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(27,95,168,.08); }
+.trv-row input:focus, .trv-row select:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(41,35,92,.08); }
 .trv-desig { flex: 1; min-width: 0; }
 .trv-qty { width: 62px; text-align: right; }
 .trv-unit { width: 90px; }
@@ -770,7 +810,7 @@ select.dx-pill { cursor: pointer; border: none; outline: none; -webkit-appearanc
   background: var(--surface);
   color: var(--text);
 }
-.search-input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(27,95,168,.08); }
+.search-input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(41,35,92,.08); }
 .sort-btn {
   padding: 6px 12px;
   font-size: 11px;
@@ -875,7 +915,7 @@ select.dx-pill { cursor: pointer; border: none; outline: none; -webkit-appearanc
   background: var(--surface);
   color: var(--text);
 }
-.form-field input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(27,95,168,.08); }
+.form-field input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(41,35,92,.08); }
 .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .875rem; }
 .section-title { font-size: 14px; font-weight: 600; }
 .section-sub { font-size: 11px; color: var(--text2); margin-top: 1px; }
@@ -906,7 +946,7 @@ select.dx-pill { cursor: pointer; border: none; outline: none; -webkit-appearanc
   flex-direction: column;
   overflow-y: auto;
 }
-.sr-title { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .1em; padding: .875rem 1rem .25rem; }
+.sr-title { font-size: 10px; font-weight: 600; color: var(--blue); text-transform: uppercase; letter-spacing: .1em; padding: .875rem 1rem .25rem; }
 .sr-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 1rem; font-size: 12px; }
 .sr-label { color: var(--text2); }
 .sr-input {
@@ -1199,10 +1239,9 @@ function togglePwd(){
     <input type="text" id="projet-nom" class="projet-inp" placeholder="Nom de l'affaire…" oninput="this.classList.remove('attn')" onfocus="this.classList.remove('attn')">
   </div>
   <div class="topbar-right">
-    <button class="btn" onclick="showPage('devis-existant')">📋 Mes devis</button>
-    <button class="btn" onclick="nouveauDevis()">+ Nouveau</button>
-    <button class="btn" onclick="sauvegarderDevis()">💾 Sauvegarder</button>
-    <button class="btn" onclick="logout()" title="Se déconnecter">Déconnexion</button>
+    <button class="btn" onclick="showPage('devis-existant')" style="display:inline-flex;align-items:center;gap:7px"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h12M2 12h8"/></svg>Mes devis</button>
+    <button class="btn" onclick="nouveauDevis()" style="display:inline-flex;align-items:center;gap:7px"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>Nouveau</button>
+    <button class="btn btn-green" onclick="sauvegarderDevis()" style="display:inline-flex;align-items:center;gap:7px"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2h8l3 3v9H3z"/><path d="M5 2v4h5V2"/><rect x="5" y="9" width="6" height="4"/></svg>Sauvegarder</button>
   </div>
 </header>
 
@@ -1250,6 +1289,13 @@ function togglePwd(){
       <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h10"/><circle cx="13" cy="12" r="2"/><path d="M13 10v1M13 13v1"/></svg>
       Paramètres
     </div>
+    <div class="nav-user">
+      <div class="nav-avatar" id="nav-user-av">•</div>
+      <div style="min-width:0">
+        <div class="nav-user-name" id="nav-user-name">Connecté</div>
+        <div class="nav-user-sub" onclick="logout()" title="Se déconnecter">Se déconnecter</div>
+      </div>
+    </div>
   </div>
 </nav>
 
@@ -1261,10 +1307,13 @@ function togglePwd(){
     <div class="stats-row" style="position:relative">
       <div class="stat-card"><div class="stat-label">Surface panneaux</div><div class="stat-value" id="stat-surf">0 m²</div></div>
       <div class="stat-card"><div class="stat-label">Portes & Rideaux</div><div class="stat-value" id="stat-por">0</div></div>
-      <div class="stat-card"><div class="stat-label">Total HT</div><div class="stat-value" id="st">0 €</div></div>
+      <div class="stat-card hero"><div class="stat-label">Total HT</div><div class="stat-value" id="st">0 €</div><div class="stat-sub" id="st-ttc"></div></div>
       <div class="stat-card" id="stat-client-card" onclick="openClientPicker()" style="cursor:pointer;position:relative" title="Cliquer pour sélectionner un client">
         <div class="stat-label">Client</div>
-        <div id="scli" style="font-size:13px;font-weight:500;color:var(--text2);padding-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">— Sélectionner</div>
+        <div class="client-line">
+          <div class="client-chip" id="scli-chip" style="display:none"></div>
+          <div id="scli" style="font-size:13px;font-weight:500;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">— Sélectionner</div>
+        </div>
         <div style="position:absolute;top:8px;right:8px;font-size:10px;color:var(--text3)">▾</div>
       </div>
 
@@ -1353,6 +1402,17 @@ function togglePwd(){
           </div>
         </div>
 
+      </div>
+    </div>
+
+    <!-- PRODUITS DU DEVIS : retour visuel immédiat après « Ajouter » (détail complet → onglet Devis client) -->
+    <div class="card" id="cfg-items-card" style="display:none">
+      <div class="card-header">
+        <div class="card-title">Produits de ce devis</div>
+        <div style="font-size:11px;color:var(--text3)"><span id="cfg-items-count"></span> · détail complet → onglet « Devis client »</div>
+      </div>
+      <div class="card-body" style="padding:.875rem 1rem">
+        <div id="cfg-items-list"></div>
       </div>
     </div>
   </div>
@@ -1594,7 +1654,7 @@ function togglePwd(){
       #page-devis-existant .dx-head{font-size:16px;font-weight:600;letter-spacing:-.2px;}
       #page-devis-existant .dx-sub{font-size:12.5px;color:var(--text2);margin:3px 0 16px;}
       #page-devis-existant .dx-searchbar{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 13px;max-width:460px;margin-bottom:14px;}
-      #page-devis-existant .dx-searchbar:focus-within{border-color:var(--blue);box-shadow:0 0 0 3px rgba(27,95,168,.08);}
+      #page-devis-existant .dx-searchbar:focus-within{border-color:var(--blue);box-shadow:0 0 0 3px rgba(41,35,92,.08);}
       #page-devis-existant .dx-searchbar input{border:none;outline:none;background:none;flex:1;font-size:13.5px;color:var(--text);font-family:'DM Sans',sans-serif;}
       #page-devis-existant .dx-searchbar svg{color:var(--text3);flex-shrink:0;}
       #page-devis-existant .dx-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow-x:auto;}
@@ -1612,7 +1672,7 @@ function togglePwd(){
       #page-devis-existant .dx-chip{border:1px solid var(--border);background:var(--surface);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif;display:inline-flex;align-items:center;gap:6px;transition:border-color .12s;}
       #page-devis-existant .dx-chip .n{font-size:10.5px;font-weight:600;background:var(--bg3);border-radius:10px;padding:0 6px;}
       #page-devis-existant .dx-chip.on{border-color:var(--blue);color:var(--blue);background:var(--blue-light);}
-      #page-devis-existant .dx-chip.on .n{background:rgba(27,95,168,.12);}
+      #page-devis-existant .dx-chip.on .n{background:rgba(41,35,92,.12);}
       #page-devis-existant tr.dx-group{cursor:default;}
       #page-devis-existant tr.dx-group td{background:var(--bg2);font-size:10px;text-transform:uppercase;letter-spacing:.07em;font-weight:600;color:var(--text2);padding:6px 14px;}
       #page-devis-existant tr.dx-vertog td{background:var(--bg);color:var(--blue);font-size:11.5px;font-weight:500;padding:5px 14px 5px 28px;cursor:pointer;}
@@ -3039,6 +3099,8 @@ function setClient(c){
     sc.textContent=nom;
     sc.style.color='var(--text)';
   }
+  const chip=G('scli-chip');
+  if(chip){ chip.textContent=ini(c.nom); chip.style.display='flex'; }
   // Ne redirige vers devis que si on n'est pas déjà sur le configurateur
   const onConfig = G('page-config') && G('page-config').style.display!=='none';
   if(!onConfig) showPage('devis',null);
@@ -3048,6 +3110,8 @@ function clearClient(){
   curClient=null;
   G('client-display').innerHTML=`<div class="client-empty">Aucun client sélectionné</div><button class="btn" style="margin-top:8px;font-size:11px" onclick="showPage('contacts',null)">Sélectionner dans l'annuaire</button>`;
   G('scli').textContent='—';
+  const chip=G('scli-chip');
+  if(chip) chip.style.display='none';
 }
 
 // ══ REFRESH ══════════════════════════════════════════════════
@@ -3061,6 +3125,29 @@ function refreshNav(){
   show('nav-cmdacc', pans||pors||accs);   // accessoires : métré déduit des panneaux ET des portes (mousse, embouts…) OU compléments manuels
   show('nav-mission', any);
   const grp=G('nav-cmd-group'); if(grp) grp.style.display=(pans||pors||accs||any)?'':'none';
+  // Bloc utilisateur (bas de la barre) : e-mail lu dans le JWT Supabase, rempli une seule fois
+  const nuName=G('nav-user-name');
+  if(nuName && !nuName.dataset.set && typeof SB_TOKEN==='string' && SB_TOKEN){
+    try{
+      const b=SB_TOKEN.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
+      const em=(JSON.parse(atob(b+'='.repeat((4-b.length%4)%4))).email)||'';
+      if(em){ nuName.textContent=em.split('@')[0]; nuName.title=em; const av=G('nav-user-av'); if(av) av.textContent=em.slice(0,2).toUpperCase(); nuName.dataset.set='1'; }
+    }catch(e){}
+  }
+}
+// Liste compacte des produits sur la page Configurateur : retour visuel après « Valider et ajouter »
+function renderCfgItems(p){
+  const card=G('cfg-items-card'), list=G('cfg-items-list');
+  if(!card||!list) return;
+  if(!items.length){ card.style.display='none'; list.innerHTML=''; return; }
+  card.style.display='';
+  const cnt=G('cfg-items-count'); if(cnt) cnt.textContent=items.length+(items.length>1?' produits':' produit');
+  list.innerHTML=items.map((it,i)=>{
+    const v=cpv(it,p);
+    const tag=it.type==='pan'?'<span class="tag tag-pan">Pan</span>':it.type==='por'?'<span class="tag tag-por">Porte</span>':'<span class="tag tag-acc">+</span>';
+    const edit=it.type==='acc'?`editAccItem(${i})`:`editItem(${i})`;
+    return `<div class="item-row"><div class="item-left"><div class="item-name">${tag}${it.label}</div><div class="item-meta">${it.meta||''}</div></div><div class="item-right"><div class="item-price"${v>0?'':' style="color:var(--text2)"'}>${v>0?fmt(v)+' €':'À chiffrer'}</div><button class="item-del item-edit" title="Modifier" onclick="${edit}">✎</button><button class="item-del" title="Supprimer" onclick="delItem(${i})">×</button></div></div>`;
+  }).join('');
 }
 function refreshAll(){
   renumberPortes();
@@ -3097,7 +3184,9 @@ function refreshAll(){
   const dhd=G('dh-date');if(dhd)dhd.textContent=new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})+' — validité 30 jours';
   const sv=G('stva');if(sv)sv.textContent=grp(Math.round(tva))+' €';
   const sttc=G('sttc');if(sttc)sttc.textContent=grp(Math.round(totAvecTr+tva))+' €';
+  const sh=G('st-ttc'); if(sh) sh.textContent='TTC '+grp(Math.round(totAvecTr+tva))+' €';
   G('bdg').textContent=items.length;
+  try{ renderCfgItems(p); }catch(e){}
   renderAccList();
 
   // VUE ÉDITION
