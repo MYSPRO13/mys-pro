@@ -3716,6 +3716,7 @@ function panPick(k,v){
       pS={paroi:v};
       if(v==='Sol négatif'){ pS.ep='100'; pS.surface='Phénolique résine'; pS.mousse='PIR'; }
       else if(v==='Cloison'){ pS.mousse='PIR'; pS.ep='60'; pS.face1='Lisse'; pS.face2='Lisse'; pS.surface='Lisse/Lisse'; }
+      else if(v==='Plafond'){ pS.mousse='PIR'; pS.ep='80'; pS.face1='Lisse'; pS.face2='Nervuré'; pS.surface='Lisse/Nervuré'; }
     }
   } else if(k==='mousse'){
     if(pS.mousse!==v){ pS.mousse=v; delete pS.ep; delete pS.surface; }
