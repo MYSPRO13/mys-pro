@@ -139,6 +139,13 @@
       <span class="logotxt">MYS<b>PRO</b></span>
       <span class="apptitle">Cockpit</span>
       <div class="sync"><span id="sync-info">chargement…</span></div>
+      <button id="btn-synchro" onclick="demanderSynchro()" title="Demander à Claude de traiter les nouveautés et mettre le Cockpit à jour"
+              style="border:none;background:var(--grad);color:#fff;
+                     font:inherit;font-weight:700;font-size:13.5px;border-radius:9px;padding:9px 16px;
+                     cursor:pointer;display:inline-flex;align-items:center;gap:8px">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 1.5v3h-3"/></svg>
+        <span id="btn-synchro-txt">Synchroniser</span>
+      </button>
       <button onclick="location.href='index.html'" title="Repasser au Chiffrage"
               style="border:1px solid var(--band-line);background:rgba(255,255,255,.08);color:#fff;
                      font:inherit;font-weight:700;font-size:13.5px;border-radius:9px;padding:9px 16px;
@@ -211,6 +218,14 @@
 const SB_URL = 'https://sttnctrzmjirsigidxwx.supabase.co';
 const SB_KEY = 'sb_publishable_Q5fXmtMjch2qKM3Lza-sPQ_d9Z6yHFI';
 let SB_TOKEN = sessionStorage.getItem('mys_token') || null;
+
+// Repère des nouveautés : tout ce qui est né après ta dernière visite est badgé NOUVEAU
+const VU_AVANT = Number(localStorage.getItem('cockpit_vu') || 0);
+localStorage.setItem('cockpit_vu', Date.now());
+function badgeNouveau(a){
+  return (a.cree_le && new Date(a.cree_le).getTime() > VU_AVANT)
+    ? '<span class="badge" style="background:linear-gradient(100deg,#6D5BD0,#C23D7B);color:#fff;margin-right:7px;vertical-align:1px">NOUVEAU</span>' : '';
+}
 
 // ================= OUTILS =================
 function eur(n){ return (n==null? '—' : Number(n).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €'); }
@@ -393,6 +408,57 @@ function basculeFiche(row,c){
   ficheOuverte=div;
 }
 
+// ================= SYNCHRO À LA DEMANDE =================
+// Le bouton dépose une demande dans la file ; Claude l'exécute à son prochain
+// passage (session ouverte, ou moteur planifié). La page surveille et se
+// rafraîchit toute seule quand c'est fait.
+let SYNCHRO_ID = null, SYNCHRO_TIMER = null;
+
+function synchroUI(etat){
+  const btn=document.getElementById('btn-synchro'), txt=document.getElementById('btn-synchro-txt');
+  if(etat==='attente'){ btn.disabled=true; btn.style.opacity=.75; txt.textContent='En attente de Claude…'; }
+  else { btn.disabled=false; btn.style.opacity=1; txt.textContent='Synchroniser'; }
+}
+
+async function demanderSynchro(){
+  if(SYNCHRO_ID) return;
+  try{
+    const rows = await sb('actions', { method:'POST', headers:{ 'Prefer':'return=representation' },
+      body:{ origine:'clement', niveau:'autopilote', type:'synchro', statut:'valide',
+             titre:'Synchronisation demandée depuis le Cockpit',
+             detail:{ demande_le:new Date().toISOString() } } });
+    SYNCHRO_ID = rows[0].id;
+    synchroUI('attente');
+    toast('Demande transmise — le Cockpit se mettra à jour dès le passage de Claude');
+    surveillerSynchro();
+  }catch(e){ toast('Erreur : '+e.message); }
+}
+
+function surveillerSynchro(){
+  clearInterval(SYNCHRO_TIMER);
+  const debut = Date.now();
+  SYNCHRO_TIMER = setInterval(async ()=>{
+    try{
+      const rows = await sb('actions?id=eq.'+SYNCHRO_ID+'&select=statut');
+      if(rows[0] && rows[0].statut==='execute'){
+        clearInterval(SYNCHRO_TIMER); SYNCHRO_ID=null; synchroUI('repos');
+        await chargerTout();
+        toast('✓ Synchro terminée — Cockpit à jour');
+      } else if(Date.now()-debut > 45*60*1000){
+        clearInterval(SYNCHRO_TIMER); SYNCHRO_ID=null; synchroUI('repos');
+        toast('La demande attend toujours — ouvre une session Claude pour la traiter');
+      }
+    }catch(e){ /* silencieux : on retentera au tick suivant */ }
+  }, 20000);
+}
+
+async function reprendreSynchroEnCours(){
+  try{
+    const rows = await sb("actions?type=eq.synchro&statut=eq.valide&select=id&order=cree_le.desc&limit=1");
+    if(rows.length){ SYNCHRO_ID=rows[0].id; synchroUI('attente'); surveillerSynchro(); }
+  }catch(e){}
+}
+
 // ================= TÂCHES : rendu + décisions annulables =================
 const ETATS_ACTION = {
   valide:     ['✓ Feu vert transmis — exécution à la prochaine synchro', 'ok'],
@@ -402,24 +468,25 @@ const ETATS_ACTION = {
 };
 
 function rendreActions(){
-  const enAttente = ACTIONS.filter(a=>a.statut==='propose').length;
+  const visibles = ACTIONS.filter(a=>a.type!=='synchro');
+  const enAttente = visibles.filter(a=>a.statut==='propose').length;
   document.getElementById('kpi-feux').textContent = enAttente;
   document.getElementById('n-taches').textContent = enAttente;
   const la = document.getElementById('liste-actions');
-  if(!ACTIONS.length){ la.innerHTML='<p class="vide">Aucune tâche en attente de ton feu vert. 🎉</p>'; return; }
-  la.innerHTML = ACTIONS.map(a=>{
+  if(!visibles.length){ la.innerHTML='<p class="vide">Aucune tâche en attente de ton feu vert. 🎉</p>'; return; }
+  la.innerHTML = visibles.map(a=>{
     const sousTitre = esc(nomChantier(a.chantier_id)||(a.detail&&a.detail.chantier)||'') + ' · proposé le ' + dfr(a.cree_le);
     if(a.statut!=='propose' && ETATS_ACTION[a.statut]){
       const et = ETATS_ACTION[a.statut];
       return `<div class="task" style="opacity:.8">
-        <h4>${esc(a.titre)}</h4><p>${sousTitre}</p>
+        <h4>${badgeNouveau(a)}${esc(a.titre)}</h4><p>${sousTitre}</p>
         <div class="acts"><span class="badge ${et[1]}">${et[0]}</span>
           <button class="btn ghost" onclick="annulerDecision('${a.id}')">Annuler</button></div>
       </div>`;
     }
     return `
     <div class="task" data-id="${a.id}">
-      <h4>${esc(a.titre)}</h4>
+      <h4>${badgeNouveau(a)}${esc(a.titre)}</h4>
       <p>${sousTitre}</p>
       <div class="acts">
         <button class="btn go" onclick="decision('${a.id}','valide')">Feu vert</button>
@@ -498,6 +565,7 @@ async function marquerReglee(fid, numero, btn){
 // ================= DÉMARRAGE =================
 if(SB_TOKEN){
   chargerTout();
+  reprendreSynchroEnCours();
 } else {
   // Pas connecté : la porte d'entrée, c'est la page Chiffrage.
   location.replace('index.html');
