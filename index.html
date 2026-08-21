@@ -1132,6 +1132,10 @@ select.dx-pill { cursor: pointer; border: none; outline: none; -webkit-appearanc
         <span class="hm-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 12h2M10 12h10M4 17h7M15 17h5"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="13" cy="17" r="2"/></svg></span>
         <h3>Paramètres</h3><p>Tarifs généraux, formules de prix, forfaits.</p><span class="hm-go">Ouvrir →</span>
       </button>
+      <button class="hm-tile" onclick="location.href='cockpit.html'" style="border-color:#C23D7B33">
+        <span class="hm-ic" style="background:linear-gradient(100deg,#6D5BD0,#C23D7B);color:#fff"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 1 1 0-18 9 9 0 0 1 0 18z" opacity=".45"/><path d="M12 12l4.5-4.5"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg></span>
+        <h3>Cockpit</h3><p>Suivi chantiers, finances, tâches — ce qui t'attend aujourd'hui.</p><span class="hm-go">Décoller →</span>
+      </button>
     </div>
   </div>
 </div>
@@ -1239,6 +1243,7 @@ function togglePwd(){
     <input type="text" id="projet-nom" class="projet-inp" placeholder="Nom de l'affaire…" oninput="this.classList.remove('attn')" onfocus="this.classList.remove('attn')">
   </div>
   <div class="topbar-right">
+    <button class="btn" onclick="location.href='cockpit.html'" title="Passer au Cockpit (suivi chantiers, finances, tâches)" style="display:inline-flex;align-items:center;gap:7px;background:linear-gradient(100deg,#6D5BD0,#C23D7B);color:#fff;border-color:transparent"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 13A6 6 0 1 1 8 1a6 6 0 0 1 0 12z" opacity=".5"/><path d="M8 8l3-3"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/></svg>Cockpit</button>
     <button class="btn" onclick="showPage('devis-existant')" style="display:inline-flex;align-items:center;gap:7px"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h12M2 12h8"/></svg>Mes devis</button>
     <button class="btn" onclick="nouveauDevis()" style="display:inline-flex;align-items:center;gap:7px"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>Nouveau</button>
     <button class="btn btn-green" onclick="sauvegarderDevis()" style="display:inline-flex;align-items:center;gap:7px"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2h8l3 3v9H3z"/><path d="M5 2v4h5V2"/><rect x="5" y="9" width="6" height="4"/></svg>Sauvegarder</button>

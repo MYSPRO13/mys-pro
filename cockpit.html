@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Cockpit MYS Pro</title>
+<style>
+  :root{
+    --band:#262B3D; --band-ink:#EDEFF6; --band-muted:#A5ACC7; --band-line:rgba(255,255,255,.1);
+    --page:#E4E7EE; --card:#F2F3F7; --ink:#252A3C; --muted:#636D87; --line:#D5D9E3;
+    --grad:linear-gradient(100deg,#6D5BD0,#C23D7B);
+    --m:#A2185B;
+    --ok:#1E7A4E; --ok-soft:#DFECE4; --warn:#96601A; --warn-soft:#F2E9D8;
+    --bad:#B33A33; --bad-soft:#F1E1DF; --gold:#7D6420; --gold-soft:#EFE8D2;
+    --chip:#E2E5ED; --shadow:0 1px 3px rgba(37,42,60,.08);
+  }
+  *{box-sizing:border-box}
+  html{background:var(--page)}
+  body{background:var(--page);color:var(--ink);margin:0;padding:0 0 90px;
+       font:15px/1.5 Inter,ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:900px;margin:0 auto;padding:0 16px}
+
+  .band{background:var(--band);color:var(--band-ink);padding-top:10px}
+  header.top{display:flex;align-items:center;gap:14px;padding:12px 0 4px;flex-wrap:wrap}
+  .logotxt{font-weight:800;font-size:19px;letter-spacing:-.02em;color:#fff}
+  .logotxt b{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .apptitle{font-size:11.5px;font-weight:700;letter-spacing:.34em;text-transform:uppercase;color:var(--band-muted);
+            border-left:1px solid var(--band-line);padding-left:14px}
+  .sync{margin-left:auto;font-size:12.5px;color:var(--band-muted)}
+  .sync a{color:var(--band-muted)}
+  .strip{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0 4px}
+  .kpi{background:rgba(255,255,255,.06);border:1px solid var(--band-line);border-radius:10px;padding:8px 15px;
+       font-size:11.5px;font-weight:600;color:var(--band-muted)}
+  .kpi b{display:block;font-size:18px;margin-top:1px;color:var(--band-ink);font-variant-numeric:tabular-nums}
+  .kpi.pos b{color:#7BDCA9} .kpi.neg b{color:#FF9C94}
+  nav{position:sticky;top:0;z-index:10;background:var(--band);display:flex;padding-top:6px}
+  nav .wrapnav{display:flex;gap:4px;max-width:900px;margin:0 auto;padding:0 16px;width:100%}
+  nav button{border:none;cursor:pointer;font:inherit;font-weight:600;font-size:14.5px;
+      padding:11px 18px 13px;background:none;color:var(--band-muted);position:relative;transition:color .18s}
+  nav button:hover{color:var(--band-ink)}
+  nav button.on{color:#fff;font-weight:700}
+  nav button.on::after{content:"";position:absolute;left:12px;right:12px;bottom:0;height:3px;
+      background:var(--grad);border-radius:3px 3px 0 0}
+  nav button .n{display:inline-block;min-width:20px;text-align:center;background:var(--m);
+      color:#fff;border-radius:999px;font-size:11px;font-weight:800;padding:1.5px 6px;margin-left:7px;vertical-align:1px}
+
+  main{padding-top:18px}
+  .screen{display:none} .screen.on{display:block}
+  h2.sec{font-size:12px;text-transform:uppercase;letter-spacing:.11em;color:var(--muted);
+         margin:24px 0 10px;display:flex;align-items:center;gap:9px;font-weight:700}
+  h2.sec small{font-weight:500;text-transform:none;letter-spacing:0;font-size:12.5px}
+  h2.sec .mark{width:16px;height:4px;border-radius:2px;background:#9BA3BD;display:inline-block}
+  h2.sec .mark.grad{background:var(--grad)} h2.sec .mark.gold{background:#C4A44E}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);
+        padding:15px 17px;margin-bottom:10px}
+  .vide{color:var(--muted);font-size:13.5px;font-style:italic}
+
+  .tablewrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:14px}
+  th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);
+     padding:4px 10px 7px 0;border-bottom:1px solid var(--line);white-space:nowrap;font-weight:700}
+  td{padding:10px 10px 10px 0;border-bottom:1px solid var(--line);vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  tr.off td{opacity:.5}
+
+  .badge{display:inline-block;font-size:11px;font-weight:700;border-radius:6px;padding:3px 9px;
+         white-space:nowrap;letter-spacing:.02em}
+  .badge.ok{background:var(--ok-soft);color:var(--ok)}
+  .badge.warn{background:var(--warn-soft);color:var(--warn)}
+  .badge.bad{background:var(--bad-soft);color:var(--bad)}
+  .badge.gold{background:var(--gold-soft);color:var(--gold)}
+  .badge.chip{background:var(--chip);color:var(--muted)}
+
+  .btn{border:1px solid transparent;cursor:pointer;font:inherit;font-weight:650;font-size:13px;
+       border-radius:9px;padding:8px 15px;white-space:nowrap;transition:filter .2s,background .15s}
+  .btn.go{background:var(--grad);color:#fff}
+  .btn.go:hover{filter:brightness(1.1)}
+  .btn.soft{background:#FAFBFD;border-color:var(--line);color:var(--ink)}
+  .btn.soft:hover{background:var(--chip)}
+  .btn.ghost{background:none;color:var(--muted);text-decoration:underline;padding:8px 6px}
+  .btn.done{background:var(--ok-soft);color:var(--ok);cursor:default}
+  .btn:focus-visible{outline:2.5px solid var(--m);outline-offset:2px}
+
+  .task{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);
+        padding:14px 17px;margin-bottom:9px;position:relative;overflow:hidden}
+  .task::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--grad)}
+  .task h4{margin:0;font-size:14.5px;font-weight:650}
+  .task p{margin:3px 0 0;color:var(--muted);font-size:13px}
+  .task .acts{display:flex;gap:7px;margin-top:11px;flex-wrap:wrap;align-items:center}
+  .task .ajuster{display:none;margin-top:10px}
+  .task .ajuster.open{display:block}
+  .task .ajuster textarea{width:100%;border:1px solid var(--line);border-radius:9px;background:#FAFBFD;
+      color:var(--ink);font:inherit;font-size:14px;padding:11px;resize:vertical;min-height:58px}
+  .task .ajuster .hint{font-size:12px;color:var(--muted);margin:4px 0 6px}
+
+  ul.flat{list-style:none;margin:0;padding:0;display:grid;gap:7px}
+  ul.flat li{padding-left:23px;position:relative;font-size:13.5px;color:var(--muted)}
+  ul.flat li::before{content:"";position:absolute;left:2px;top:6px;width:9px;height:5px;
+      border-left:2px solid var(--ok);border-bottom:2px solid var(--ok);transform:rotate(-45deg)}
+  ul.flat li b{color:var(--ink);font-weight:600}
+
+  .sort-head{display:flex;gap:6px;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:4px}
+  .sort-btn{border:none;cursor:pointer;font:inherit;font-size:11px;font-weight:700;text-transform:uppercase;
+      letter-spacing:.08em;color:var(--muted);background:none;padding:5px 9px;border-radius:7px}
+  .sort-btn.on{color:var(--ink);background:var(--chip)}
+  .site-row{display:flex;align-items:center;gap:10px;padding:12px 8px;border-bottom:1px solid var(--line);
+      cursor:pointer;border-radius:8px;transition:background .15s}
+  .site-row:last-child{border-bottom:none}
+  .site-row:hover{background:var(--chip)}
+  .site-row .nm{font-weight:650;flex:1;font-size:14.5px}
+  .site-row .bud{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+  .site-row .chev{color:var(--muted);transition:transform .15s}
+  .site-row.open{background:#E6E3F2}
+  .site-row.open .chev{transform:rotate(90deg)}
+  .fiche-inline{margin:6px 0 12px;position:relative;overflow:hidden}
+  .fiche-inline::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--grad)}
+  .fiche-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px}
+  .fiche-head h3{margin:0;font-size:17px;font-weight:750;letter-spacing:-.01em}
+
+  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(90px);
+         background:var(--band);color:var(--band-ink);padding:12px 21px;border-radius:10px;font-weight:600;
+         font-size:13.5px;box-shadow:0 10px 34px rgba(37,42,60,.35);transition:transform .25s ease;z-index:50;
+         max-width:92vw;text-align:center}
+  #toast.show{transform:translateX(-50%) translateY(0)}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:8px}
+  @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<!-- La connexion se fait sur la page Chiffrage (index.html) — jeton partagé dans l'onglet. -->
+
+<!-- ============ BANDEAU ============ -->
+<div class="band">
+  <div class="wrap">
+    <header class="top">
+      <span class="logotxt">MYS<b>PRO</b></span>
+      <span class="apptitle">Cockpit</span>
+      <div class="sync"><span id="sync-info">chargement…</span></div>
+      <button onclick="location.href='index.html'" title="Repasser au Chiffrage"
+              style="border:1px solid var(--band-line);background:rgba(255,255,255,.08);color:#fff;
+                     font:inherit;font-weight:700;font-size:13.5px;border-radius:9px;padding:9px 16px;
+                     cursor:pointer;display:inline-flex;align-items:center;gap:8px">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 3L2 8l4 5M10 3l4 5-4 5"/></svg>
+        Chiffrage
+      </button>
+    </header>
+    <div class="strip">
+      <span class="kpi pos">On te doit<b id="kpi-doit">—</b></span>
+      <span class="kpi neg">Tu dois<b id="kpi-du">—</b></span>
+      <span class="kpi">Feux verts<b id="kpi-feux">—</b></span>
+    </div>
+  </div>
+  <nav><div class="wrapnav">
+    <button class="on" data-s="s-taches" onclick="onglet(this)">Tâches<span class="n" id="n-taches">0</span></button>
+    <button data-s="s-chantiers" onclick="onglet(this)">Chantiers</button>
+    <button data-s="s-argent" onclick="onglet(this)">Argent</button>
+  </div></nav>
+</div>
+
+<main class="wrap">
+
+  <!-- ============ TÂCHES ============ -->
+  <section class="screen on" id="s-taches">
+    <h2 class="sec"><span class="mark grad"></span>Ton feu vert <small>· valide, ajuste ou refuse — Claude exécute à la prochaine synchro</small></h2>
+    <div id="liste-actions"><p class="vide">Chargement…</p></div>
+
+    <h2 class="sec"><span class="mark"></span>Journal <small>· les derniers passages de Claude</small></h2>
+    <div class="card"><ul class="flat" id="liste-journal"><li>Chargement…</li></ul></div>
+  </section>
+
+  <!-- ============ CHANTIERS ============ -->
+  <section class="screen" id="s-chantiers">
+    <h2 class="sec"><span class="mark grad"></span>Chantiers en cours <small>· clique un nom → sa fiche s'ouvre dans la liste · en-têtes = tri</small></h2>
+    <div class="card">
+      <div class="sort-head">
+        <button class="sort-btn" data-k="nom" onclick="trier('nom')">Nom</button>
+        <button class="sort-btn on" data-k="statut" onclick="trier('statut')">Étape ▲</button>
+        <button class="sort-btn" data-k="budget_ht" onclick="trier('budget_ht')">Budget</button>
+      </div>
+      <div id="liste-chantiers"><p class="vide">Chargement…</p></div>
+    </div>
+  </section>
+
+  <!-- ============ ARGENT ============ -->
+  <section class="screen" id="s-argent">
+    <p class="legend" style="margin-top:4px">
+      <span><span class="badge bad">retard</span> échéance dépassée</span>
+      <span><span class="badge warn">bientôt</span> sous 7 jours</span>
+      <span><span class="badge ok">ok</span> dans les délais</span>
+      <span><span class="badge gold">verrou</span> verrouillé (contentieux, litige, re-lettrage) — jamais de relance</span>
+    </p>
+
+    <h2 class="sec"><span class="mark grad"></span>À encaisser <small>· copie MEG, trié par urgence — montants = reste dû</small></h2>
+    <div class="card"><div class="tablewrap" id="bloc-encaisser"><p class="vide">Chargement…</p></div></div>
+
+    <h2 class="sec"><span class="mark grad"></span>À payer <small>· factures fournisseurs par échéance</small></h2>
+    <div class="card"><div class="tablewrap" id="bloc-payer"><p class="vide">Chargement…</p></div></div>
+
+    <h2 class="sec"><span class="mark grad"></span>Derniers paiements repérés</h2>
+    <div class="card"><div class="tablewrap" id="bloc-paiements"><p class="vide">Chargement…</p></div></div>
+  </section>
+</main>
+
+<div id="toast" role="status"></div>
+
+<script>
+// ================= CONFIG (mêmes constantes que l'app) =================
+const SB_URL = 'https://sttnctrzmjirsigidxwx.supabase.co';
+const SB_KEY = 'sb_publishable_Q5fXmtMjch2qKM3Lza-sPQ_d9Z6yHFI';
+let SB_TOKEN = sessionStorage.getItem('mys_token') || null;
+
+// ================= OUTILS =================
+function eur(n){ return (n==null? '—' : Number(n).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €'); }
+function dfr(iso){ if(!iso) return '—'; const d=new Date(iso); return d.toLocaleDateString('fr-FR'); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function toast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'), 2800);
+}
+function montrerLogin(){
+  // La connexion vit sur la page Chiffrage : session expirée -> on y retourne.
+  SB_TOKEN=null; sessionStorage.removeItem('mys_token');
+  location.replace('index.html');
+}
+async function sb(path, opts){
+  const o = opts||{};
+  const r = await fetch(SB_URL + '/rest/v1/' + path, {
+    method: o.method||'GET',
+    headers: Object.assign({ 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_TOKEN,
+                             'Content-Type': 'application/json' }, o.headers||{}),
+    body: o.body ? JSON.stringify(o.body) : undefined
+  });
+  if(r.status===401){ montrerLogin(); throw new Error('session expirée'); }
+  if(!r.ok){ throw new Error('HTTP '+r.status); }
+  const txt = await r.text();
+  return txt ? JSON.parse(txt) : null;
+}
+
+// ================= NAVIGATION =================
+function onglet(b){
+  document.querySelectorAll('nav button').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.screen').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  document.getElementById(b.dataset.s).classList.add('on');
+  window.scrollTo({top:0});
+}
+
+// ================= DONNÉES =================
+let CHANTIERS=[], FACT_CLI=[], FACT_FOUR=[], ACTIONS=[], PAIEMENTS=[], COMMANDES=[];
+
+async function chargerTout(){
+  try{
+    [CHANTIERS, FACT_CLI, FACT_FOUR, ACTIONS, PAIEMENTS, COMMANDES] = await Promise.all([
+      sb('chantiers?select=*&archive=eq.false&order=nom'),
+      sb('factures_clients?select=*&statut_meg=neq.reglee&order=echeance'),
+      sb('factures_fournisseurs?select=*&statut=eq.a_regler&order=echeance'),
+      sb("actions?select=*&statut=eq.propose&order=cree_le"),
+      sb('paiements?select=*&order=date_paie.desc&limit=10'),
+      sb('commandes_fournisseurs?select=*')
+    ]);
+    rendreTout();
+    const j = await sb('journal?select=horodatage,categorie,texte&order=id.desc&limit=10');
+    document.getElementById('liste-journal').innerHTML =
+      j.length ? j.map(l=>'<li><b>'+dfr(l.horodatage)+'</b> — '+esc(l.texte)+'</li>').join('') : '<li>Rien pour l’instant.</li>';
+    document.getElementById('sync-info').textContent = 'Données au ' + new Date().toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'});
+  }catch(e){ if(String(e.message)!=='session expirée') toast('Erreur de chargement : '+e.message); }
+}
+
+function ageBadge(f){
+  if(f.contentieux) return '<span class="badge gold">verrou</span>';
+  if(!f.echeance) return '<span class="badge chip">—</span>';
+  const j = Math.floor((Date.now() - new Date(f.echeance).getTime())/86400000);
+  if(j>0)  return '<span class="badge bad">retard J+'+j+'</span>';
+  if(j>=-7) return '<span class="badge warn">échéance '+dfr(f.echeance)+'</span>';
+  return '<span class="badge ok">'+dfr(f.echeance)+'</span>';
+}
+function nomChantier(id){
+  const c = CHANTIERS.find(x=>x.id===id);
+  return c ? c.nom : null;
+}
+
+// ================= RENDU =================
+function rendreTout(){
+  // --- KPIs ---
+  const doit = FACT_CLI.filter(f=>!f.contentieux).reduce((s,f)=>s+(Number(f.total_ttc)||0),0);
+  const du   = FACT_FOUR.reduce((s,f)=>s+(Number(f.total_ttc)||0),0);
+  document.getElementById('kpi-doit').textContent = eur(doit);
+  document.getElementById('kpi-du').textContent = eur(du);
+  document.getElementById('kpi-feux').textContent = ACTIONS.length;
+  document.getElementById('n-taches').textContent = ACTIONS.length;
+
+  // --- Tâches ---
+  const la = document.getElementById('liste-actions');
+  la.innerHTML = ACTIONS.length ? ACTIONS.map(a=>`
+    <div class="task" data-id="${a.id}">
+      <h4>${esc(a.titre)}</h4>
+      <p>${esc(nomChantier(a.chantier_id)||'')}${a.detail&&a.detail.chantier&&!nomChantier(a.chantier_id)?esc(a.detail.chantier):''} · proposé le ${dfr(a.cree_le)}</p>
+      <div class="acts">
+        <button class="btn go" onclick="decision('${a.id}','valide',this)">Feu vert</button>
+        <button class="btn soft" onclick="this.closest('.task').querySelector('.ajuster').classList.toggle('open')">Ajuster</button>
+        <button class="btn ghost" onclick="decision('${a.id}','refuse',this)">Refuser</button>
+      </div>
+      <div class="ajuster">
+        <p class="hint">Écris ta modification comme tu parles — Claude refait et re-propose.</p>
+        <textarea placeholder="Ex. : livraison chez Sud Metal Tolerie à Montpellier, pas au chantier"></textarea>
+        <div style="margin-top:6px;text-align:right"><button class="btn go" onclick="ajuster('${a.id}',this)">Envoyer l'ajustement</button></div>
+      </div>
+    </div>`).join('') : '<p class="vide">Aucune tâche en attente de ton feu vert. 🎉</p>';
+
+  // --- Chantiers ---
+  rendreChantiers();
+
+  // --- Argent : à encaisser ---
+  const be = document.getElementById('bloc-encaisser');
+  const cli = FACT_CLI.filter(f=>Math.abs(Number(f.total_ttc)||0)>=0.005)
+    .sort((a,b)=> (a.contentieux?1:0)-(b.contentieux?1:0) || String(a.echeance||'9').localeCompare(String(b.echeance||'9')));
+  be.innerHTML = cli.length ? '<table><thead><tr><th>Facture</th><th>Chantier</th><th class="num">Reste dû</th><th>État</th><th></th></tr></thead><tbody>' +
+    cli.map(f=>`<tr class="${f.contentieux?'off':''}">
+      <td><b>${esc(f.numero_meg)}</b><br><span style="font-size:12px;color:var(--muted)">du ${dfr(f.date_fact)}</span></td>
+      <td>${esc(nomChantier(f.chantier_id)||'—')}</td>
+      <td class="num">${eur(f.total_ttc)}</td>
+      <td>${ageBadge(f)}</td>
+      <td>${f.contentieux?'' : (retardJours(f)>0 ? `<button class="btn go" onclick="demanderRelance('${f.id}','${esc(f.numero_meg)}',this)">Relancer</button>` : '')}</td>
+    </tr>`).join('') + '</tbody></table>' : '<p class="vide">Aucune facture en attente.</p>';
+
+  // --- Argent : à payer ---
+  const bp = document.getElementById('bloc-payer');
+  bp.innerHTML = FACT_FOUR.length ? '<table><thead><tr><th>Fournisseur</th><th>Facture</th><th class="num">TTC</th><th class="num">Échéance</th><th></th></tr></thead><tbody>' +
+    FACT_FOUR.map(f=>`<tr>
+      <td><b>${esc(f.fournisseur)}</b><br><span style="font-size:12px;color:var(--muted)">${esc(nomChantier(f.chantier_id)||'')}</span></td>
+      <td>${esc(f.numero)}</td>
+      <td class="num">${eur(f.total_ttc)}</td>
+      <td class="num">${dfr(f.echeance)}</td>
+      <td><button class="btn soft" onclick="marquerReglee('${f.id}','${esc(f.numero)}',this)">Réglée</button></td>
+    </tr>`).join('') + '</tbody></table>' : '<p class="vide">Aucune facture fournisseur en attente — l’échéancier se remplira au fil des synchros.</p>';
+
+  // --- Paiements ---
+  const bpay = document.getElementById('bloc-paiements');
+  bpay.innerHTML = PAIEMENTS.length ? '<table><tbody>' +
+    PAIEMENTS.map(p=>`<tr><td>${dfr(p.date_paie)}</td><td><b>${esc(p.emetteur||'?')}</b></td>
+      <td class="num" style="color:var(--ok);font-weight:700">+${eur(p.montant)}</td></tr>`).join('') +
+    '</tbody></table>' : '<p class="vide">Aucun paiement enregistré pour l’instant — cette liste s’alimentera avec les alertes bancaires et les sessions de pointage.</p>';
+}
+
+function retardJours(f){
+  if(!f.echeance) return 0;
+  return Math.floor((Date.now() - new Date(f.echeance).getTime())/86400000);
+}
+
+// --- Chantiers : tri + accordéon ---
+let tri_k='statut', tri_dir=1, ficheOuverte=null;
+const ORDRE_STATUT = {projet:1, signe:2, commandes:3, pose:4, facturation:5, rg:6, clos:7};
+function trier(k){
+  if(tri_k===k){ tri_dir=-tri_dir; } else { tri_k=k; tri_dir=1; }
+  document.querySelectorAll('.sort-btn').forEach(b=>{
+    const noms={nom:'Nom', statut:'Étape', budget_ht:'Budget'};
+    b.classList.toggle('on', b.dataset.k===k);
+    b.textContent = noms[b.dataset.k] + (b.dataset.k===k ? (tri_dir===1?' ▲':' ▼') : '');
+  });
+  rendreChantiers();
+}
+function rendreChantiers(){
+  const box=document.getElementById('liste-chantiers');
+  box.innerHTML=''; ficheOuverte=null;
+  const arr=CHANTIERS.slice().sort((a,b)=>{
+    let va=a[tri_k], vb=b[tri_k];
+    if(tri_k==='statut'){ va=ORDRE_STATUT[va]||9; vb=ORDRE_STATUT[vb]||9; }
+    if(typeof va==='string') return tri_dir*String(va).localeCompare(String(vb),'fr');
+    return tri_dir*((va||0)-(vb||0)) || String(a.nom).localeCompare(String(b.nom),'fr');
+  });
+  const badge={projet:'chip', signe:'ok', commandes:'chip', pose:'warn', facturation:'bad', rg:'gold', clos:'chip'};
+  arr.forEach(c=>{
+    const row=document.createElement('div');
+    row.className='site-row';
+    row.innerHTML='<span class="nm">'+esc(c.nom)+'</span><span class="badge '+(badge[c.statut]||'chip')+'">'+esc(c.statut)+
+                  '</span><span class="bud">'+(c.budget_ht?eur(c.budget_ht):'')+'</span><span class="chev">›</span>';
+    row.addEventListener('click',()=>basculeFiche(row,c));
+    box.appendChild(row);
+  });
+}
+function basculeFiche(row,c){
+  const deja=row.classList.contains('open');
+  if(ficheOuverte){ ficheOuverte.remove(); ficheOuverte=null; }
+  document.querySelectorAll('.site-row.open').forEach(r=>r.classList.remove('open'));
+  if(deja) return;
+  row.classList.add('open');
+  const cmds=COMMANDES.filter(x=>x.chantier_id===c.id);
+  const facs=FACT_CLI.filter(x=>x.chantier_id===c.id);
+  const div=document.createElement('div');
+  div.className='card fiche-inline';
+  div.innerHTML='<div class="fiche-head"><h3>'+esc(c.nom)+'</h3>'+
+    '<span class="badge chip">'+esc(c.statut)+'</span>'+
+    (c.budget_ht?'<span class="badge chip">Budget '+eur(c.budget_ht)+' HT</span>':'')+'</div>'+
+    '<h2 class="sec">Commandes fournisseurs</h2>'+
+    (cmds.length ? '<div class="tablewrap"><table><tbody>'+cmds.map(k=>
+      '<tr><td><b>'+esc(k.fournisseur)+'</b></td><td>'+esc(k.categorie||'')+'</td><td>'+esc(k.numero_conf||'')+
+      '</td><td><span class="badge '+(k.statut==='confirmee'?'ok':'chip')+'">'+esc(k.statut)+'</span></td>'+
+      '<td class="num">'+(k.date_livraison?dfr(k.date_livraison):'—')+(k.lieu_livraison==='LOCAL'?' <span class="badge warn">au local</span>':'')+'</td></tr>').join('')+
+      '</tbody></table></div>' : '<p class="vide">Aucune commande suivie en base pour ce chantier (elles arriveront au fil des synchros).</p>')+
+    '<h2 class="sec">Facturation client</h2>'+
+    (facs.length ? '<div class="tablewrap"><table><tbody>'+facs.map(f=>
+      '<tr><td><b>'+esc(f.numero_meg)+'</b></td><td class="num">'+eur(f.total_ttc)+'</td><td>'+ageBadge(f)+'</td></tr>').join('')+
+      '</tbody></table></div>' : '<p class="vide">Rien en attente côté client.</p>');
+  row.after(div);
+  ficheOuverte=div;
+}
+
+// ================= DÉCISIONS (écritures dans la file) =================
+async function decision(id, statut, btn){
+  try{
+    await sb('actions?id=eq.'+id, { method:'PATCH', body:{ statut:statut, traite_le:new Date().toISOString() },
+                                    headers:{ 'Prefer':'return=minimal' } });
+    btn.className='btn done'; btn.textContent = statut==='valide' ? '✓ Feu vert' : 'Refusée';
+    btn.closest('.task').style.opacity=.55;
+    toast(statut==='valide' ? 'Feu vert transmis — exécution à la prochaine synchro' : 'Refusée — Claude n’y reviendra pas');
+  }catch(e){ toast('Erreur : '+e.message); }
+}
+async function ajuster(id, btn){
+  const ta=btn.closest('.ajuster').querySelector('textarea');
+  const texte=(ta.value||'').trim();
+  if(!texte){ toast('Écris ta modification d’abord'); return; }
+  try{
+    const rows=await sb('actions?id=eq.'+id+'&select=detail');
+    const detail=(rows[0]&&rows[0].detail)||{};
+    detail.ajustement=texte;
+    await sb('actions?id=eq.'+id, { method:'PATCH', body:{ statut:'ajustement', detail:detail },
+                                    headers:{ 'Prefer':'return=minimal' } });
+    btn.closest('.task').style.opacity=.55;
+    btn.closest('.ajuster').classList.remove('open');
+    toast('Ajustement transmis — Claude re-proposera la tâche corrigée');
+  }catch(e){ toast('Erreur : '+e.message); }
+}
+async function demanderRelance(fid, numero, btn){
+  try{
+    await sb('actions', { method:'POST', headers:{ 'Prefer':'return=minimal' },
+      body:{ origine:'clement', niveau:'feu_vert', type:'relance', statut:'valide',
+             titre:'Préparer la relance de '+numero,
+             detail:{ facture_id:fid, numero_meg:numero } } });
+    btn.className='btn done'; btn.textContent='✓ Demandée';
+    toast('Relance demandée — brouillon à la prochaine synchro');
+  }catch(e){ toast('Erreur : '+e.message); }
+}
+async function marquerReglee(fid, numero, btn){
+  try{
+    await sb('actions', { method:'POST', headers:{ 'Prefer':'return=minimal' },
+      body:{ origine:'clement', niveau:'feu_vert', type:'facture_reglee', statut:'valide',
+             titre:'Facture fournisseur '+numero+' réglée (déclaré depuis le cockpit)',
+             detail:{ facture_id:fid, numero:numero } } });
+    btn.className='btn done'; btn.textContent='✓ Noté';
+    toast('Noté — Claude propage (échéancier, archives, compta) à la prochaine synchro');
+  }catch(e){ toast('Erreur : '+e.message); }
+}
+
+// ================= DÉMARRAGE =================
+if(SB_TOKEN){
+  chargerTout();
+} else {
+  // Pas connecté : la porte d'entrée, c'est la page Chiffrage.
+  location.replace('index.html');
+}
+</script>
+</body>
+</html>
