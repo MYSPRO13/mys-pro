@@ -257,7 +257,9 @@ async function chargerTout(){
       sb('chantiers?select=*&archive=eq.false&order=nom'),
       sb('factures_clients?select=*&statut_meg=neq.reglee&order=echeance'),
       sb('factures_fournisseurs?select=*&statut=eq.a_regler&order=echeance'),
-      sb("actions?select=*&statut=eq.propose&order=cree_le"),
+      sb("actions?select=*&statut=neq.execute&order=cree_le&limit=100").then(rows =>
+        rows.filter(a => a.statut === 'propose' ||
+          (a.traite_le && (Date.now() - new Date(a.traite_le).getTime()) < 48 * 3600 * 1000))),
       sb('paiements?select=*&order=date_paie.desc&limit=10'),
       sb('commandes_fournisseurs?select=*')
     ]);
@@ -289,26 +291,9 @@ function rendreTout(){
   const du   = FACT_FOUR.reduce((s,f)=>s+(Number(f.total_ttc)||0),0);
   document.getElementById('kpi-doit').textContent = eur(doit);
   document.getElementById('kpi-du').textContent = eur(du);
-  document.getElementById('kpi-feux').textContent = ACTIONS.length;
-  document.getElementById('n-taches').textContent = ACTIONS.length;
 
   // --- Tâches ---
-  const la = document.getElementById('liste-actions');
-  la.innerHTML = ACTIONS.length ? ACTIONS.map(a=>`
-    <div class="task" data-id="${a.id}">
-      <h4>${esc(a.titre)}</h4>
-      <p>${esc(nomChantier(a.chantier_id)||'')}${a.detail&&a.detail.chantier&&!nomChantier(a.chantier_id)?esc(a.detail.chantier):''} · proposé le ${dfr(a.cree_le)}</p>
-      <div class="acts">
-        <button class="btn go" onclick="decision('${a.id}','valide',this)">Feu vert</button>
-        <button class="btn soft" onclick="this.closest('.task').querySelector('.ajuster').classList.toggle('open')">Ajuster</button>
-        <button class="btn ghost" onclick="decision('${a.id}','refuse',this)">Refuser</button>
-      </div>
-      <div class="ajuster">
-        <p class="hint">Écris ta modification comme tu parles — Claude refait et re-propose.</p>
-        <textarea placeholder="Ex. : livraison chez Sud Metal Tolerie à Montpellier, pas au chantier"></textarea>
-        <div style="margin-top:6px;text-align:right"><button class="btn go" onclick="ajuster('${a.id}',this)">Envoyer l'ajustement</button></div>
-      </div>
-    </div>`).join('') : '<p class="vide">Aucune tâche en attente de ton feu vert. 🎉</p>';
+  rendreActions();
 
   // --- Chantiers ---
   rendreChantiers();
@@ -408,16 +393,72 @@ function basculeFiche(row,c){
   ficheOuverte=div;
 }
 
-// ================= DÉCISIONS (écritures dans la file) =================
-async function decision(id, statut, btn){
+// ================= TÂCHES : rendu + décisions annulables =================
+const ETATS_ACTION = {
+  valide:     ['✓ Feu vert transmis — exécution à la prochaine synchro', 'ok'],
+  refuse:     ['Refusée — Claude n’y reviendra pas', 'bad'],
+  fait_main:  ['✓ Déjà traité de ton côté — Claude met les registres à jour, sans exécuter', 'gold'],
+  ajustement: ['En ajustement — Claude re-proposera la tâche corrigée', 'warn']
+};
+
+function rendreActions(){
+  const enAttente = ACTIONS.filter(a=>a.statut==='propose').length;
+  document.getElementById('kpi-feux').textContent = enAttente;
+  document.getElementById('n-taches').textContent = enAttente;
+  const la = document.getElementById('liste-actions');
+  if(!ACTIONS.length){ la.innerHTML='<p class="vide">Aucune tâche en attente de ton feu vert. 🎉</p>'; return; }
+  la.innerHTML = ACTIONS.map(a=>{
+    const sousTitre = esc(nomChantier(a.chantier_id)||(a.detail&&a.detail.chantier)||'') + ' · proposé le ' + dfr(a.cree_le);
+    if(a.statut!=='propose' && ETATS_ACTION[a.statut]){
+      const et = ETATS_ACTION[a.statut];
+      return `<div class="task" style="opacity:.8">
+        <h4>${esc(a.titre)}</h4><p>${sousTitre}</p>
+        <div class="acts"><span class="badge ${et[1]}">${et[0]}</span>
+          <button class="btn ghost" onclick="annulerDecision('${a.id}')">Annuler</button></div>
+      </div>`;
+    }
+    return `
+    <div class="task" data-id="${a.id}">
+      <h4>${esc(a.titre)}</h4>
+      <p>${sousTitre}</p>
+      <div class="acts">
+        <button class="btn go" onclick="decision('${a.id}','valide')">Feu vert</button>
+        <button class="btn soft" onclick="this.closest('.task').querySelector('.ajuster').classList.toggle('open')">Ajuster</button>
+        <button class="btn soft" onclick="decision('${a.id}','fait_main')">Déjà traité</button>
+        <button class="btn ghost" onclick="decision('${a.id}','refuse')">Refuser</button>
+      </div>
+      <div class="ajuster">
+        <p class="hint">Écris ta modification comme tu parles — Claude refait et re-propose.</p>
+        <textarea placeholder="Ex. : livraison chez Sud Metal Tolerie à Montpellier, pas au chantier"></textarea>
+        <div style="margin-top:6px;text-align:right"><button class="btn go" onclick="ajuster('${a.id}',this)">Envoyer l'ajustement</button></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function decision(id, statut){
   try{
     await sb('actions?id=eq.'+id, { method:'PATCH', body:{ statut:statut, traite_le:new Date().toISOString() },
                                     headers:{ 'Prefer':'return=minimal' } });
-    btn.className='btn done'; btn.textContent = statut==='valide' ? '✓ Feu vert' : 'Refusée';
-    btn.closest('.task').style.opacity=.55;
-    toast(statut==='valide' ? 'Feu vert transmis — exécution à la prochaine synchro' : 'Refusée — Claude n’y reviendra pas');
+    const a=ACTIONS.find(x=>x.id===id); if(a) a.statut=statut;
+    rendreActions();
+    const msgs={ valide:'Feu vert transmis — exécution à la prochaine synchro',
+                 refuse:'Refusée — Claude n’y reviendra pas',
+                 fait_main:'Noté — tu l’as traité, Claude met les registres à jour' };
+    toast(msgs[statut]||'Enregistré');
   }catch(e){ toast('Erreur : '+e.message); }
 }
+
+async function annulerDecision(id){
+  try{
+    await sb('actions?id=eq.'+id, { method:'PATCH', body:{ statut:'propose', traite_le:null },
+                                    headers:{ 'Prefer':'return=minimal' } });
+    const a=ACTIONS.find(x=>x.id===id); if(a) a.statut='propose';
+    rendreActions();
+    toast('Annulé — la carte est de retour en attente');
+  }catch(e){ toast('Erreur : '+e.message); }
+}
+
 async function ajuster(id, btn){
   const ta=btn.closest('.ajuster').querySelector('textarea');
   const texte=(ta.value||'').trim();
@@ -428,8 +469,8 @@ async function ajuster(id, btn){
     detail.ajustement=texte;
     await sb('actions?id=eq.'+id, { method:'PATCH', body:{ statut:'ajustement', detail:detail },
                                     headers:{ 'Prefer':'return=minimal' } });
-    btn.closest('.task').style.opacity=.55;
-    btn.closest('.ajuster').classList.remove('open');
+    const a=ACTIONS.find(x=>x.id===id); if(a){ a.statut='ajustement'; a.detail=detail; }
+    rendreActions();
     toast('Ajustement transmis — Claude re-proposera la tâche corrigée');
   }catch(e){ toast('Erreur : '+e.message); }
 }
