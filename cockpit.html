@@ -125,6 +125,66 @@
          max-width:92vw;text-align:center}
   #toast.show{transform:translateX(-50%) translateY(0)}
   .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:8px}
+
+  /* ===== Argent : lignes clients, chaîne de preuve, grand livre ===== */
+  .cli-ligne{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);
+             margin-bottom:9px;overflow:hidden}
+  .cli-tete{display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:12px;padding:12px 16px}
+  .cli-nom{font-weight:650;font-size:14.5px}
+  .cli-sous{font-size:12px;color:var(--muted);margin-top:1px}
+  .cli-montant{font-variant-numeric:tabular-nums;font-size:16.5px;font-weight:600;background:none;border:none;
+               color:var(--ink);cursor:pointer;padding:6px 10px;border-radius:7px;
+               border-bottom:1.5px dashed #9AA0B2;transition:background .15s;font-family:inherit}
+  .cli-montant:hover{background:var(--chip)}
+  .cli-montant .fl{font-size:10px;color:var(--muted);margin-left:6px;display:inline-block;transition:transform .2s}
+  .cli-ligne[data-ouvert="1"] .cli-montant .fl{transform:rotate(180deg)}
+  .btn-gl{border:1px solid var(--line);background:#FAFBFD;color:var(--muted);font:inherit;font-size:12px;
+          font-weight:650;padding:7px 12px;border-radius:7px;cursor:pointer;white-space:nowrap;transition:all .15s}
+  .btn-gl:hover{color:var(--ink);border-color:#9AA0B2}
+  .preuve{display:none;border-top:1px solid var(--line);background:#EAECF3;padding:11px 16px 13px}
+  .cli-ligne[data-ouvert="1"] .preuve{display:block}
+  .p-titre{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin-bottom:7px;font-weight:700}
+  .p-ligne{font-family:ui-monospace,'Cascadia Mono',Consolas,monospace;font-variant-numeric:tabular-nums;
+           font-size:12.5px;display:flex;gap:10px;align-items:baseline;padding:4px 8px;border-radius:5px}
+  .p-ligne:nth-child(odd){background:rgba(255,255,255,.6)}
+  .p-ok{color:var(--ok);font-weight:600} .p-ko{color:var(--bad);font-weight:600} .p-attn{color:var(--warn);font-weight:600}
+  .p-txt{color:var(--ink);flex:1;min-width:0} .p-mnt{margin-left:auto;white-space:nowrap}
+  .p-ligne .btn{padding:3px 10px;font-size:11.5px;margin-left:8px}
+  .p-sources{display:flex;gap:14px;margin-top:9px;padding-top:8px;border-top:1px dashed var(--line);
+             font-size:11px;color:var(--muted);flex-wrap:wrap}
+  .cli-ligne.verre{opacity:.62;background:repeating-linear-gradient(-45deg,var(--card),var(--card) 12px,#EAECF3 12px,#EAECF3 13px)}
+  dialog#gl-modal{border:none;border-radius:14px;padding:0;width:min(880px,calc(100vw - 32px));
+         max-height:calc(100vh - 60px);background:var(--card);color:var(--ink);
+         box-shadow:0 24px 80px rgba(28,32,54,.45)}
+  dialog#gl-modal::backdrop{background:rgba(28,32,54,.55)}
+  .gl-tete{background:var(--band);color:#fff;padding:15px 22px;display:flex;align-items:center;gap:14px}
+  .gl-tete h3{margin:0;font-size:16px;font-weight:650}
+  .gl-sous{font-size:12px;color:var(--band-muted)}
+  .gl-fermer{margin-left:auto;background:none;border:none;color:var(--band-muted);font-size:22px;line-height:1;
+             padding:4px 8px;border-radius:6px;cursor:pointer}
+  .gl-fermer:hover{color:#fff;background:rgba(255,255,255,.1)}
+  .gl-corps{padding:16px 22px 20px;overflow:auto;max-height:calc(100vh - 210px)}
+  .gl-table{width:100%;border-collapse:collapse;font-size:12.5px}
+  .gl-table th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);
+               padding:6px 8px;border-bottom:1.5px solid var(--line);font-weight:700}
+  .gl-table td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:baseline}
+  .gl-table .num{font-family:ui-monospace,'Cascadia Mono',Consolas,monospace;font-variant-numeric:tabular-nums;
+                 text-align:right;white-space:nowrap}
+  .gl-table tr.regl td{color:var(--muted)}
+  .gl-table .tick{color:var(--ok);font-weight:650;white-space:nowrap;font-size:11.5px}
+  .gl-table tr.total td{border-top:2px solid #9AA0B2;border-bottom:none;font-weight:750;padding-top:9px}
+  .gl-verdict{margin-top:13px;border-left:3px solid var(--m);background:#EAECF3;padding:10px 14px;
+              font-size:13.5px;border-radius:0 8px 8px 0}
+  .gl-pied{display:flex;align-items:center;gap:14px;margin-top:15px;flex-wrap:wrap}
+  .gl-fraicheur{font-size:11px;color:var(--muted);margin-left:auto}
+  @media (max-width:680px){ .cli-tete{grid-template-columns:1fr auto} .cli-badge{display:none} }
+  @media print{
+    body *{visibility:hidden}
+    dialog#gl-modal[open], dialog#gl-modal[open] *{visibility:visible}
+    dialog#gl-modal{position:absolute;inset:0;width:100%;max-height:none;box-shadow:none}
+    .gl-fermer,.gl-pied .btn{display:none}
+    .gl-corps{max-height:none;overflow:visible}
+  }
   @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
 </head>
@@ -200,8 +260,11 @@
       <span><span class="badge gold">verrou</span> verrouillé (contentieux, litige, re-lettrage) — jamais de relance</span>
     </p>
 
-    <h2 class="sec"><span class="mark grad"></span>À encaisser <small>· copie MEG, trié par urgence — montants = reste dû</small></h2>
-    <div class="card"><div class="tablewrap" id="bloc-encaisser"><p class="vide">Chargement…</p></div></div>
+    <h2 class="sec"><span class="mark grad"></span>À encaisser, par âge <small>· clique un montant → sa chaîne de preuve · reste dû = factures − règlements pointés en banque</small></h2>
+    <div id="bloc-encaisser"><p class="vide">Chargement…</p></div>
+
+    <h2 class="sec" id="titre-verre" style="display:none"><span class="mark gold"></span>Sous verre <small>· verrouillés — jamais de relance</small></h2>
+    <div id="bloc-verre"></div>
 
     <h2 class="sec"><span class="mark grad"></span>À payer <small>· factures fournisseurs par échéance</small></h2>
     <div class="card"><div class="tablewrap" id="bloc-payer"><p class="vide">Chargement…</p></div></div>
@@ -211,6 +274,7 @@
   </section>
 </main>
 
+<dialog id="gl-modal"></dialog>
 <div id="toast" role="status"></div>
 
 <script>
@@ -270,12 +334,12 @@ async function chargerTout(){
   try{
     [CHANTIERS, FACT_CLI, FACT_FOUR, ACTIONS, PAIEMENTS, COMMANDES] = await Promise.all([
       sb('chantiers?select=*&archive=eq.false&order=nom'),
-      sb('factures_clients?select=*&statut_meg=neq.reglee&order=echeance'),
-      sb('factures_fournisseurs?select=*&statut=eq.a_regler&order=echeance'),
+      sb('factures_clients?select=*&order=date_fact'),
+      sb('factures_fournisseurs?select=*&order=echeance'),
       sb("actions?select=*&statut=neq.execute&order=cree_le&limit=100").then(rows =>
         rows.filter(a => a.statut === 'propose' ||
           (a.traite_le && (Date.now() - new Date(a.traite_le).getTime()) < 48 * 3600 * 1000))),
-      sb('paiements?select=*&order=date_paie.desc&limit=10'),
+      sb('paiements?select=*&order=date_paie'),
       sb('commandes_fournisseurs?select=*')
     ]);
     rendreTout();
@@ -301,9 +365,12 @@ function nomChantier(id){
 
 // ================= RENDU =================
 function rendreTout(){
-  // --- KPIs ---
-  const doit = FACT_CLI.filter(f=>!f.contentieux).reduce((s,f)=>s+(Number(f.total_ttc)||0),0);
-  const du   = FACT_FOUR.reduce((s,f)=>s+(Number(f.total_ttc)||0),0);
+  calculerGroupes();
+
+  // --- KPIs (reste dû calculé : total facturé − règlements pointés) ---
+  const doit = Object.values(GROUPES).filter(g=>!g.verrou && g.reste>0.005 && g.ouvertes.length)
+                     .reduce((s,g)=>s+g.reste,0);
+  const du   = FACT_FOUR.filter(f=>f.statut==='a_regler').reduce((s,f)=>s+(Number(f.total_ttc)||0),0);
   document.getElementById('kpi-doit').textContent = eur(doit);
   document.getElementById('kpi-du').textContent = eur(du);
 
@@ -313,37 +380,166 @@ function rendreTout(){
   // --- Chantiers ---
   rendreChantiers();
 
-  // --- Argent : à encaisser ---
-  const be = document.getElementById('bloc-encaisser');
-  const cli = FACT_CLI.filter(f=>Math.abs(Number(f.total_ttc)||0)>=0.005)
-    .sort((a,b)=> (a.contentieux?1:0)-(b.contentieux?1:0) || String(a.echeance||'9').localeCompare(String(b.echeance||'9')));
-  be.innerHTML = cli.length ? '<table><thead><tr><th>Facture</th><th>Chantier</th><th class="num">Reste dû</th><th>État</th><th></th></tr></thead><tbody>' +
-    cli.map(f=>`<tr class="${f.contentieux?'off':''}">
-      <td><b>${esc(f.numero_meg)}</b><br><span style="font-size:12px;color:var(--muted)">du ${dfr(f.date_fact)}</span></td>
-      <td>${esc(nomChantier(f.chantier_id)||'—')}</td>
-      <td class="num">${eur(f.total_ttc)}</td>
-      <td>${ageBadge(f)}</td>
-      <td>${f.contentieux?'' : (retardJours(f)>0 ? `<button class="btn go" onclick="demanderRelance('${f.id}','${esc(f.numero_meg)}',this)">Relancer</button>` : '')}</td>
-    </tr>`).join('') + '</tbody></table>' : '<p class="vide">Aucune facture en attente.</p>';
+  // --- Argent ---
+  rendreArgent();
+}
 
-  // --- Argent : à payer ---
+// ===== Argent : la preuve au premier plan =====
+// Correspondance facture -> client (transitoire : remplacée par la colonne
+// client_meg à la prochaine migration SQL)
+const CLIENTS_MAP = {"FAC00071954": "dd.quality", "FAC00071955": "dd.quality", "FAC00071957": "dd.quality", "AVR00000022": "dd.quality", "FAC00071958": "dd.quality", "FAC00071981": "dd.quality", "FAC00071988": "dd.quality", "FAC00071989": "dd.quality", "FAC00071993": "dd.quality", "FAC00072000": "dd.quality", "FAC00072001": "dd.quality", "FAC00072014": "dd.quality", "FAC00072015": "dd.quality", "FAC00072018": "dd.quality", "FAC00072019": "dd.quality", "AVR00000026": "dd.quality", "AVR00000027": "dd.quality", "FAC00071733": "FCT Montpellier", "FAC00071734": "FCT Montpellier", "AVR00000001": "FCT Montpellier", "FAC00071735": "FCT Montpellier", "FAC00071746": "FCT Montpellier", "FAC00071747": "FCT Montpellier", "FAC00071758": "FCT Montpellier", "FAC00071759": "FCT Montpellier", "FAC00071774": "FCT Montpellier", "FAC00071785": "FCT Montpellier", "FAC00071786": "FCT Montpellier", "FAC00071830": "FCT Montpellier", "FAC00071847": "FCT Montpellier", "FAC00071852": "FCT Montpellier", "FAC00071919": "FCT Montpellier", "FAC00071939": "FCT Montpellier", "FAC00072033": "FCT Montpellier", "FAC00072034": "FCT Montpellier", "FAC00071936": "GICUR", "FAC00071951": "GICUR", "FAC00071963": "GICUR", "FAC00071964": "GICUR", "FAC00071987": "GICUR", "FAC00072003": "GICUR", "FAC00072013": "GICUR", "FAC00071902": "MCP Fidec", "FAC00071929": "MCP Fidec", "FAC00071930": "MCP Fidec", "FAC00071976": "MCP Fidec", "FAC00072009": "MCP Fidec", "FAC00072026": "MCP Fidec", "FAC00071751": "Biraso", "FAC00071795": "Biraso", "FAC00072039": "Biraso", "FAC00071871": "Flore et Sens", "FAC00071781": "Grimal", "AVR00000007": "Grimal", "FAC00071790": "Grimal", "FAC00071796": "Grimal", "FAC00071756": "Perspectives", "FAC00071773": "Perspectives", "AVR00000009": "Perspectives", "FAC00071805": "Perspectives", "FAC00071806": "Perspectives", "FAC00071813": "Perspectives", "FAC00071820": "Perspectives", "FAC00071738": "Somimon", "FAC00071750": "Somimon", "FAC00071755": "Somimon", "FAC00071761": "Somimon", "FAC00071772": "Somimon", "AVR00000010": "Somimon", "FAC00071797": "Somimon", "FAC00071798": "Somimon", "FAC00071799": "Somimon", "FAC00071807": "Somimon", "FAC00071809": "Somimon", "FAC00071817": "Somimon", "FAC00071846": "Somimon", "FAC00071858": "Somimon", "FAC00071876": "Somimon", "FAC00071900": "Somimon", "FAC00071911": "Somimon", "FAC00071920": "Somimon", "FAC00071921": "Somimon", "FAC00071933": "Somimon", "FAC00071956": "Somimon", "AVR00000023": "Somimon", "FAC00071967": "Somimon", "FAC00071850": "Sodime E.Leclerc", "FAC00071886": "Apicius", "FAC00071898": "Apicius", "FAC00071932": "Apicius", "FAC00071768": "CS Montpellier — Chicken Street", "FAC00071860": "Benkar", "FAC00071891": "Calao 247 — ITM St Pons", "FAC00071983": "Calao 226 — ITM Le Cannet", "FAC00071959": "Immoroque — ITM Roquebrussanne", "FAC00072006": "Chef Jean", "FAC00072012": "Leclerc Le Bosc", "FAC00072021": "Agriviva / Foodgrid", "240122034": "E.Leclerc (devis jamais facturé)", "240122043": "Marché Gare (devis jamais facturé)", "240122037": "Biraso"};
+
+let GROUPES = {}, PAYES = {};
+function calculerGroupes(){
+  PAYES = {};
+  PAIEMENTS.forEach(p=>{ if(p.facture_id) PAYES[p.facture_id]=(PAYES[p.facture_id]||0)+Number(p.montant||0); });
+  GROUPES = {};
+  FACT_CLI.forEach(f=>{
+    const cli = CLIENTS_MAP[f.numero_meg] || 'À classer';
+    (GROUPES[cli] = GROUPES[cli] || {factures:[], paiements:[]}).factures.push(f);
+  });
+  PAIEMENTS.forEach(p=>{
+    const f = FACT_CLI.find(x=>x.id===p.facture_id);
+    const cli = f ? (CLIENTS_MAP[f.numero_meg]||'À classer') : (/somimon/i.test(p.emetteur||'') ? 'Somimon' : 'À classer');
+    (GROUPES[cli] = GROUPES[cli] || {factures:[], paiements:[]}).paiements.push(p);
+  });
+  Object.values(GROUPES).forEach(g=>{
+    g.reste = +(g.factures.filter(f=>f.statut_meg!=='remplacee').reduce((s,f)=>s+Number(f.total_ttc||0),0)
+              - g.paiements.reduce((s,p)=>s+Number(p.montant||0),0)).toFixed(2);
+    g.ouvertes = g.factures.filter(f=>f.statut_meg==='validee' && resteFacture(f)>0.005);
+    g.verrou = g.factures.some(f=>f.contentieux);
+    g.age = Math.max(0, ...g.ouvertes.map(f=>retardJours(f)));
+  });
+}
+function resteFacture(f){ return +(Number(f.total_ttc||0)-(PAYES[f.id]||0)).toFixed(2); }
+
+function badgeAgeClient(jours){
+  const m = jours/30.44;
+  if(m>=4)   return '<span class="badge bad cli-badge">+'+Math.floor(m)+' mois</span>';
+  if(m>=1.2) return '<span class="badge warn cli-badge">+'+m.toFixed(1).replace('.',',')+' mois</span>';
+  if(jours>0) return '<span class="badge warn cli-badge">échue</span>';
+  return '<span class="badge ok cli-badge">à échoir</span>';
+}
+
+function rendreArgent(){
+  const actifs = Object.entries(GROUPES).filter(([,g])=>!g.verrou && g.reste>0.005 && g.ouvertes.length)
+                       .sort((a,b)=>b[1].age-a[1].age);
+  const verres = Object.entries(GROUPES).filter(([,g])=>g.verrou && Math.abs(g.reste)>0.005);
+  document.getElementById('bloc-encaisser').innerHTML =
+    actifs.length ? actifs.map(([cli,g])=>ligneClient(cli,g,false)).join('') : '<p class="vide">Rien à encaisser.</p>';
+  document.getElementById('titre-verre').style.display = verres.length ? '' : 'none';
+  document.getElementById('bloc-verre').innerHTML = verres.map(([cli,g])=>ligneClient(cli,g,true)).join('');
+
   const bp = document.getElementById('bloc-payer');
   bp.innerHTML = FACT_FOUR.length ? '<table><thead><tr><th>Fournisseur</th><th>Facture</th><th class="num">TTC</th><th class="num">Échéance</th><th></th></tr></thead><tbody>' +
-    FACT_FOUR.map(f=>`<tr>
+    FACT_FOUR.map(f=>`<tr class="${f.statut==='reglee'?'off':''}">
       <td><b>${esc(f.fournisseur)}</b><br><span style="font-size:12px;color:var(--muted)">${esc(nomChantier(f.chantier_id)||'')}</span></td>
       <td>${esc(f.numero)}</td>
       <td class="num">${eur(f.total_ttc)}</td>
       <td class="num">${dfr(f.echeance)}</td>
-      <td><button class="btn soft" onclick="marquerReglee('${f.id}','${esc(f.numero)}',this)">Réglée</button></td>
+      <td>${f.statut==='a_regler' ? `<button class="btn soft" onclick="marquerReglee('${f.id}','${esc(f.numero)}',this)">Réglée</button>` : '<span class="badge ok">✓ réglée</span>'}</td>
     </tr>`).join('') + '</tbody></table>' : '<p class="vide">Aucune facture fournisseur en attente — l’échéancier se remplira au fil des synchros.</p>';
 
-  // --- Paiements ---
-  const bpay = document.getElementById('bloc-paiements');
-  bpay.innerHTML = PAIEMENTS.length ? '<table><tbody>' +
-    PAIEMENTS.map(p=>`<tr><td>${dfr(p.date_paie)}</td><td><b>${esc(p.emetteur||'?')}</b></td>
+  const derniers = PAIEMENTS.filter(p=>Number(p.montant)>0).slice(-8).reverse();
+  document.getElementById('bloc-paiements').innerHTML = derniers.length ? '<table><tbody>' +
+    derniers.map(p=>`<tr><td>${dfr(p.date_paie)}</td><td><b>${esc(p.emetteur||'?')}</b></td>
       <td class="num" style="color:var(--ok);font-weight:700">+${eur(p.montant)}</td></tr>`).join('') +
-    '</tbody></table>' : '<p class="vide">Aucun paiement enregistré pour l’instant — cette liste s’alimentera avec les alertes bancaires et les sessions de pointage.</p>';
+    '</tbody></table>' : '<p class="vide">Aucun paiement enregistré pour l’instant.</p>';
 }
+
+function ligneClient(cli,g,verre){
+  const badge = verre ? '<span class="badge gold cli-badge">verrou</span>' : badgeAgeClient(g.age);
+  const sous = verre
+    ? (g.reste<0 ? 'Trop-payé de '+eur(-g.reste)+' — ne pas relancer (re-lettrage MEG à planifier)'
+       : (/Sodime|Apicius/i.test(cli) ? 'Contentieux — dossier avocat, jamais de relance'
+          : 'Classé sans suite — avoir à passer dans MEG'))
+    : g.ouvertes.length+' facture'+(g.ouvertes.length>1?'s':'')+' ouverte'+(g.ouvertes.length>1?'s':'');
+  return `<section class="cli-ligne${verre?' verre':''}">
+    <div class="cli-tete">
+      <div><div class="cli-nom">${esc(cli)}</div><div class="cli-sous">${esc(sous)}</div></div>
+      ${badge}
+      <button class="cli-montant" onclick="basculerPreuve(this)" aria-expanded="false"
+              title="Voir la chaîne de preuve">${eur(Math.abs(g.reste))}<span class="fl">▾</span></button>
+      <button class="btn-gl" onclick="ouvrirGL('${esc(cli).replace(/'/g,"\\'")}')">📒 Grand livre</button>
+    </div>
+    <div class="preuve">${chainePreuve(cli,g,verre)}</div>
+  </section>`;
+}
+
+function chainePreuve(cli,g,verre){
+  let h = '<div class="p-titre">Chaîne de preuve</div>';
+  h += g.paiements.slice(-6).map(p=>{
+    const attn = /⚠/.test(p.emetteur||'');
+    return `<div class="p-ligne"><span class="${attn?'p-attn':'p-ok'}">${attn?'?':'✓'}</span>
+      <span class="p-txt">${dfr(p.date_paie)} · ${esc(p.emetteur||'virement')}</span>
+      <span class="p-mnt">${eur(p.montant)}</span></div>`;
+  }).join('');
+  g.ouvertes.slice(0,6).forEach(f=>{
+    const relancable = !verre && retardJours(f)>0;
+    h += `<div class="p-ligne"><span class="p-ko">✕</span>
+      <span class="p-txt">${esc(f.numero_meg)} · ${esc(f.type||'facture')} · échéance ${dfr(f.echeance)} : aucun règlement</span>
+      <span class="p-mnt">${eur(resteFacture(f))}</span>
+      ${relancable?`<button class="btn go" onclick="demanderRelance('${f.id}','${esc(f.numero_meg)}',this)">Relancer</button>`:''}</div>`;
+  });
+  h += '<div class="p-sources"><span><b>Base cockpit</b> · pointage validé au centime ✓</span><span><b>MEG + banque</b> · session du 18-19/08</span></div>';
+  return h;
+}
+
+function basculerPreuve(btn){
+  const l = btn.closest('.cli-ligne');
+  const o = l.dataset.ouvert==='1';
+  l.dataset.ouvert = o?'0':'1';
+  btn.setAttribute('aria-expanded', String(!o));
+}
+
+function ouvrirGL(cli){
+  const g = GROUPES[cli]; if(!g) return;
+  const evts = [];
+  g.factures.forEach(f=>{ if(f.statut_meg!=='remplacee'){
+    const t = Number(f.total_ttc||0);
+    evts.push({d:f.date_fact, type:t<0?'Avoir':'Facture',
+      lib:esc(f.numero_meg)+(f.statut_meg==='annulee'?' (annulée par avoir)':'')+(f.statut_meg==='irrecouvrable'?' — IRRÉCOUVRABLE':''),
+      deb:t>0?t:0, cre:t<0?-t:0});
+  }});
+  g.paiements.forEach(p=>{ const m=Number(p.montant||0);
+    evts.push({d:p.date_paie, type:'Règlement', lib:esc(p.emetteur||'virement').slice(0,80),
+      deb:m<0?-m:0, cre:m>0?m:0, tick:!/⚠/.test(p.emetteur||'')});
+  });
+  evts.sort((a,b)=>String(a.d||'').localeCompare(String(b.d||'')));
+  let solde=0, td=0, tc=0;
+  const lignes = evts.map(e=>{
+    solde+=e.deb-e.cre; td+=e.deb; tc+=e.cre;
+    return `<tr class="${e.type==='Règlement'?'regl':''}"><td>${dfr(e.d)}</td><td>${e.type}</td><td>${e.lib}</td>
+      <td class="num">${e.deb?eur(e.deb).replace(' €',''):''}</td>
+      <td class="num">${e.cre?eur(e.cre).replace(' €',''):''}</td>
+      <td class="num">${eur(solde).replace(' €','')}</td>
+      <td>${e.tick?'<span class="tick">✓ banque</span>':(e.type==='Règlement'?'<span class="p-attn">⚠</span>':'')}</td></tr>`;
+  }).join('');
+  const verdict = solde<=0.005
+    ? (solde<-0.005 ? '<b>Trop-payé de '+eur(-solde)+'</b> — le client ne doit rien. Ne pas relancer.' : '<b>Compte soldé.</b>')
+    : '<b>Dû réel : '+eur(solde)+'.</b>';
+  const md = document.getElementById('gl-modal');
+  md.innerHTML = `
+    <div class="gl-tete"><div><h3>${esc(cli)} — Grand livre client</h3>
+      <div class="gl-sous">généré depuis la base cockpit · ${new Date().toLocaleDateString('fr-FR')}</div></div>
+      <button class="gl-fermer" onclick="document.getElementById('gl-modal').close()" aria-label="Fermer">×</button></div>
+    <div class="gl-corps">
+      <div class="tablewrap"><table class="gl-table">
+        <thead><tr><th>Date</th><th>Type</th><th>Libellé</th><th class="num">Débit</th><th class="num">Crédit</th><th class="num">Solde</th><th></th></tr></thead>
+        <tbody>${lignes}
+          <tr class="total"><td colspan="3">Totaux</td><td class="num">${eur(td).replace(' €','')}</td>
+          <td class="num">${eur(tc).replace(' €','')}</td><td class="num">${eur(solde).replace(' €','')}</td><td></td></tr>
+        </tbody></table></div>
+      <div class="gl-verdict">${verdict}</div>
+      <div class="gl-pied"><button class="btn go" onclick="window.print()">Imprimer / PDF</button>
+        <span class="gl-fraicheur">règles du pointage : preuve au centime · ⚠ = mouvement à éclaircir</span></div>
+    </div>`;
+  md.showModal();
+}
+document.addEventListener('click', e=>{
+  const md=document.getElementById('gl-modal');
+  if(e.target===md) md.close();
+});
 
 function retardJours(f){
   if(!f.echeance) return 0;
@@ -388,7 +584,7 @@ function basculeFiche(row,c){
   if(deja) return;
   row.classList.add('open');
   const cmds=COMMANDES.filter(x=>x.chantier_id===c.id);
-  const facs=FACT_CLI.filter(x=>x.chantier_id===c.id);
+  const facs=FACT_CLI.filter(x=>x.chantier_id===c.id && x.statut_meg==='validee' && resteFacture(x)>0.005);
   const div=document.createElement('div');
   div.className='card fiche-inline';
   div.innerHTML='<div class="fiche-head"><h3>'+esc(c.nom)+'</h3>'+
@@ -402,7 +598,7 @@ function basculeFiche(row,c){
       '</tbody></table></div>' : '<p class="vide">Aucune commande suivie en base pour ce chantier (elles arriveront au fil des synchros).</p>')+
     '<h2 class="sec">Facturation client</h2>'+
     (facs.length ? '<div class="tablewrap"><table><tbody>'+facs.map(f=>
-      '<tr><td><b>'+esc(f.numero_meg)+'</b></td><td class="num">'+eur(f.total_ttc)+'</td><td>'+ageBadge(f)+'</td></tr>').join('')+
+      '<tr><td><b>'+esc(f.numero_meg)+'</b></td><td class="num">'+eur(resteFacture(f))+'</td><td>'+ageBadge(f)+'</td></tr>').join('')+
       '</tbody></table></div>' : '<p class="vide">Rien en attente côté client.</p>');
   row.after(div);
   ficheOuverte=div;
