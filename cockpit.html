@@ -673,15 +673,15 @@ function rendreActions(){
 
   // Classement par genre
   const GENRES = [
-    ['chiffrage','Chiffrages à faire'],
-    ['envoyer_mail','Mails à envoyer'],
-    ['creer_facture_meg','Factures à créer'],
-    ['relance','Relances clients'],
-    ['facture_reglee','Règlements fournisseurs'],
-    ['chantier_decale','Chantiers décalés'],
-    ['devis_signe','Devis signés'],
-    ['rappel','Rappels'],
-    ['note_libre','Notes']
+    ['chiffrage','Chiffrages à faire','feu vert → je crée le dossier + classe les pièces ; le chiffrage reste à toi'],
+    ['envoyer_mail','Mails à envoyer','feu vert → j’envoie le mail préparé'],
+    ['creer_facture_meg','Factures à créer','feu vert → fiche prête, création à ta prochaine session MEG'],
+    ['relance','Relances clients','feu vert → brouillon prêt dans Outlook, tu cliques Envoyer'],
+    ['facture_reglee','Règlements fournisseurs','feu vert → échéancier, archives, compta et Monday à jour'],
+    ['chantier_decale','Chantiers décalés','feu vert → mails de report préparés + agenda déplacé'],
+    ['devis_signe','Devis signés','feu vert → classement + fiche acompte 40 % vers MEG'],
+    ['rappel','Rappels','feu vert → intégré à mon prochain passage'],
+    ['note_libre','Notes','feu vert → interprétée et transformée en actions']
   ];
   const groupes = new Map();
   visibles.forEach(a=>{
@@ -691,11 +691,13 @@ function rendreActions(){
   });
   const ordre = GENRES.map(g=>g[0]).concat(['_autres']);
   la.innerHTML = ordre.filter(t=>groupes.has(t)).map(t=>{
-    const lib = t==='_autres' ? 'Autres décisions' : GENRES.find(g=>g[0]===t)[1];
+    const g = GENRES.find(x=>x[0]===t);
+    const lib = g ? g[1] : 'Autres décisions';
+    const aide = g && g[2] ? g[2] : '';
     const cartes = groupes.get(t);
     const nb = cartes.filter(a=>a.statut==='propose').length;
-    return '<h2 class="sec" style="margin-top:20px"><span class="mark grad"></span>'+lib+
-           ' <small>· '+(nb||cartes.length)+'</small></h2>' + cartes.map(carteHTML).join('');
+    return '<h2 class="sec" style="margin-top:20px;flex-wrap:wrap"><span class="mark grad"></span>'+lib+
+           ' <small>· '+(nb||cartes.length)+(aide?' · '+aide:'')+'</small></h2>' + cartes.map(carteHTML).join('');
   }).join('');
 }
 
