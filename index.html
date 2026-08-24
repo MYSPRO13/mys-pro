@@ -2073,6 +2073,7 @@ function poseGlobale(){
     else if(it.type==='por') total+=(it.pose||0);
     else if(it.type==='acc'){const pose=getAccPx(it.accId||it._accId||it.id||'').pose;if(pose>0)total+=pose*(it.qty||1);}
   });
+  total+=calcDepose().costTotal; // dépose = main d'œuvre → budget poseur au COÛT (tarif ÷ coef), pas au prix de vente
   return total;
 }
 
@@ -2126,14 +2127,17 @@ function deposeAuto(){
 function deposeQtes(){ const a=deposeAuto(); const use=(ov,au)=>(ov!=null&&ov!=='')?(parseFloat(ov)||0):au;
   return {panM2:use(DEPOSE.panM2,a.panM2), porCoul:use(DEPOSE.porCoul,a.porCoul), porPiv:use(DEPOSE.porPiv,a.porPiv)}; }
 function calcDepose(){
-  if(!DEPOSE.on) return {on:false,total:0,lines:[],q:deposeAuto()};
+  if(!DEPOSE.on) return {on:false,total:0,costTotal:0,coef:1.5,lines:[],q:deposeAuto()};
   const q=deposeQtes();
+  const coef=(P().coef)||1.5; // les tarifs saisis incluent la marge → coût poseur = tarif ÷ coef
   const rPan=parseFloat(G('depose-pan')?.value)||0, rCoul=parseFloat(G('depose-por-coul')?.value)||0, rPiv=parseFloat(G('depose-por-piv')?.value)||0;
+  // pu = prix de vente client ; puCost = coût poseur (budget) ; montant/costMontant = totaux ligne
+  const mk=(label,qty,unit,pu)=>({label,qty,unit,pu,montant:r2(pu*qty),puCost:r2(pu/coef),costMontant:r2((pu/coef)*qty)});
   const lines=[];
-  if(q.panM2>0&&rPan>0) lines.push({label:'Dépose cloisons / plafond',qty:q.panM2,unit:'m²',pu:rPan,montant:r2(rPan*q.panM2)});
-  if(q.porCoul>0&&rCoul>0) lines.push({label:'Dépose porte coulissante',qty:q.porCoul,unit:'u',pu:rCoul,montant:r2(rCoul*q.porCoul)});
-  if(q.porPiv>0&&rPiv>0) lines.push({label:'Dépose porte pivotante',qty:q.porPiv,unit:'u',pu:rPiv,montant:r2(rPiv*q.porPiv)});
-  return {on:true,total:r2(lines.reduce((s,l)=>s+l.montant,0)),lines,q};
+  if(q.panM2>0&&rPan>0) lines.push(mk('Dépose cloisons / plafond',q.panM2,'m²',rPan));
+  if(q.porCoul>0&&rCoul>0) lines.push(mk('Dépose porte coulissante',q.porCoul,'u',rCoul));
+  if(q.porPiv>0&&rPiv>0) lines.push(mk('Dépose porte pivotante',q.porPiv,'u',rPiv));
+  return {on:true,coef,total:r2(lines.reduce((s,l)=>s+l.montant,0)),costTotal:r2(lines.reduce((s,l)=>s+l.costMontant,0)),lines,q};
 }
 function deposeToggle(v){ DEPOSE.on=!!v; if(DEPOSE.on){ DEPOSE.panM2=null; DEPOSE.porCoul=null; DEPOSE.porPiv=null; } refreshAll(); }
 function deposeSet(k,v){ DEPOSE[k]=(v===''?null:v); refreshAll(); }
@@ -2371,7 +2375,7 @@ function calcMarge(p){
   const trv=travauxHT();
   if(trv>0){ vFlou+=trv; flou.push('Travaux spécifiques — '+fmt(trv)+' € (coût non renseigné)'); }
   const dep=calcDepose();
-  if(dep.total>0){ vFerme+=dep.total; } // dépose = main d'œuvre : comptée en marge (pas de coût d'achat)
+  if(dep.total>0){ vFerme+=dep.total; cFerme+=dep.costTotal; } // dépose : revenu = prix de vente, coût = part poseur (tarif ÷ coef)
   const marge=vFerme-cFerme;
   const pct=vFerme>0?marge/vFerme*100:0;
   return {vFerme,cFerme,marge,pct,vFlou,flou};
@@ -3468,6 +3472,13 @@ function refreshAll(){
         const montant=pose*qty;
         total+=montant;
         rows+=`<tr><td>${it.label}</td><td style="text-align:right">${it.meta||(qty+' u')}</td><td style="text-align:right">${fmt(pose)} €/u</td><td style="text-align:right;font-weight:600">${fmt(montant)} €</td></tr>`;
+      });
+
+      // Dépose de l'existant (main d'œuvre exécutée par le poseur)
+      const depM=calcDepose();
+      if(depM.on) depM.lines.forEach(L=>{
+        total+=L.costMontant;
+        rows+=`<tr><td>${L.label}</td><td style="text-align:right">${String(L.qty).replace('.',',')} ${L.unit}</td><td style="text-align:right">${fmt(L.puCost)} €/${L.unit}</td><td style="text-align:right;font-weight:600">${fmt(L.costMontant)} €</td></tr>`;
       });
 
       ms.innerHTML=`
