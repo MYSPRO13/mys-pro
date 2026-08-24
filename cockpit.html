@@ -658,7 +658,7 @@ async function reprendreSynchroEnCours(){
 // ================= TÂCHES : rendu + décisions annulables =================
 const ETATS_ACTION = {
   valide:     ['✓ Feu vert transmis — exécution à la prochaine synchro', 'ok'],
-  refuse:     ['Refusée — Claude n’y reviendra pas', 'bad'],
+  refuse:     ['Refusée — classée à la prochaine synchro', 'bad'],
   fait_main:  ['✓ Déjà traité de ton côté — Claude met les registres à jour, sans exécuter', 'gold'],
   ajustement: ['En ajustement — Claude re-proposera la tâche corrigée', 'warn']
 };
