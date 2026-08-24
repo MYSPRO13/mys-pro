@@ -670,7 +670,36 @@ function rendreActions(){
   document.getElementById('n-taches').textContent = enAttente;
   const la = document.getElementById('liste-actions');
   if(!visibles.length){ la.innerHTML='<p class="vide">Aucune tâche en attente de ton feu vert. 🎉</p>'; return; }
-  la.innerHTML = visibles.map(a=>{
+
+  // Classement par genre
+  const GENRES = [
+    ['chiffrage','Chiffrages à faire'],
+    ['envoyer_mail','Mails à envoyer'],
+    ['creer_facture_meg','Factures à créer'],
+    ['relance','Relances clients'],
+    ['facture_reglee','Règlements fournisseurs'],
+    ['chantier_decale','Chantiers décalés'],
+    ['devis_signe','Devis signés'],
+    ['rappel','Rappels'],
+    ['note_libre','Notes']
+  ];
+  const groupes = new Map();
+  visibles.forEach(a=>{
+    const cle = GENRES.some(g=>g[0]===a.type) ? a.type : '_autres';
+    if(!groupes.has(cle)) groupes.set(cle, []);
+    groupes.get(cle).push(a);
+  });
+  const ordre = GENRES.map(g=>g[0]).concat(['_autres']);
+  la.innerHTML = ordre.filter(t=>groupes.has(t)).map(t=>{
+    const lib = t==='_autres' ? 'Autres décisions' : GENRES.find(g=>g[0]===t)[1];
+    const cartes = groupes.get(t);
+    const nb = cartes.filter(a=>a.statut==='propose').length;
+    return '<h2 class="sec" style="margin-top:20px"><span class="mark grad"></span>'+lib+
+           ' <small>· '+(nb||cartes.length)+'</small></h2>' + cartes.map(carteHTML).join('');
+  }).join('');
+}
+
+function carteHTML(a){
     const sousTitre = esc(nomChantier(a.chantier_id)||(a.detail&&a.detail.chantier)||'') + ' · proposé le ' + dfr(a.cree_le);
     if(a.statut!=='propose' && ETATS_ACTION[a.statut]){
       const et = ETATS_ACTION[a.statut];
@@ -696,7 +725,6 @@ function rendreActions(){
         <div style="margin-top:6px;text-align:right"><button class="btn go" onclick="ajuster('${a.id}',this)">Envoyer l'ajustement</button></div>
       </div>
     </div>`;
-  }).join('');
 }
 
 async function decision(id, statut){
