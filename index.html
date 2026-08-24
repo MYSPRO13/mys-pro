@@ -1839,6 +1839,12 @@ function togglePwd(){
             <span>Portes — max</span><input id="tr-por-max" type="number" value="650" step="10" style="width:82px" oninput="refreshAll()"><span style="color:var(--text3)">€</span>
             <span>Forfait accessoires</span><input id="tr-acc-forfait" type="number" value="150" step="10" style="width:82px" oninput="refreshAll()"><span style="color:var(--text3)">€</span>
           </div>
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 8px">Dépose de l'existant — tarifs</div>
+          <div style="display:grid;grid-template-columns:1fr auto auto;gap:7px 10px;max-width:360px;font-size:12.5px;align-items:center">
+            <span>Cloisons / plafond</span><input id="depose-pan" type="number" value="21" step="1" style="width:82px" oninput="refreshAll()"><span style="color:var(--text3)">€/m²</span>
+            <span>Porte coulissante</span><input id="depose-por-coul" type="number" value="150" step="5" style="width:82px" oninput="refreshAll()"><span style="color:var(--text3)">€/u</span>
+            <span>Porte pivotante</span><input id="depose-por-piv" type="number" value="100" step="5" style="width:82px" oninput="refreshAll()"><span style="color:var(--text3)">€/u</span>
+          </div>
           <div style="font-size:11px;color:var(--text3);font-style:italic;margin-top:10px;line-height:1.5">Le total transport, l'évacuation et la manutention de l'affaire en cours restent réglables dans la barre latérale (valeurs propres au devis).</div>
         </div>
       </div>
@@ -2090,7 +2096,7 @@ function renumberPortes(){
 let pS={}, pH=[], qS={}, qH=[];
 let editIdx=null, editType=null; // produit en cours de modification (index dans items + 'pan'/'por')
 // Sections repliables des vues Édition et Aperçu devis (clic sur le titre)
-let secFold={edit_pan:true,edit_por:true,edit_acc:true,edit_marge:true,ap_pan:true,ap_por:true,ap_acc:true,ap_trv:true};
+let secFold={edit_pan:true,edit_por:true,edit_acc:true,edit_marge:true,ap_pan:true,ap_por:true,ap_acc:true,ap_trv:true,ap_dep:true};
 function togSec(k){ secFold[k]=!secFold[k]; refreshAll(); }
 
 // ══ UTILS ══════════════════════════════════════════════════
@@ -2106,6 +2112,31 @@ const P = () => {
     journeePx: parseFloat(G('journee-px')?.value)||1125
   };
 };
+
+// ── Dépose de l'existant (démontage) : tarifs dans Paramètres, quantités par devis ──
+// Tarif = prix de vente direct (pas de coef). Quantités pré-remplies depuis le devis, modifiables.
+let DEPOSE={on:false, panM2:null, porCoul:null, porPiv:null}; // null/'' = auto (quantités du devis)
+const DEPOSE_COUL=['PCIP','PCIN','PCS']; // portes coulissantes ; le reste (hors CHASSIS/RIDEAU) = pivotant
+function deposeAuto(){
+  const panM2=items.filter(i=>i.type==='pan').reduce((s,i)=>s+(i.surf||0),0);
+  let coul=0,piv=0;
+  items.filter(i=>i.type==='por').forEach(it=>{ const t=it.subtype||''; if(DEPOSE_COUL.includes(t)) coul++; else if(t&&t!=='CHASSIS'&&t!=='RIDEAU') piv++; });
+  return {panM2:Math.round(panM2*100)/100, porCoul:coul, porPiv:piv};
+}
+function deposeQtes(){ const a=deposeAuto(); const use=(ov,au)=>(ov!=null&&ov!=='')?(parseFloat(ov)||0):au;
+  return {panM2:use(DEPOSE.panM2,a.panM2), porCoul:use(DEPOSE.porCoul,a.porCoul), porPiv:use(DEPOSE.porPiv,a.porPiv)}; }
+function calcDepose(){
+  if(!DEPOSE.on) return {on:false,total:0,lines:[],q:deposeAuto()};
+  const q=deposeQtes();
+  const rPan=parseFloat(G('depose-pan')?.value)||0, rCoul=parseFloat(G('depose-por-coul')?.value)||0, rPiv=parseFloat(G('depose-por-piv')?.value)||0;
+  const lines=[];
+  if(q.panM2>0&&rPan>0) lines.push({label:'Dépose cloisons / plafond',qty:q.panM2,unit:'m²',pu:rPan,montant:r2(rPan*q.panM2)});
+  if(q.porCoul>0&&rCoul>0) lines.push({label:'Dépose porte coulissante',qty:q.porCoul,unit:'u',pu:rCoul,montant:r2(rCoul*q.porCoul)});
+  if(q.porPiv>0&&rPiv>0) lines.push({label:'Dépose porte pivotante',qty:q.porPiv,unit:'u',pu:rPiv,montant:r2(rPiv*q.porPiv)});
+  return {on:true,total:r2(lines.reduce((s,l)=>s+l.montant,0)),lines,q};
+}
+function deposeToggle(v){ DEPOSE.on=!!v; if(DEPOSE.on){ DEPOSE.panM2=null; DEPOSE.porCoul=null; DEPOSE.porPiv=null; } refreshAll(); }
+function deposeSet(k,v){ DEPOSE[k]=(v===''?null:v); refreshAll(); }
 
 // ── RÉFÉRENTIEL MATÉRIAUX ────────────────────────────────────
 // Désignations et unités d'achat vivent ici (non confidentiel) ; les PRIX sont
@@ -2339,6 +2370,8 @@ function calcMarge(p){
   });
   const trv=travauxHT();
   if(trv>0){ vFlou+=trv; flou.push('Travaux spécifiques — '+fmt(trv)+' € (coût non renseigné)'); }
+  const dep=calcDepose();
+  if(dep.total>0){ vFerme+=dep.total; } // dépose = main d'œuvre : comptée en marge (pas de coût d'achat)
   const marge=vFerme-cFerme;
   const pct=vFerme>0?marge/vFerme*100:0;
   return {vFerme,cFerme,marge,pct,vFlou,flou};
@@ -3179,7 +3212,8 @@ function refreshAll(){
   const manu    = calcManutention(p);
   const manuClient = G('manu-client')?.checked;
   const trvHT      = travauxHT();
-  const totAvecTr  = tot + tr.trNet + evac + manu + journeeForfait + trvHT;
+  const dep        = calcDepose();
+  const totAvecTr  = tot + tr.trNet + evac + manu + journeeForfait + trvHT + dep.total;
   const tva = totAvecTr * .2;
   const surfTot=items.filter(i=>i.type==='pan').reduce((s,i)=>s+i.surf,0);
   const porTot=items.filter(i=>i.type==='por').length;
@@ -3240,6 +3274,30 @@ function refreshAll(){
       h+=`</div>`;
       if(travaux.length){
         h+=`<div class="total-row" style="padding-top:.5rem"><span class="total-label">Total travaux spécifiques</span><span class="total-value" id="trv-sum" style="font-size:16px">${fmt(trvHT)} €</span></div>`;
+      }
+      // ── Dépose de l'existant ──
+      {
+        const q = dep.on ? dep.q : deposeAuto();
+        const rPan=parseFloat(G('depose-pan')?.value)||0, rCoul=parseFloat(G('depose-por-coul')?.value)||0, rPiv=parseFloat(G('depose-por-piv')?.value)||0;
+        h+=`<div class="items-section" style="margin-top:.875rem">
+          <div class="items-section-title" style="display:flex;justify-content:space-between;align-items:center;text-transform:none;padding:.45rem .75rem">
+            <span style="text-transform:uppercase;letter-spacing:.07em">Dépose de l'existant</span>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;text-transform:none;cursor:pointer"><input type="checkbox" ${DEPOSE.on?'checked':''} onchange="deposeToggle(this.checked)"> Inclure</label>
+          </div>`;
+        if(DEPOSE.on){
+          const drow=(lab,k,val,unit,rate)=>`<div style="display:flex;align-items:center;gap:8px;padding:3px .75rem;font-size:12px">
+            <span style="flex:1">${lab} <span style="color:var(--text3)">${fmt(rate)} €/${unit}</span></span>
+            <input type="number" min="0" step="any" value="${val}" onchange="deposeSet('${k}',this.value)" class="sr-input" style="width:70px;text-align:right">
+            <span style="color:var(--text3);width:20px">${unit}</span>
+            <span style="width:82px;text-align:right;font-weight:600">${fmt(r2(rate*val))} €</span></div>`;
+          h+=drow('Cloisons / plafond','panM2',q.panM2,'m²',rPan);
+          h+=drow('Porte coulissante','porCoul',q.porCoul,'u',rCoul);
+          h+=drow('Porte pivotante','porPiv',q.porPiv,'u',rPiv);
+          h+=`<div class="total-row" style="padding-top:.5rem"><span class="total-label">Total dépose</span><span class="total-value" style="font-size:16px">${fmt(dep.total)} €</span></div>`;
+        } else {
+          h+=`<div class="trv-empty">Cochez « Inclure » pour chiffrer la dépose (pré-remplie depuis le devis, modifiable).</div>`;
+        }
+        h+=`</div>`;
       }
       // Bloc frais annexes
       const hasAnnexes = tr.trNet > 0 || evac > 0 || manu > 0 || journeeForfait > 0;
@@ -3490,7 +3548,7 @@ function syncTravauxTotals(){
   const journeeForfait=p.mode==='journee'?p.journeePx:0;
   const tr=calcTransport(p,items), evac=calcEvacuation(p), manu=calcManutention(p);
   const trvHT=travauxHT();
-  const totAvecTr=tot+tr.trNet+evac+manu+journeeForfait+trvHT;
+  const totAvecTr=tot+tr.trNet+evac+manu+journeeForfait+trvHT+calcDepose().total;
   const tva=totAvecTr*.2;
   travaux.forEach(l=>{const e=G('trv-lt-'+l.id);if(e)e.textContent=fmt((parseFloat(l.qty)||0)*(parseFloat(l.pu)||0))+' €';});
   const sumE=G('trv-sum'); if(sumE) sumE.textContent=fmt(trvHT)+' €';
@@ -4120,6 +4178,11 @@ function apercuDevisRows(items, travaux, p){
       h+=row('', esc(l.desig)||'—', '', pu>0?money(pu):'—', `${esc(l.qty||0)} ${esc(l.unit||'')}`, money(q*pu));
     });
   }
+  const depA=calcDepose();
+  if(depA.on && depA.lines.length){
+    h+=sec('Dépose de l\'existant','ap_dep');
+    if(secFold.ap_dep) depA.lines.forEach(L=>{ h+=row('', L.label, '', money(L.pu), `${String(L.qty).replace('.',',')} ${L.unit}`, money(L.montant)); });
+  }
   return h;
 }
 
@@ -4417,6 +4480,13 @@ function genPDF(){
     });
   }
 
+  // ── DÉPOSE DE L'EXISTANT ──
+  const depPdf=calcDepose();
+  if(depPdf.on && depPdf.lines.length){
+    drawSection('DÉPOSE DE L\'EXISTANT');
+    depPdf.lines.forEach((L,i)=>{ drawRow('', L.label, fn(L.pu), String(L.qty).replace('.',',')+' '+L.unit, fn(L.montant), i%2===1); });
+  }
+
   // ── FRAIS ANNEXES ─────────────────────────────────────────
   const tr=calcTransport(p,items);
   const evac=calcEvacuation(p);
@@ -4442,7 +4512,7 @@ function genPDF(){
   if(y>220){doc.addPage();y=15;}
   const tot=items.reduce((s,it)=>s+cpv(it,p),0);
   const trvHT=travauxHT();
-  const totAvecTr=tot+tr.trNet+evac+manu+journeeForfait+trvHT;
+  const totAvecTr=tot+tr.trNet+evac+manu+journeeForfait+trvHT+depPdf.total;
   const tva=totAvecTr*0.20;
   const ttc=totAvecTr+tva;
 
@@ -4534,6 +4604,10 @@ function collectParams(){
   px.ev_base = parseFloat(G('ev-base')?.value)||660;
   // Manutention
   px.manu_base = parseFloat(G('manu-base')?.value)||600;
+  // Dépose de l'existant (tarifs de vente)
+  px.depose_pan      = parseFloat(G('depose-pan')?.value)||21;
+  px.depose_por_coul = parseFloat(G('depose-por-coul')?.value)||150;
+  px.depose_por_piv  = parseFloat(G('depose-por-piv')?.value)||100;
   // Journée simple
   px.journee_px = parseFloat(G('journee-px')?.value)||1125;
   px.pose_mode  = document.querySelector('input[name="pose-mode"]:checked')?.value||'budget';
@@ -4574,6 +4648,9 @@ function applyParams(px){
   if(G('tr-acc-forfait') && px.tr_acc_forfait) G('tr-acc-forfait').value = px.tr_acc_forfait;
   if(G('ev-base')   && px.ev_base)   G('ev-base').value   = px.ev_base;
   if(G('manu-base') && px.manu_base) G('manu-base').value = px.manu_base;
+  if(G('depose-pan')      && px.depose_pan)      G('depose-pan').value      = px.depose_pan;
+  if(G('depose-por-coul') && px.depose_por_coul) G('depose-por-coul').value = px.depose_por_coul;
+  if(G('depose-por-piv')  && px.depose_por_piv)  G('depose-por-piv').value  = px.depose_por_piv;
   if(G('journee-px') && px.journee_px) G('journee-px').value = px.journee_px;
   if(px.pose_mode){
     const radio = document.querySelector(`input[name="pose-mode"][value="${px.pose_mode}"]`);
@@ -4837,7 +4914,8 @@ async function sauvegarderDevis(){
   const evac = calcEvacuation(p);
   const manu = calcManutention(p);
   const tot = items.reduce((s,it)=>s+cpv(it,p), 0);
-  const totAvecTr = tot + tr.trNet + evac + manu;
+  const deposeSave = calcDepose();
+  const totAvecTr = tot + tr.trNet + evac + manu + deposeSave.total;
   const num = G('devis-num').textContent;
   const payload = {
     numero: num,
@@ -4845,7 +4923,7 @@ async function sauvegarderDevis(){
     client: curClient,
     projet_nom: G('projet-nom')?.value||'',
     items: items,
-    params: { pose: parseFloat(G('pp')?.value)||18, acc: parseFloat(G('pa')?.value)||6, coef: parseFloat(G('pc')?.value)||1.5 },
+    params: { pose: parseFloat(G('pp')?.value)||18, acc: parseFloat(G('pa')?.value)||6, coef: parseFloat(G('pc')?.value)||1.5, depose: {on:DEPOSE.on, panM2:DEPOSE.panM2, porCoul:DEPOSE.porCoul, porPiv:DEPOSE.porPiv} },
     transport: tr,
     evacuation: evac,
     manutention: { base: parseFloat(G('manu-base')?.value)||600, client: G('manu-client')?.checked||false, total: manu },
@@ -5054,6 +5132,8 @@ async function chargerDevis(id){
     if(G('pp')) G('pp').value = (d.params&&d.params.pose)||DEFAULT_PARAMS.pp;
     if(G('pa')) G('pa').value = (d.params&&d.params.acc)||DEFAULT_PARAMS.pa;
     if(G('pc')) G('pc').value = (d.params&&d.params.coef)||DEFAULT_PARAMS.pc;
+    const dpz = d.params && d.params.depose;
+    DEPOSE = dpz ? {on:!!dpz.on, panM2:dpz.panM2==null?null:dpz.panM2, porCoul:dpz.porCoul==null?null:dpz.porCoul, porPiv:dpz.porPiv==null?null:dpz.porPiv} : {on:false,panM2:null,porCoul:null,porPiv:null};
     if(G('projet-nom')) G('projet-nom').value = d.projet_nom||'';
     // Numéro
     G('devis-num').textContent = d.numero;
@@ -5076,6 +5156,7 @@ async function nouveauDevis(){
   const num = await genNumero();
   editIdx=null; editType=null;
   items = [];
+  DEPOSE={on:false, panM2:null, porCoul:null, porPiv:null};
   curClient = null;
   if(G('projet-nom')) G('projet-nom').value = '';
   if(G('pp')) G('pp').value = DEFAULT_PARAMS.pp;
