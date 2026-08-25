@@ -25,6 +25,7 @@
   header.top{display:flex;align-items:center;gap:14px;padding:12px 0 4px;flex-wrap:wrap}
   .logotxt{font-weight:800;font-size:19px;letter-spacing:-.02em;color:#fff}
   .logotxt b{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .logomys{height:34px;width:auto;display:block;flex:none}
   .apptitle{font-size:11.5px;font-weight:700;letter-spacing:.34em;text-transform:uppercase;color:var(--band-muted);
             border-left:1px solid var(--band-line);padding-left:14px}
   .sync{margin-left:auto;font-size:12.5px;color:var(--band-muted)}
@@ -196,7 +197,21 @@
 <div class="band">
   <div class="wrap">
     <header class="top">
-      <span class="logotxt">MYS<b>PRO</b></span>
+      <svg class="logomys" viewBox="10 135 790 375" xmlns="http://www.w3.org/2000/svg" aria-label="MYS PRO" role="img">
+        <polygon fill="#fff" points="118,355.8 54.5,355.8 136.4,144.4 199.8,144.4 "/>
+        <polygon fill="#fff" points="227.3,355.8 163.9,355.8 245.7,144.4 309.2,144.4 "/>
+        <polygon fill="#fff" points="338.1,355.8 274.6,355.8 356.5,144.4 419.9,144.4 "/>
+        <polygon fill="#A3195B" points="274.6,355.8 338,355.8 310.8,144.4 247.3,144.4 "/>
+        <polygon fill="#A3195B" points="164.4,355.8 227.9,355.8 200.6,144.4 137.2,144.4 "/>
+        <polygon fill="#fff" points="768.8,207.2 793.4,143.7 595.5,143.7 572.4,207.2 "/>
+        <polygon fill="#fff" points="711.5,354.9 731.4,291.4 538.7,291.4 514,354.9 "/>
+        <polygon fill="#A3195B" points="738.1,287.4 711.5,354.7 568.2,214.8 595.2,144 "/>
+        <polygon fill="#fff" points="447.4,502.4 383.9,502.4 517.9,144.4 581.3,144.4 "/>
+        <polygon fill="#A3195B" points="439.3,355.8 502.7,355.8 420.9,144.4 357.5,144.4 "/>
+        <path fill="#fff" d="M46.6,388.1h47.7c27.1,0,35.5,10.5,28.4,31.3c-6.7,19.9-21.9,30.2-49.9,30.2h-24l-8.7,25.7H17L46.6,388.1z M77.8,433.4c12.4,0,19.6-4.2,22.7-13.3c2.9-8.6-0.7-13.3-13.6-13.3H63.3l-9,26.5H77.8z"/>
+        <path fill="#fff" d="M169.7,388.1h49.9c29.4,0,35.1,10.2,29.8,25.8c-3,8.7-9.2,17.2-21.4,20.8l-0.1,0.3c11.5,3.2,9.5,12.9,6.4,22 l-6.2,18.3h-23.1l6.2-18.3c3.1-9,1.3-13.1-8.6-13.1h-28.7l-10.7,31.4h-23.1L169.7,388.1z M206.7,429.1c11.4,0,17.1-4.6,19.4-11.4 c2.1-6.2-0.6-10.7-13.9-10.7h-25.8l-7.5,22.1H206.7z"/>
+        <path fill="#fff" d="M280.8,431.3c8.2-24.1,31.5-44.8,67.2-44.8s45,20.7,36.8,44.8c-8.4,24.8-30.5,45.6-67.5,45.6 C281.5,476.9,271.9,457.4,280.8,431.3z M360.5,431.4c4.8-14.2-0.1-26.1-18.8-26.1c-18.8,0-31.7,11.9-36.6,26.1 c-5.3,15.6-0.2,26.6,18.7,26.6C343.1,458.1,355.4,446.4,360.5,431.4z"/>
+      </svg>
       <span class="apptitle">Cockpit</span>
       <div class="sync"><span id="sync-info">chargement…</span></div>
       <button id="btn-synchro" onclick="demanderSynchro()" title="Demander à Claude de traiter les nouveautés et mettre le Cockpit à jour"
