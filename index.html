@@ -2311,6 +2311,8 @@ function initAccPrices(){
 const FACE_OPTS=[['Lisse','Lisse','Standard'],['Nervuré','Nervuré','Standard'],['PET55','PET55','Alimentaire +'],['Inox','Inox','Inox +']];
 function normFace(f){f=String(f||'').trim();if(/inox/i.test(f))return'Inox';if(/pet/i.test(f))return'PET55';if(/nervur/i.test(f))return'Nervuré';if(/lisse/i.test(f))return'Lisse';return f||'Lisse';}
 function splitFaces(surface){const p=String(surface||'').split('/');return [normFace(p[0]||'Lisse'), normFace(p[1]!=null&&p[1]!==''?p[1]:(p[0]||'Lisse'))];}
+// Étiquette de faces normalisée (unifie les anciens noms, ex. « Nervuré acier » → « Nervuré ») ; laisse tel quel « Phénolique résine » & co.
+function normSurf(s){ s=String(s||''); return /lisse|nervur|pet|inox/i.test(s)?splitFaces(s).join('/'):s; }
 function panBaseAchat(mousse,ep){return parseFloat(G(mousse==='BRIO'?('xBRIO'+ep):mousse==='LR'?('xLR'+ep):('x'+ep+'ll'))?.value)||0;}
 function faceSupp(face){const f=String(face||'');if(/inox/i.test(f))return parseFloat(G('sup_inox')?.value)||0;if(/pet/i.test(f))return parseFloat(G('sup_pet55')?.value)||0;return 0;}
 function surfSupp(surf){return String(surf||'').split('/').reduce((s,f)=>s+faceSupp(f),0);}
@@ -4122,8 +4124,9 @@ function buildApercuAnnexes(tr, evac, manu, manuClient, items, p){
 function groupPanneaux(pans){
   const map={}, order=[];
   pans.forEach(it=>{
-    const key=[it.paroi||'',it.ep||'',it.mousse||'',it.surface||'',it._h||''].join('|');
-    if(!map[key]){ map[key]={ref:it.ref||'', paroi:it.paroi, ep:it.ep, mousse:it.mousse, surface:it.surface, _h:it._h, nbPan:0}; order.push(key); }
+    const surf=normSurf(it.surface);
+    const key=[it.paroi||'',it.ep||'',it.mousse||'',surf,it._h||''].join('|');
+    if(!map[key]){ map[key]={ref:it.ref||'', paroi:it.paroi, ep:it.ep, mousse:it.mousse, surface:surf, _h:it._h, nbPan:0}; order.push(key); }
     map[key].nbPan += (parseInt(it.nbPan)||0);
   });
   return order.map(k=>map[k]);
@@ -4135,7 +4138,7 @@ function panneauxDevisLignes(pans, p){
   autres.forEach(it=>{
     const isBrio=it.mousse==='BRIO', v=cpv(it,p), pu=it.surf>0?v/it.surf:v;
     const desig=isBrio?`BRIO ${it.ep}mm`:`${it.paroi} ${it.ep}mm — ${it.mousse}`;
-    const sub=isBrio?`h. ${it._h}m`:[(it.surface||'Phénolique'), it._h?`h. ${it._h}m`:''].filter(Boolean).join(' — ');
+    const sub=isBrio?`h. ${it._h}m`:[(normSurf(it.surface)||'Phénolique'), it._h?`h. ${it._h}m`:''].filter(Boolean).join(' — ');
     out.push({ref:it.ref||'', desig, sub, pu, surf:it.surf||0, montant:v});
   });
   const gmap={};
@@ -4146,7 +4149,7 @@ function panneauxDevisLignes(pans, p){
     const montant=g.reduce((s,i)=>s+cpv(i,p),0);
     const pu=surf>0?montant/surf:montant;
     const mousses=[...new Set(g.map(i=>i.mousse).filter(Boolean))];
-    const surfaces=[...new Set(g.map(i=>i.surface).filter(Boolean))];
+    const surfaces=[...new Set(g.map(i=>normSurf(i.surface)).filter(Boolean))];
     const subParts=[];
     if(mousses.length===1) subParts.push(mousses[0]);
     if(surfaces.length===1) subParts.push(surfaces[0]);
@@ -5638,7 +5641,7 @@ function genRecapPDF(){
   const pans=items.filter(i=>i.type==='pan');
   const panRows=pans.map(it=>{
     const isBrio=it.mousse==='BRIO';
-    const desig=isBrio?`BRIO ${it.ep}mm`:`${it.paroi} ${it.ep}mm — ${it.mousse}${it.surface?' — '+it.surface:''}`;
+    const desig=isBrio?`BRIO ${it.ep}mm`:`${it.paroi} ${it.ep}mm — ${it.mousse}${it.surface?' — '+normSurf(it.surface):''}`;
     const haut=it._h?String(Math.round(parseFloat(it._h)*1000)):'—';
     return [it.piece||'—', desig, haut, it.nbPan||'—'];
   });
