@@ -3457,11 +3457,12 @@ function refreshAll(){
       });
 
       // Portes
-      pors.forEach(it=>{
-        const pose=it.pose||0;
-        total+=pose;
-        const desig=porTypeName(it);
-        rows+=`<tr><td>${desig}</td><td style="text-align:right">1 u</td><td style="text-align:right">${fmt(pose)} €/u</td><td style="text-align:right;font-weight:600">${fmt(pose)} €</td></tr>`;
+      // Portes regroupées par type similaire (même pose)
+      const porG={};
+      pors.forEach(it=>{ const key=(it.subtype||porTypeName(it))+'|'+(it.pose||0); if(!porG[key]) porG[key]={desig:porTypeName(it),pose:it.pose||0,n:0}; porG[key].n++; });
+      Object.values(porG).forEach(g=>{
+        const montant=g.pose*g.n; total+=montant;
+        rows+=`<tr><td>${g.desig}</td><td style="text-align:right">${g.n} u</td><td style="text-align:right">${fmt(g.pose)} €/u</td><td style="text-align:right;font-weight:600">${fmt(montant)} €</td></tr>`;
       });
 
       // Accessoires (uniquement ceux avec prix de pose > 0)
@@ -5753,12 +5754,9 @@ function genMissionPDF(){
     drawMRow(d,fn(surf).replace(' €','')+'m²',fn(posePx)+'/m²',fn(mnt));
   });
 
-  pors.forEach(it=>{
-    const pose=it.pose||0;
-    total+=pose;
-    const d=porTypeName(it);
-    drawMRow(d,'1 u',fn(pose)+'/u',fn(pose));
-  });
+  const porGP={};
+  pors.forEach(it=>{ const key=(it.subtype||porTypeName(it))+'|'+(it.pose||0); if(!porGP[key]) porGP[key]={desig:porTypeName(it),pose:it.pose||0,n:0}; porGP[key].n++; });
+  Object.values(porGP).forEach(g=>{ const mnt=g.pose*g.n; total+=mnt; drawMRow(g.desig,g.n+' u',fn(g.pose)+'/u',fn(mnt)); });
 
   accs.forEach(it=>{
     const pose=getAccPx(it.accId||it._accId||it.id||'').pose;
@@ -5768,6 +5766,10 @@ function genMissionPDF(){
     total+=mnt;
     drawMRow(it.label,qty+' u',fn(pose)+'/u',fn(mnt));
   });
+
+  // Dépose de l'existant (main d'œuvre poseur, au coût = tarif ÷ coef)
+  const depMP=calcDepose();
+  if(depMP.on) depMP.lines.forEach(L=>{ total+=L.costMontant; drawMRow(L.label, String(L.qty).replace('.',',')+' '+L.unit, fn(L.puCost)+'/'+L.unit, fn(L.costMontant)); });
 
   // Total
   y+=1;
