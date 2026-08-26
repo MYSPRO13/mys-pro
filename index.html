@@ -4904,6 +4904,7 @@ async function nouvelleVersionDevis(){
   }catch(e){ console.error('Version devis:', e); showToast('Erreur — version non créée', true); return; }
   const nv=base+'-V'+(maxV+1);
   if(!confirm(`Créer la version V${maxV+1} du devis ${base} ?\n\nLe devis ${cur} sera archivé dans son état actuel — il restera consultable et modifiable depuis « Devis existant ». Tu continueras sur le ${nv}.`)) return;
+  window._skipVersionGuard=true; // le +V gère lui-même la version → pas de garde-fou
   try{
     await sauvegarderDevis();               // fige l'état courant sous son numéro actuel
     G('devis-num').textContent=nv;
@@ -4912,6 +4913,7 @@ async function nouvelleVersionDevis(){
     await sauvegarderDevis();               // crée la nouvelle version (numéro inconnu → création, statut brouillon)
     showToast('Version '+nv+' créée — l’ancienne est archivée');
   }catch(e){ console.error('Version devis:', e); showToast('Erreur — version non créée', true); }
+  finally{ window._skipVersionGuard=false; }
 }
 // Depuis la liste « Devis existant » : charge le devis puis crée sa nouvelle version
 async function versionDevisDepuisListe(id){
@@ -4928,7 +4930,7 @@ async function sauvegarderDevis(){
   const tot = items.reduce((s,it)=>s+cpv(it,p), 0);
   const deposeSave = calcDepose();
   const totAvecTr = tot + tr.trNet + evac + manu + deposeSave.total;
-  const num = G('devis-num').textContent;
+  let num = G('devis-num').textContent;
   const payload = {
     numero: num,
     updated_at: new Date().toISOString(),
@@ -4944,9 +4946,24 @@ async function sauvegarderDevis(){
   };
   try {
     // Chercher si devis existe déjà par numéro
-    const exists = await sbFetch('/rest/v1/devis?numero=eq.'+encodeURIComponent(num)+'&select=id');
+    const exists = await sbFetch('/rest/v1/devis?numero=eq.'+encodeURIComponent(num)+'&select=id,statut');
     if(exists && exists.length){
-      // Mise à jour : on ne touche PAS au statut (géré depuis la page « Devis existant »)
+      // Garde-fou : ne jamais écraser un devis déjà envoyé/accepté/facturé sans confirmation
+      // → proposer d'en créer une nouvelle version (l'original reste intact).
+      const st=exists[0].statut||'brouillon';
+      if(!window._skipVersionGuard && st!=='brouillon'){
+        const base=baseNum(num); let maxV=verNum(num);
+        try{ const rows=await sbFetch('/rest/v1/devis?select=numero&numero=like.'+encodeURIComponent(base+'*')); (rows||[]).forEach(r=>{ if(baseNum(r.numero)===base) maxV=Math.max(maxV,verNum(r.numero)); }); }catch(e){}
+        const nv=base+'-V'+(maxV+1);
+        if(confirm(`Le devis ${num} est déjà « ${SLAB[st]||st} ».\n\nOK → créer la version ${nv} (l'original reste intact)\nAnnuler → modifier quand même l'original`)){
+          num=nv; payload.numero=nv;
+          G('devis-num').textContent=nv; if(G('dnum')) G('dnum').textContent=nv;
+          try{ refreshAll(); }catch(e){}
+          await sbFetch('/rest/v1/devis', { method:'POST', body: Object.assign({statut:'brouillon'}, payload), prefer:'return=minimal' });
+          showToast('Version '+nv+' créée — original intact'); clearDraft(); return;
+        }
+        // sinon : l'utilisateur choisit d'écraser volontairement l'original
+      }
       await sbFetch('/rest/v1/devis?id=eq.'+exists[0].id, { method:'PATCH', body: payload, prefer:'return=minimal' });
     } else {
       await sbFetch('/rest/v1/devis', { method:'POST', body: Object.assign({statut:'brouillon'}, payload), prefer:'return=minimal' });
