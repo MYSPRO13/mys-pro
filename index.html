@@ -3382,9 +3382,9 @@ function refreshAll(){
     if(pan.length){
       cpan.innerHTML=`<table class="cmd-table">
         <thead><tr><th>Réf.</th><th>Désignation</th><th>Ép. (mm)</th><th>Hauteur (mm)</th><th>Nb panneaux</th></tr></thead>
-        <tbody>${pan.map(it=>{
+        <tbody>${groupPanneaux(pan).map(it=>{
           const isBrio=it.mousse==='BRIO';
-          const desig=isBrio?`BRIO ${it.ep}mm`:`${it.paroi} ${it.ep}mm — ${it.mousse} — ${it.surface||'Phénolique'}${it.piece?' — '+it.piece:''}`;
+          const desig=isBrio?`BRIO ${it.ep}mm`:`${it.paroi} ${it.ep}mm — ${it.mousse} — ${it.surface||'Phénolique'}`;
           return `<tr><td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3)">${it.ref||''}</td><td><strong>${desig}</strong></td><td>${it.ep}</td><td>${it._h?Math.round(parseFloat(it._h)*1000):'—'}</td><td>${it.nbPan||'—'}</td></tr>`;
         }).join('')}</tbody>
       </table>`;
@@ -3445,16 +3445,12 @@ function refreshAll(){
       let total=0;
       let rows='';
 
-      // Panneaux
-      pans.forEach(it=>{
-        const surfTotPan=it.surf||0;
-        const posePx=parseFloat(G('pp')?.value)||18;
-        const montant=surfTotPan*posePx;
-        total+=montant;
-        const isBrio=it.mousse==='BRIO';
-        const desig=isBrio?`BRIO ${it.ep}mm — h. ${it._h}m`:`${it.paroi} ${it.ep}mm — ${it.mousse}${it.piece?' — '+it.piece:''}`;
-        rows+=`<tr><td>${desig}</td><td style="text-align:right">${fmt(surfTotPan)} m²</td><td style="text-align:right">${fmt(posePx)} €/m²</td><td style="text-align:right;font-weight:600">${fmt(montant)} €</td></tr>`;
-      });
+      // Panneaux regroupés : Cloisons / Plafonds (pose au m², même taux)
+      {
+        const posePx=parseFloat(G('pp')?.value)||18, cats={};
+        pans.forEach(it=>{ const cat=it.paroi==='Plafond'?'Plafonds':(it.paroi==='Sol négatif'?'Sol de congélation':'Cloisons'); cats[cat]=(cats[cat]||0)+(it.surf||0); });
+        ['Cloisons','Plafonds','Sol de congélation'].forEach(cat=>{ const s=cats[cat]; if(s>0){ const montant=s*posePx; total+=montant; rows+=`<tr><td>${cat}</td><td style="text-align:right">${fmt(s)} m²</td><td style="text-align:right">${fmt(posePx)} €/m²</td><td style="text-align:right;font-weight:600">${fmt(montant)} €</td></tr>`; } });
+      }
 
       // Portes
       // Portes regroupées par type similaire (même pose)
@@ -4122,6 +4118,16 @@ function buildApercuAnnexes(tr, evac, manu, manuClient, items, p){
   return h;
 }
 
+// Regroupe les panneaux similaires pour la COMMANDE (même paroi/épaisseur/mousse/faces/hauteur) → somme des nb.
+function groupPanneaux(pans){
+  const map={}, order=[];
+  pans.forEach(it=>{
+    const key=[it.paroi||'',it.ep||'',it.mousse||'',it.surface||'',it._h||''].join('|');
+    if(!map[key]){ map[key]={ref:it.ref||'', paroi:it.paroi, ep:it.ep, mousse:it.mousse, surface:it.surface, _h:it._h, nbPan:0}; order.push(key); }
+    map[key].nbPan += (parseInt(it.nbPan)||0);
+  });
+  return order.map(k=>map[k]);
+}
 // Lignes du tableau de l'aperçu devis — mêmes colonnes/sections que le PDF final
 // Lignes panneaux pour le devis : plafonds regroupés par épaisseur (sans hauteur), le reste par item
 function panneauxDevisLignes(pans, p){
@@ -5429,7 +5435,7 @@ function genCmdPDF(type, ov){
   y+=7;
 
   // Lignes produits — soit fournies (ov.rows = tableaux de cellules déjà prêts), soit calculées
-  const filtered = ov.rows ? ov.rows : (type==='pan'?items.filter(i=>i.type==='pan')
+  const filtered = ov.rows ? ov.rows : (type==='pan'?groupPanneaux(items.filter(i=>i.type==='pan'))
     :type==='por'?items.filter(i=>i.type==='por')
     :items.filter(i=>i.type==='acc'));
 
@@ -5765,15 +5771,11 @@ function genMissionPDF(){
     y+=rh; rowIdx++;
   }
 
-  pans.forEach(it=>{
-    const surf=it.surf||0;
-    const posePx=parseFloat(G('pp')?.value)||18;
-    const mnt=surf*posePx;
-    total+=mnt;
-    const isBrio=it.mousse==='BRIO';
-    const d=isBrio?`BRIO ${it.ep}mm — h. ${it._h}m`:`${it.paroi} ${it.ep}mm — ${it.mousse}${it.piece?' — '+it.piece:''}`;
-    drawMRow(d,fn(surf).replace(' €','')+'m²',fn(posePx)+'/m²',fn(mnt));
-  });
+  {
+    const posePx=parseFloat(G('pp')?.value)||18, cats={};
+    pans.forEach(it=>{ const cat=it.paroi==='Plafond'?'Plafonds':(it.paroi==='Sol négatif'?'Sol de congélation':'Cloisons'); cats[cat]=(cats[cat]||0)+(it.surf||0); });
+    ['Cloisons','Plafonds','Sol de congélation'].forEach(cat=>{ const s=cats[cat]; if(s>0){ const mnt=s*posePx; total+=mnt; drawMRow(cat,fn(s).replace(' €','')+'m²',fn(posePx)+'/m²',fn(mnt)); } });
+  }
 
   const porGP={};
   pors.forEach(it=>{ const key=(it.subtype||porTypeName(it))+'|'+(it.pose||0); if(!porGP[key]) porGP[key]={desig:porTypeName(it),pose:it.pose||0,n:0}; porGP[key].n++; });
