@@ -4565,6 +4565,8 @@ function genPDF(){
 
   // ── PIED DE PAGE toutes pages ─────────────────────────────
   const pc=doc.internal.getNumberOfPages();
+  // Code interne discret (marge/acc/pose de ce devis) — anodin pour le client, lisible par Yvan
+  const spy='M'+(parseFloat(G('pc')?.value)||1.5)+'A'+(parseFloat(G('pa')?.value)||6)+'P'+(parseFloat(G('pp')?.value)||18);
   for(let i=1;i<=pc;i++){
     doc.setPage(i);
     hline(283, [200,200,200], 0.4);
@@ -4573,6 +4575,8 @@ function genPDF(){
     doc.text('MYS Pro — 9 Avenue de l\'Europe Module 6, 34830 Clapiers — Tél. 06 26 31 92 37', W/2, 291, {align:'center'});
     sf(false,6.5,GREY);
     doc.text('Page '+i+' / '+pc, MR, 289, {align:'right'});
+    sf(false,6,[196,196,196]); // gris très clair
+    doc.text(spy, ML, 289);
   }
 
   // ── EXPORT ───────────────────────────────────────────────
