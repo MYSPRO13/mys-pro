@@ -2071,7 +2071,10 @@ function poseGlobale(){
   items.forEach(it=>{
     if(it.type==='pan') total+=(it.surf||0)*posePx;
     else if(it.type==='por') total+=(it.pose||0);
-    else if(it.type==='acc'){const pose=getAccPx(it.accId||it._accId||it.id||'').pose;if(pose>0)total+=pose*(it.qty||1);}
+    else if(it.type==='acc'){
+      if(it.accId==='bastaing'){ total+=(it.poseUnit!=null?it.poseUnit:(BASTAING[it.mode]||BASTAING.sh).pose)*(it.qty||0); }
+      else { const pose=getAccPx(it.accId||it._accId||it.id||'').pose;if(pose>0)total+=pose*(it.qty||1); }
+    }
   });
   total+=calcDepose().costTotal; // dépose = main d'œuvre → budget poseur au COÛT (tarif ÷ coef), pas au prix de vente
   return total;
@@ -2112,6 +2115,22 @@ const P = () => {
     mode,
     journeePx: parseFloat(G('journee-px')?.value)||1125
   };
+};
+
+// ── Bastaing de protection (produit complémentaire, chiffré au ml) ──
+// Prix de vente/ml validés par Clément (fourniture ×1,5 + pose). mat = déboursé
+// fourniture/ml, pose = coût main d'œuvre/ml (= budget poseur). vente frozen sur
+// chaque ligne à l'ajout → les anciens devis gardent leur prix.
+const BASTAING = {
+  // Prix de vente/ml validés par Clément — formule standard : (fourniture + poseur) × 1,5.
+  //   sh : (13,40 fourniture + 18,00 poseur) × 1,5 = 47,10 → 47 €/ml.
+  //   dh (double hauteur) : vente 66 validée ; la pose (poseur) reste 18 €/ml (mêmes
+  //       positions de perçage), le 2ᵉ bastaing = surcoût matière → mat 26 (estimation,
+  //       coef 1,5 conservé). poseur = coût MO/ml = budget poseur (400 €/j/poseur).
+  // ⚠ non figés sans confirmation fournisseur : prix ancrage M12×110 (~2 €, ≈22 % de la
+  //   fourniture) et cote de gorge des supports (bastaings 63 mm vs supports taillés 75 mm).
+  sh: {label:'Simple hauteur', vente:47, mat:13.40, pose:18.00},
+  dh: {label:'Double hauteur', vente:66, mat:26.00, pose:18.00},
 };
 
 // ── Dépose de l'existant (démontage) : tarifs dans Paramètres, quantités par devis ──
@@ -2238,7 +2257,7 @@ const ACC_DEFAULTS = [
   {id:'corn_ext', cat:'legacy', u:'barre', nom:'Cornière ext. 50×150 (ancien)'},
   {id:'corn_int', cat:'legacy', u:'barre', nom:'Cornière int. 50×50 (ancien)'},
   {id:'plinthe',  cat:'legacy', u:'barre', nom:'Plinthe PVC 80mm (ancien)'},
-  {id:'lisse',    cat:'legacy', u:'barre', nom:'Lisse protection (ancien)'},
+  {id:'lisse',    cat:'legacy', u:'ml',    nom:'Lisse de protection PVC'},
   {id:'silicone', cat:'legacy', u:'cart.', nom:'Silicone 300ml (ancien)'},
   {id:'mousse',   cat:'legacy', u:'cart.', nom:'Mousse PU 750ml (ancien)'},
   {id:'soupape',  cat:'legacy', u:'unité', nom:'Soupape équilibrage (ancien)'},
@@ -2341,6 +2360,12 @@ function cpv(it,p){
   }
   if(it.type==='acc'){
     if(it.accId==='te_reprise') return teReprisePrix(it.ml||0, it.hauteur||0, p).total;
+    if(it.accId==='lisse'){ const px=getAccPx('lisse');
+      // Lisse PVC : achat par BARRE de 3 m, pose par ML. Chiffrée au ml (unit='ml') ; anciens items = à la barre.
+      if(it.unit==='ml') return r2(r2((px.achat/3 + px.pose)*p.coef)*(it.qty||0));
+      return r2(r2(px.achat*p.coef)*(it.qty||1));
+    }
+    if(it.accId==='bastaing'){ const v=(it.pxUnit!=null?it.pxUnit:(BASTAING[it.mode]||BASTAING.sh).vente); return r2(v*(it.qty||0)); }
     const px = getAccPx(it.accId||it._accId||it.id||'');
     return r2(r2((px.achat+px.pose)*p.coef)*(it.qty||1));
   }
@@ -2367,6 +2392,14 @@ function calcMarge(p){
         const c=teReprisePrix(it.ml||0, it.hauteur||0, p);
         if(c.mat+c.pose>0){ vFerme+=v; cFerme+=c.mat+c.pose; }
         else { vFlou+=v; flou.push('Té de reprise (prix accessoires non renseignés)'); }
+      } else if(it.accId==='lisse'){
+        const px=getAccPx('lisse');
+        if(px.achat>0){ vFerme+=v; cFerme += (it.unit==='ml' ? (px.achat/3 + px.pose)*(it.qty||0) : px.achat*(it.qty||1)); }
+        else { vFlou+=v; flou.push('Lisse de protection (achat non renseigné)'); }
+      } else if(it.accId==='bastaing'){
+        const b=BASTAING[it.mode]||BASTAING.sh;
+        const mat=(it.matUnit!=null?it.matUnit:b.mat), pose=(it.poseUnit!=null?it.poseUnit:b.pose);
+        vFerme+=v; cFerme+=(mat+pose)*(it.qty||0);
       } else {
         const px=getAccPx(it.accId||it._accId||it.id||'');
         if(px.achat>0){ vFerme+=v; cFerme+=(px.achat+px.pose)*(it.qty||1); }
@@ -2459,8 +2492,8 @@ function togCatSection(id){const b=G(id);const open=b.classList.toggle('open');c
 // ══ ENTONNOIR ACCESSOIRES ══════════════════════════════════════
 let accCat=null,accProd=null;
 const ACC_PRODS={
-  equipements:[{id:'soupape',n:"Soupape d'équilibrage",hint:'Panneau ≥ 100mm'},{id:'trappe',n:'Trappe de visite 740×740mm',hint:'Plafond isotherme'},{id:'lisse',n:'Lisse de protection',hint:'ML → nb barres 3m'}],
-  sol:[{id:'sol_phen',n:'Sol phénolique 100mm',hint:'Surface m² → nb panneaux'},{id:'tole',n:'Tôle larmée 4mm',hint:'Surface m² → nb tôles'}],
+  equipements:[{id:'soupape',n:"Soupape d'équilibrage",hint:'Panneau ≥ 100mm'},{id:'trappe',n:'Trappe de visite 740×740mm',hint:'Plafond isotherme'},{id:'lisse',n:'Lisse de protection PVC',hint:'ML → nb barres 3m'}],
+  sol:[{id:'sol_phen',n:'Sol phénolique 100mm',hint:'Surface m² → nb panneaux'},{id:'tole',n:'Tôle larmée 4mm',hint:'Surface m² → nb tôles'},{id:'bastaing',n:'Bastaing de protection',hint:'Simple/double hauteur → ML'}],
   plafond:[{id:'te_reprise',n:'Té de reprise (système complet)',hint:'ML + hauteur → Té + coulisses + œillets + clips + câble + éclisses'}],
   finitions:[{id:'corn_ext',n:'Cornière ext. 50×150mm',hint:'ML → nb barres 3m'},{id:'corn_int',n:'Cornière int. 50×50mm',hint:'Angles + périmètre → nb barres'},{id:'plinthe',n:'Plinthe PVC 80mm',hint:'Auto depuis cloisons ≤80mm + ML séparatif'}],
   consommables:[{id:'silicone',n:'Silicone blanc 300ml',hint:'Auto depuis nb panneaux'},{id:'mousse_pu',n:'Mousse PU 750ml',hint:'Auto depuis portes + sol + angles'},{id:'usol',n:'U de sol',hint:'Auto depuis épaisseur + ML cloisons'}]
@@ -2544,6 +2577,13 @@ function renderAccForm(pid){
     lisse:`<div class="acc-field"><label>Longueur totale (ML)</label><input type="number" id="af-ml" value="0" min="0" step="0.5" oninput="calcLisse()"><span class="acc-unit">m</span></div>
       <div class="acc-field"><label>Niveaux</label><select id="af-niv" onchange="calcLisse()"><option value="1">1 niveau</option><option value="2">2 niveaux</option></select></div>
       <div class="acc-result" id="af-res-lisse">Saisir les ML</div>`,
+    bastaing:`<div class="acc-note">Protection bois (bastaing 63×175) sur supports.</div>
+      <div class="acc-field"><label>Hauteur</label><select id="af-bast-mode" onchange="calcBastaing()">
+        <option value="sh">Simple hauteur — 47 €/ml</option>
+        <option value="dh">Double hauteur — 66 €/ml</option>
+      </select></div>
+      <div class="acc-field"><label>Longueur (ML)</label><input type="number" id="af-bast-ml" value="0" min="0" step="0.5" oninput="calcBastaing()"><span class="acc-unit">m</span></div>
+      <div class="acc-result" id="af-res-bast">Saisir les ML</div>`,
     soupape:`<div class="acc-field"><label>Quantité</label><input type="number" id="af-qty" value="1" min="1" step="1"><span class="acc-unit">unité(s)</span></div>
       <div class="acc-field"><label>Volume chambre</label><input type="number" id="af-soup-vol" value="0" min="0" step="0.5"><span class="acc-unit">m³</span></div>`,
     sol_phen:`<div class="acc-field"><label>Mode de saisie</label>
@@ -2592,9 +2632,17 @@ function renderAccForm(pid){
       ${[mlCl40,mlCl60,mlCl80,mlClNeg].every(m=>m===0)?'<div class="acc-note">Aucune cloison dans le devis</div>':''}`
   };
   el.innerHTML=forms[pid]||`<div class="acc-field"><label>Quantité</label><input type="number" id="af-qty" value="1" min="1" step="1"><span class="acc-unit">unité(s)</span></div>`;
-  if(pid==='lisse')calcLisse();if(pid==='corn_int')calcCornInt();if(pid==='plinthe')calcPlinthe();if(pid==='mousse_pu')calcPU();if(pid==='te_reprise')calcTeReprise();if(pid==='sol_phen')calcSolPhen();
+  if(pid==='lisse')calcLisse();if(pid==='corn_int')calcCornInt();if(pid==='plinthe')calcPlinthe();if(pid==='mousse_pu')calcPU();if(pid==='te_reprise')calcTeReprise();if(pid==='sol_phen')calcSolPhen();if(pid==='bastaing')calcBastaing();
 }
-function calcLisse(){const ml=parseFloat(G('af-ml')?.value)||0;const niv=parseInt(G('af-niv')?.value)||1;const nb=Math.ceil(ml/3)*niv;const r=G('af-res-lisse');if(r)r.innerHTML=`${nb} barre${nb>1?'s':''} 3m × ${niv} niv. | ${nb*2} cache-vis | ${nb*2} embouts`;}
+function calcBastaing(){
+  const mode=G('af-bast-mode')?.value||'sh';
+  const ml=parseFloat(G('af-bast-ml')?.value)||0;
+  const b=BASTAING[mode]||BASTAING.sh;
+  const r=G('af-res-bast'); if(!r) return;
+  if(ml<=0){ r.textContent='Saisir les ML'; return; }
+  r.innerHTML=`${b.label} — ${fmt(ml)} ml × ${fmt(b.vente)} €/ml = <b>${fmt(r2(b.vente*ml))} € HT</b>`;
+}
+function calcLisse(){const ml=parseFloat(G('af-ml')?.value)||0;const niv=parseInt(G('af-niv')?.value)||1;const totMl=ml*niv;const nb=Math.ceil(totMl/3);const px=getAccPx('lisse');const puMl=r2((px.achat/3+px.pose)*((P().coef)||1.5));const r=G('af-res-lisse');if(r)r.innerHTML=`${fmt(totMl)} ml${niv>1?` (${ml} × ${niv} niv.)`:''} → ${nb} barre${nb>1?'s':''} 3m | ~${fmt(puMl)} €/ml | ${nb*2} cache-vis + ${nb*2} embouts`;}
 // ══ SOL PHÉNOLIQUE — optimiseur de plaques (1,2 m de large × 2/2,2/2,4/2,6/2,8/3 m) ══
 // Modèle ruban : chaque rangée fait 1,2 m de large ; on couvre la longueur avec un mélange
 // de plaques, chute mini, réutilisation d'une chute uniquement si elle fait ≥ 1 m (Clément).
@@ -2759,9 +2807,21 @@ function accAdd(){
     renderAccList();refreshAll();accReset();
     return;
   }
+  if(pid==='bastaing'){
+    const mode=G('af-bast-mode')?.value||'sh';
+    const ml=parseFloat(G('af-bast-ml')?.value)||0;
+    if(ml<=0){ alert('Saisir la longueur (ML).'); return; }
+    const b=BASTAING[mode]||BASTAING.sh;
+    accPush({type:'acc',accId:'bastaing',mode,label:'Bastaing de protection',
+      meta:`${b.label} — ${fmt(ml)} ml × ${fmt(b.vente)} €/ml`,
+      qty:ml,unit:'ml',nbU:0,vol:0,pxUnit:b.vente,matUnit:b.mat,poseUnit:b.pose,
+      px:b.vente,achat:0,pose:0,rauto:0,surf:0,ep:'',piece:'',cmdDetail:'',formVals});
+    renderAccList();refreshAll();accReset();
+    return;
+  }
   if(pid==='soupape'){qty=parseInt(G('af-qty')?.value)||1;vol=parseFloat(G('af-soup-vol')?.value)||0;meta=`${qty} unité${qty>1?'s':''}`;}
   else if(['trappe','silicone'].includes(pid)){qty=parseInt(G('af-qty')?.value)||1;meta=`${qty} unité${qty>1?'s':''}`;}
-  else if(pid==='lisse'){const ml=parseFloat(G('af-ml')?.value)||0;const niv=parseInt(G('af-niv')?.value)||1;qty=Math.ceil(ml/3)*niv;meta=`${qty} barres 3m — ${ml}ML × ${niv} niv.`;}
+  else if(pid==='lisse'){const ml=parseFloat(G('af-ml')?.value)||0;const niv=parseInt(G('af-niv')?.value)||1;const totMl=ml*niv;const barres=Math.ceil(totMl/3);qty=totMl;unit='ml';nbU=barres;meta=`${fmt(totMl)} ml${niv>1?` (${ml} × ${niv} niv.)`:''} — ${barres} barre${barres>1?'s':''} 3m`;}
   else if(pid==='sol_phen'){const out=solResult();if(!out){alert((G('af-sol-mode')?.value)==='surf'?'Saisir la surface.':'Saisir la longueur et la largeur.');return;}qty=out.qty;nbU=out.nb;unit='m²';meta=out.meta;cmdDetail=out.cmdDetail;}
   else if(pid==='brio'){const ml=parseFloat(G('af-brio-ml')?.value)||0;const ep=G('af-brio-ep')?.value;const h=G('af-brio-h')?.value;qty=Math.ceil(Math.round(ml/1.22*1e10)/1e10);meta=`${qty} panneaux BRIO ${ep}mm × ${(parseInt(h)/1000).toFixed(2)}m`;}
   else if(pid==='tole'){const surf=parseFloat(G('af-tole-surf')?.value)||0;const fmt=parseFloat(G('af-tole-fmt')?.value)||2;const nb=Math.ceil(surf/fmt);const m2=Math.ceil(nb*fmt*100)/100;qty=m2;nbU=nb;unit='m²';meta=`${nb} tôles — ${m2} m²`;}
@@ -2942,7 +3002,8 @@ function metreRenderPanel(){
 function metreRenderResults(){
   const el=G('metre-results'); if(!el) return;
   const r=metreCalc();
-  if(!r.lines.length){ el.innerHTML='<div style="font-size:12px;color:var(--text3);font-style:italic;border-top:1px solid var(--border);padding-top:.75rem">Rien à calculer pour l\'instant.</div>'; return; }
+  const bd=bastCmdData();
+  if(!r.lines.length && !bd.has){ el.innerHTML='<div style="font-size:12px;color:var(--text3);font-style:italic;border-top:1px solid var(--border);padding-top:.75rem">Rien à calculer pour l\'instant.</div>'; return; }
   const groups={}; r.lines.forEach(L=>{ (groups[L.fou]=groups[L.fou]||[]).push(L); });
   let h=`<div style="border-top:1px solid var(--border);padding-top:.75rem;max-width:620px"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px"><span style="font-size:13px;font-weight:600">Quantités calculées</span><span style="font-size:11px;color:var(--text3)">marge ${(r.marge*100).toFixed(0)} % · surface ${r.data.surfTot.toFixed(0)} m²</span></div>`;
   Object.keys(groups).sort().forEach(fou=>{
@@ -2957,6 +3018,20 @@ function metreRenderResults(){
     h+=`</table>`;
   });
   h+=`<div style="font-size:10px;color:var(--text3);font-style:italic;margin-top:10px;line-height:1.5">Ajout manuel non calculé : plat d'habillage, U d'habillage, cornière pliable, système Té (déjà dans le devis). Chiffres modifiables à la main (surbrillance orange).</div>`;
+  // ── Bastaing de protection : nomenclature dédiée (bois + supports + ancrages auto) ──
+  if(bd.has){
+    h+=`<div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px;max-width:620px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:4px">Bastaing de protection — nomenclature</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Linéaire ${fmt(bd.totMl)} ml${bd.mlDh?` (dont ${fmt(bd.mlDh)} en double hauteur)`:''} → ${bd.barres} bastaing${bd.barres>1?'s':''} 3 m. Supports pré-remplis (0,29 H/ml · 0,08 U/ml), ajustables ; ancrages = 4 × (H+U).</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <tr style="border-bottom:.5px solid var(--border2)"><td style="padding:4px 2px">Bastaing bois 63×175 × 3 m</td><td style="padding:4px 2px;text-align:right;white-space:nowrap">${bd.barres} barre${bd.barres>1?'s':''}</td></tr>
+        <tr style="border-bottom:.5px solid var(--border2)"><td style="padding:4px 2px">Support H</td><td style="padding:4px 2px;text-align:right;white-space:nowrap"><input type="number" min="0" value="${bd.nbH}" oninput="bastCmdSet('nbH',this.value)" style="width:56px;text-align:right;border:1px solid var(--border);border-radius:4px;padding:2px 4px;font-size:12px;background:var(--surface);color:var(--text)"> u</td></tr>
+        <tr style="border-bottom:.5px solid var(--border2)"><td style="padding:4px 2px">Support U</td><td style="padding:4px 2px;text-align:right;white-space:nowrap"><input type="number" min="0" value="${bd.nbU}" oninput="bastCmdSet('nbU',this.value)" style="width:56px;text-align:right;border:1px solid var(--border);border-radius:4px;padding:2px 4px;font-size:12px;background:var(--surface);color:var(--text)"> u</td></tr>
+        <tr><td style="padding:4px 2px">Ancrage M12×110 <span style="font-size:10px;color:var(--text3)">(prix à confirmer)</span></td><td style="padding:4px 2px;text-align:right;white-space:nowrap"><span id="bast-ancrages">${bd.ancrages} u</span> <span style="font-size:10px;color:var(--text3)">auto</span></td></tr>
+      </table>
+      <button class="btn" onclick="bastCmdGenerer()" style="font-size:12px;padding:7px 12px;margin-top:8px">📄 Commande bastaing</button>
+    </div>`;
+  }
   // ── Génération des commandes ──
   const modeEff=cmdAccEffectiveMode();
   const gN=cmdAccGroupes('normal');
@@ -2989,12 +3064,46 @@ function cmdAccGroupes(mode){
   const push=(fou,cells)=>{ (rows[fou]=rows[fou]||[]).push(cells); };
   r.lines.forEach(L=>{ let u=L.cond||L.u; if(u==='unité'&&(+L.affiche)>1) u='unités'; push(L.fou, [L.nom, L.affiche+' '+u, '']); });
   items.filter(i=>i.type==='acc').forEach(it=>{
+    if(it.accId==='bastaing') return; // bastaing = nomenclature bois/supports dédiée (bloc séparé), hors regroupement fournisseurs PVC
     const def=accById(it.accId)||{}, fou=def.fou||'(non attribué)';
-    const q=it.accId==='te_reprise'?((it.ml||0)+' ml'):it.accId==='sol_phen'?((it.nbU||0)+' plaque'+((it.nbU||0)>1?'s':'')):String(it.nbU||it.qty||1);
+    const q=it.accId==='te_reprise'?((it.ml||0)+' ml'):it.accId==='sol_phen'?((it.nbU||0)+' plaque'+((it.nbU||0)>1?'s':'')):it.accId==='lisse'?((it.nbU||0)+' barre'+((it.nbU||0)>1?'s':'')+' 3m'):String(it.nbU||it.qty||1);
     push(fou, [it.label, q, (it.cmdDetail||accDetail(it)||'')]);
   });
   if(mode==='celtek'){ const all=[]; Object.keys(rows).forEach(f=>rows[f].forEach(c=>all.push(c))); return {'Celtek':all}; }
   return rows;
+}
+// ── Bastaing de protection : nomenclature de commande (bois + supports + ancrages) ──
+// La fiche de chiffrage reste simple (hauteur + ml). La nomenclature ne sort qu'ici, au
+// moment de commander. Supports pré-remplis depuis le linéaire (ratios stables 12→50 m :
+// 0,29 H/ml, 0,08 U/ml), ajustables à la main. Ancrages calculés auto = 4 × (nb H + nb U).
+// Double hauteur = 2 bastaings sur les mêmes positions de support → barres ×2, supports inchangés.
+let BAST_CMD={nbH:'', nbU:''}; // '' = auto depuis le ratio
+const BAST_RATIO_H=0.29, BAST_RATIO_U=0.08;
+function bastCmdData(){
+  const b=items.filter(i=>i.type==='acc'&&i.accId==='bastaing');
+  const mlSh=b.filter(i=>i.mode==='sh').reduce((s,i)=>s+(i.qty||0),0);
+  const mlDh=b.filter(i=>i.mode==='dh').reduce((s,i)=>s+(i.qty||0),0);
+  const totMl=mlSh+mlDh;
+  const barres=Math.ceil(mlSh/3)+Math.ceil(mlDh/3)*2;
+  const nbH=(BAST_CMD.nbH!==''&&BAST_CMD.nbH!=null)?(parseInt(BAST_CMD.nbH)||0):Math.round(BAST_RATIO_H*totMl);
+  const nbU=(BAST_CMD.nbU!==''&&BAST_CMD.nbU!=null)?(parseInt(BAST_CMD.nbU)||0):Math.round(BAST_RATIO_U*totMl);
+  const ancrages=4*(nbH+nbU);
+  return {mlSh,mlDh,totMl,barres,nbH,nbU,ancrages,has:b.length>0};
+}
+function bastCmdSet(k,v){ BAST_CMD[k]=v; const d=bastCmdData(); const a=G('bast-ancrages'); if(a) a.textContent=d.ancrages+' u'; }
+function bastCmdRows(){
+  const d=bastCmdData(); if(!d.has) return [];
+  const dim=(d.mlSh?`${fmt(d.mlSh)} ml simple h.`:'')+(d.mlDh?`${d.mlSh?' + ':''}${fmt(d.mlDh)} ml double h. (×2 barres)`:'');
+  return [
+    ['Bastaing bois 63×175 × 3 m', d.barres+' barre'+(d.barres>1?'s':''), dim],
+    ['Support H', d.nbH+' u', ''],
+    ['Support U', d.nbU+' u', ''],
+    ['Ancrage M12×110', d.ancrages+' u', '4 × (H+U)'],
+  ];
+}
+function bastCmdGenerer(){
+  const rows=bastCmdRows(); if(!rows.length){ showToast('Aucun bastaing dans le devis', true); return; }
+  genCmdPDF('acc', {fouNom:'Bastaing de protection', rows});
 }
 function cmdAccEffectiveMode(){ if(CMDACC_MODE!=='auto') return CMDACC_MODE; return metreCalc().data.surfTot<100?'celtek':'normal'; }
 function cmdAccSetMode(m){ CMDACC_MODE=m; metreRenderResults(); }
