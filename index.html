@@ -4382,6 +4382,7 @@ function trAuto(){ trManual=false; refreshAll(); }
 
 function genPDF(){
   if(!items.length && !travaux.length){alert('Devis vide — ajoutez au moins un produit ou une ligne de travaux spécifiques.');return;}
+  if(items.some(i=>i.type==='pan') && !prixPanneauxCharges()){ alert("⚠️ Prix des panneaux non chargés — ils s'affichent au tarif plancher (37,50 €).\n\nRecharge la page (Ctrl+F5) avant de générer le PDF, sinon le devis serait sous-facturé."); return; }
   const {jsPDF} = window.jspdf;
   const doc = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
   const p = P();
@@ -4821,7 +4822,36 @@ async function sauvegarderParams(fromButton){
   }
 }
 
-async function chargerParams(){
+// ── Garde-fou « prix chargés » ─────────────────────────────────────────────
+// Bug évité : si params_prix n'arrive pas de Supabase (réseau/course au démarrage),
+// la grille panneaux reste vide → achat 0 → prix plancher (pose+acc)×coef (ex. 37,50 €).
+// Protections : (1) réessai auto, (2) bandeau rouge, (3) blocage PDF/sauvegarde.
+let PRIX_OK = false;
+function prixPanneauxCharges(){
+  // La grille PIR de base vit dans les champs x{ep}ll. Si TOUTES les épaisseurs
+  // standard sont à 0, c'est que les prix ne sont pas chargés.
+  return ['40','60','80','100','120','150'].some(ep=>(parseFloat(G('x'+ep+'ll')?.value)||0)>0);
+}
+function bannerPrix(show){
+  let b=G('prix-warning');
+  if(show){
+    if(!b){
+      b=document.createElement('div'); b.id='prix-warning';
+      b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#b3261e;color:#fff;font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:600;text-align:center;padding:9px 14px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25)';
+      b.innerHTML='⚠️ Prix non chargés — les panneaux s\'affichent au tarif plancher. Clique ici pour recharger la page.';
+      b.onclick=()=>location.reload();
+      document.body.appendChild(b);
+    }
+  } else if(b){ b.remove(); }
+}
+function verifierPrixCharges(){
+  PRIX_OK = prixPanneauxCharges();
+  bannerPrix(!PRIX_OK);
+  return PRIX_OK;
+}
+
+async function chargerParams(opts){
+  const tries = (opts && opts.tries) || 1;
   try {
     const data = await sbFetch('/rest/v1/parametres?cle=eq.'+PARAMS_KEY+'&select=valeur');
     if(data && data.length && data[0].valeur){
@@ -4829,6 +4859,11 @@ async function chargerParams(){
       console.log('Prix chargés depuis Supabase');
     }
   } catch(e){ console.warn('Chargement params:', e); }
+  // Réessai automatique tant que la grille reste vide (chargement raté / réseau)
+  if(tries>1 && !prixPanneauxCharges()){
+    await new Promise(r=>setTimeout(r,1500));
+    return chargerParams({tries:tries-1});
+  }
 }
 
 // ── Migration confidentialité : matrices portes + contacts dans Supabase ──
@@ -5045,6 +5080,7 @@ async function versionDevisDepuisListe(id){
 
 // Sauvegarder devis courant
 async function sauvegarderDevis(){
+  if(items.some(i=>i.type==='pan') && !prixPanneauxCharges()){ alert("⚠️ Prix des panneaux non chargés — recharge la page (Ctrl+F5) avant d'enregistrer, sinon le devis serait sauvegardé au tarif plancher."); return; }
   const p = P();
   const tr = calcTransport(p, items);
   const evac = calcEvacuation(p);
@@ -5974,8 +6010,8 @@ function bootAuthed(){
   // pose/acc/coef du devis repris)
   try {
     chargerMatricesContacts()
-      .then(()=>chargerParams())
-      .then(()=>{ try{ maybeRestoreDraft(); }catch(e){ console.error('maybeRestoreDraft:', e); } });
+      .then(()=>chargerParams({tries:3}))
+      .then(()=>{ try{ verifierPrixCharges(); }catch(e){} try{ maybeRestoreDraft(); }catch(e){ console.error('maybeRestoreDraft:', e); } });
   } catch(e) { console.error('boot données:', e); }
   try {
     genNumero().then(num=>{
