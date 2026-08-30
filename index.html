@@ -2561,6 +2561,7 @@ function editAccItem(i){
   if(pill) pill.style.display='';
   if(btn) btn.textContent='Enregistrer les modifications';
   if(!vals) showToast('Valeurs d\'origine non mémorisées — à ressaisir', true);
+  scrollMainTop(); // remonter au configurateur après clic « modifier »
 }
 function rr2(l,v){return `<div class="recap-row"><span class="rk">${l}</span><span class="rv">${v}</span></div>`;}
 function renderAccForm(pid){
@@ -3637,7 +3638,10 @@ function editItem(i){
     showPage('config', document.querySelector('.nav-item'));
     swCfg('por'); porRender();
   }
+  scrollMainTop(); // remonter au configurateur (réglages) après clic « modifier »
 }
+// Remonte la zone de contenu en haut (le scroll est sur #main-content, pas la fenêtre)
+function scrollMainTop(){ requestAnimationFrame(()=>{ const m=G('main-content')||window; try{ m.scrollTo({top:0,behavior:'smooth'}); }catch(e){ if(m) m.scrollTop=0; } }); }
 function cancelEdit(){
   const t=editType; editIdx=null; editType=null;
   if(t==='pan') panReset(); else if(t==='por') porReset();
@@ -3839,8 +3843,8 @@ function panCalc(){
   } else if(isBrio){
     valid=!!pS.ep&&!!pS.surface&&ml>0;
     const brioH=parseInt(pS.surface||'2600')/1000; hUsed=brioH;
-    nb=Math.ceil(Math.round(ml/1.22*1e10)/1e10); surfExact=nb*brioH; surf=Math.ceil(nb*brioH*100)/100;
-    dimLabel=`${ml} ml ÷ 1,22 = ${nb} plaque${nb>1?'s':''} × h. ${brioH} m`;
+    nb=Math.ceil(Math.round(ml/1.22*1e10)/1e10); surfExact=nb*brioH*1.22; surf=Math.ceil(nb*brioH*1.22*100)/100; // × 1,22 = largeur de la plaque (surface achetée, plaques entières)
+    dimLabel=`${ml} ml ÷ 1,22 = ${nb} plaque${nb>1?'s':''} × 1,22 × h. ${brioH} m`;
   } else if(isPlaf){
     if(lg>0&&ml>0){
       nb=Math.ceil(Math.round(lg/1.15*1e10)/1e10); surfExact=nb*1.15*ml; surf=Math.ceil(nb*1.15*ml*100)/100; hUsed=ml;
