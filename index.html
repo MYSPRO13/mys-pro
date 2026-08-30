@@ -1769,13 +1769,13 @@ function togglePwd(){
         <div class="card-body">
           <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Prix d'achat €/m² par épaisseur</div>
           <table class="px-table" style="max-width:380px">
-            <tr><th>Ép.</th><th>PIR €/m²</th><th>LR €/m²</th></tr>
-            <tr><td>40</td><td><input id="x40ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xLR40" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
-            <tr><td>60</td><td><input id="x60ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xLR60" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
-            <tr><td>80</td><td><input id="x80ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xLR80" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
-            <tr><td>100</td><td><input id="x100ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xLR100" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
-            <tr><td>120</td><td><input id="x120ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xLR120" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
-            <tr><td>150</td><td><input id="x150ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xLR150" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
+            <tr><th>Ép.</th><th>PIR Cloison €/m²</th><th>PIR Plafond €/m²</th><th>LR €/m²</th></tr>
+            <tr><td>40</td><td><input id="x40ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xPL40ll" type="number" value="" step="0.01" placeholder="= cloison" oninput="refreshAll()"></td><td><input id="xLR40" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
+            <tr><td>60</td><td><input id="x60ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xPL60ll" type="number" value="" step="0.01" placeholder="= cloison" oninput="refreshAll()"></td><td><input id="xLR60" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
+            <tr><td>80</td><td><input id="x80ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xPL80ll" type="number" value="" step="0.01" placeholder="= cloison" oninput="refreshAll()"></td><td><input id="xLR80" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
+            <tr><td>100</td><td><input id="x100ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xPL100ll" type="number" value="" step="0.01" placeholder="= cloison" oninput="refreshAll()"></td><td><input id="xLR100" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
+            <tr><td>120</td><td><input id="x120ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xPL120ll" type="number" value="" step="0.01" placeholder="= cloison" oninput="refreshAll()"></td><td><input id="xLR120" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
+            <tr><td>150</td><td><input id="x150ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xPL150ll" type="number" value="" step="0.01" placeholder="= cloison" oninput="refreshAll()"></td><td><input id="xLR150" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
           </table>
           <div style="margin-top:14px">
             <div style="font-weight:600;font-size:12px;margin-bottom:5px">Supplément d'achat par face (€/m²)</div>
@@ -1936,19 +1936,19 @@ function togglePwd(){
     </div>
   </div>
 
-  <!-- Prix panneaux PIR : référence rapide pendant le devis (catalogue complet → page Paramètres) -->
-  <button class="collapse-btn" onclick="togCollapse('px')">Prix achat panneaux PIR<span class="collapse-arrow" id="arr-px">▼</span></button>
+  <!-- Prix panneaux PIR PROPRES À CE DEVIS : override de la base globale (vide = tarif de base). -->
+  <button class="collapse-btn" onclick="togCollapse('px')">Prix achat panneaux PIR — ce devis<span class="collapse-arrow" id="arr-px">▼</span></button>
   <div class="collapse-body" id="body-px">
     <table class="px-table">
-      <tr><th>Ép.</th><th>PIR €/m²</th></tr>
-      <tr><td>40</td><td><input id="srp-40" type="number" step="0.01" oninput="srPirInput('40',this.value)"></td></tr>
-      <tr><td>60</td><td><input id="srp-60" type="number" step="0.01" oninput="srPirInput('60',this.value)"></td></tr>
-      <tr><td>80</td><td><input id="srp-80" type="number" step="0.01" oninput="srPirInput('80',this.value)"></td></tr>
-      <tr><td>100</td><td><input id="srp-100" type="number" step="0.01" oninput="srPirInput('100',this.value)"></td></tr>
-      <tr><td>120</td><td><input id="srp-120" type="number" step="0.01" oninput="srPirInput('120',this.value)"></td></tr>
-      <tr><td>150</td><td><input id="srp-150" type="number" step="0.01" oninput="srPirInput('150',this.value)"></td></tr>
+      <tr><th>Ép.</th><th>Cloison</th><th>Plafond</th></tr>
+      <tr><td>40</td><td><input id="srp-cl-40" type="number" step="0.01" oninput="srPxOv('CL','40',this.value)"></td><td><input id="srp-pl-40" type="number" step="0.01" oninput="srPxOv('PL','40',this.value)"></td></tr>
+      <tr><td>60</td><td><input id="srp-cl-60" type="number" step="0.01" oninput="srPxOv('CL','60',this.value)"></td><td><input id="srp-pl-60" type="number" step="0.01" oninput="srPxOv('PL','60',this.value)"></td></tr>
+      <tr><td>80</td><td><input id="srp-cl-80" type="number" step="0.01" oninput="srPxOv('CL','80',this.value)"></td><td><input id="srp-pl-80" type="number" step="0.01" oninput="srPxOv('PL','80',this.value)"></td></tr>
+      <tr><td>100</td><td><input id="srp-cl-100" type="number" step="0.01" oninput="srPxOv('CL','100',this.value)"></td><td><input id="srp-pl-100" type="number" step="0.01" oninput="srPxOv('PL','100',this.value)"></td></tr>
+      <tr><td>120</td><td><input id="srp-cl-120" type="number" step="0.01" oninput="srPxOv('CL','120',this.value)"></td><td><input id="srp-pl-120" type="number" step="0.01" oninput="srPxOv('PL','120',this.value)"></td></tr>
+      <tr><td>150</td><td><input id="srp-cl-150" type="number" step="0.01" oninput="srPxOv('CL','150',this.value)"></td><td><input id="srp-pl-150" type="number" step="0.01" oninput="srPxOv('PL','150',this.value)"></td></tr>
     </table>
-    <div style="font-size:10px;color:var(--text3);padding:.35rem .25rem;font-style:italic;line-height:1.4">LR, PET55, Inox et tous les autres prix → <a onclick="showPage('catalogue', document.querySelector('.nav-item[onclick*=&quot;catalogue&quot;]'))" style="color:var(--blue);cursor:pointer">page Paramètres →</a></div>
+    <div style="font-size:10px;color:var(--text3);padding:.35rem .25rem;font-style:italic;line-height:1.4">Vide = tarif de base. Une valeur = prix négocié <b>pour ce devis seulement</b> (en orange). Plafond vide = même prix que Cloison. Base globale + LR/BRIO/suppléments → <a onclick="showPage('catalogue', document.querySelector('.nav-item[onclick*=&quot;catalogue&quot;]'))" style="color:var(--blue);cursor:pointer">page Paramètres →</a></div>
   </div>
 </aside>
 
@@ -2061,6 +2061,7 @@ const FOU=[];
 
 // ══ ÉTAT ══════════════════════════════════════════════════
 let items=[], curClient=null, curView='edit', sortAZ=true, modType='client', secOpen=false;
+let PXOV={}; // override prix panneaux PIR propre au devis courant (clé CL_{ep} / PL_{ep})
 let travaux=[], travauxSeq=0; // lignes libres « Travaux spécifiques »
 let trManual=false; // transport : résultat forcé à la main (override)
 function travauxHT(){return travaux.reduce((s,l)=>s+((parseFloat(l.qty)||0)*(parseFloat(l.pu)||0)),0);}
@@ -2339,13 +2340,34 @@ function normFace(f){f=String(f||'').trim();if(/inox/i.test(f))return'Inox';if(/
 function splitFaces(surface){const p=String(surface||'').split('/');return [normFace(p[0]||'Lisse'), normFace(p[1]!=null&&p[1]!==''?p[1]:(p[0]||'Lisse'))];}
 // Étiquette de faces normalisée (unifie les anciens noms, ex. « Nervuré acier » → « Nervuré ») ; laisse tel quel « Phénolique résine » & co.
 function normSurf(s){ s=String(s||''); return /lisse|nervur|pet|inox/i.test(s)?splitFaces(s).join('/'):s; }
-function panBaseAchat(mousse,ep){return parseFloat(G(mousse==='BRIO'?('xBRIO'+ep):mousse==='LR'?('xLR'+ep):('x'+ep+'ll'))?.value)||0;}
+// Prix d'achat de base du panneau. PIR distingue Cloison (x{ep}ll) et Plafond (xPL{ep}ll,
+// à défaut = cloison). PXOV = override PROPRE AU DEVIS (clé CL_{ep} / PL_{ep}) : prioritaire
+// sur la base globale, remis à zéro sur un nouveau devis, enregistré avec le devis.
+function panBaseAchat(mousse,ep,paroi){
+  if(mousse==='BRIO') return parseFloat(G('xBRIO'+ep)?.value)||0;
+  if(mousse==='LR')   return parseFloat(G('xLR'+ep)?.value)||0;
+  const key=(paroi==='Plafond'?'PL':'CL')+'_'+ep;
+  if(PXOV[key]!=null && PXOV[key]!=='' && !isNaN(parseFloat(PXOV[key]))) return parseFloat(PXOV[key]); // override devis
+  if(paroi==='Plafond'){ const pl=parseFloat(G('xPL'+ep+'ll')?.value); if(pl>0) return pl; }          // base plafond
+  return parseFloat(G('x'+ep+'ll')?.value)||0;                                                          // base cloison (défaut)
+}
 function faceSupp(face){const f=String(face||'');if(/inox/i.test(f))return parseFloat(G('sup_inox')?.value)||0;if(/pet/i.test(f))return parseFloat(G('sup_pet55')?.value)||0;return 0;}
 function surfSupp(surf){return String(surf||'').split('/').reduce((s,f)=>s+faceSupp(f),0);}
-function getPx(ep,surf,mousse){return panBaseAchat(mousse,ep)+surfSupp(surf);}
-// Barre latérale : grille PIR (srp-{ep}) = miroir de la grille canonique (x{ep}ll) de la page Paramètres.
-function srPirInput(ep,v){ const c=G('x'+ep+'ll'); if(c) c.value=v; refreshAll(); }
-function updateSidebarPir(){ ['40','60','80','100','120','150'].forEach(ep=>{ const s=G('srp-'+ep), c=G('x'+ep+'ll'); if(s&&c&&document.activeElement!==s) s.value=c.value; }); }
+function getPx(ep,surf,mousse,paroi){return panBaseAchat(mousse,ep,paroi)+surfSupp(surf);}
+// Prix de base effectif d'une épaisseur/paroi (sans override devis) — pour l'affichage placeholder.
+function pirBase(pk,ep){ if(pk==='PL'){ const pl=parseFloat(G('xPL'+ep+'ll')?.value); if(pl>0) return pl; } return parseFloat(G('x'+ep+'ll')?.value)||0; }
+// Grille latérale = OVERRIDE PAR DEVIS (jamais la base globale). Vide = tarif de base.
+function srPxOv(pk,ep,v){ const key=pk+'_'+ep; if(v===''||v==null) delete PXOV[key]; else PXOV[key]=v; refreshAll(); }
+function updateSidebarPir(){
+  ['40','60','80','100','120','150'].forEach(ep=>{
+    [['cl','CL'],['pl','PL']].forEach(([sfx,pk])=>{
+      const s=G('srp-'+sfx+'-'+ep); if(!s||document.activeElement===s) return;
+      const key=pk+'_'+ep, base=pirBase(pk,ep);
+      if(PXOV[key]!=null && PXOV[key]!==''){ s.value=PXOV[key]; s.style.borderColor='var(--magenta)'; s.style.color='var(--magenta)'; s.style.fontWeight='600'; }
+      else { s.value=''; s.placeholder=base?fmt(base):'—'; s.style.borderColor=''; s.style.color=''; s.style.fontWeight=''; }
+    });
+  });
+}
 function fc(m,l,h,f){const ks=[`${l}x${h}${f||''}`,`${l}x${h}D`,`${l}x${h}G`,`${l}x${h}`];for(const k of ks)if(m[k]!==undefined)return{p:m[k],ref:k,exact:true,kl:l,kh:h};let b=null,bd=Infinity;for(const[k,p] of Object.entries(m)){const ps=k.replace(/[DG]$/,'').split('x');if(ps.length<2)continue;const kl=parseInt(ps[0]),kh=parseInt(ps[1]);if(kl>=l&&kh>=h){const d=(kl-l)+(kh-h);if(d<bd){bd=d;b={p,ref:k,exact:false,kl,kh};}}}return b;}
 function rr(l,v,hl){return`<div class="recap-row"><span class="rk">${l}</span><span class="rv"${hl?' style="color:var(--blue)"':''}>${v}</span></div>`;}
 function r2(n){return Math.round((Number(n)||0)*100)/100;}
@@ -2354,7 +2376,7 @@ function r2(n){return Math.round((Number(n)||0)*100)/100;}
 // vérifie à la calculatrice (PU × Qté = Montant, au centime).
 function cpv(it,p){
   if(it.type==='pan'){
-    const a=(it.achatOverride!=null&&!isNaN(it.achatOverride))?Number(it.achatOverride):getPx(it.ep,it.surface,it.mousse);
+    const a=(it.achatOverride!=null&&!isNaN(it.achatOverride))?Number(it.achatOverride):getPx(it.ep,it.surface,it.mousse,it.paroi);
     const s=it.surf||it.surfExact||0; // la quantité FACTURÉE = celle affichée sur le devis
     if(p.mode==='journee') return r2(r2(a*p.coef)*s);
     return r2(r2((a+p.pose+p.acc)*p.coef)*s);
@@ -2387,7 +2409,7 @@ function calcMarge(p){
   items.forEach(it=>{
     const v=cpv(it,p);
     if(it.type==='pan'){
-      const a=(it.achatOverride!=null&&!isNaN(it.achatOverride))?Number(it.achatOverride):getPx(it.ep,it.surface,it.mousse), s=it.surf||it.surfExact||0;
+      const a=(it.achatOverride!=null&&!isNaN(it.achatOverride))?Number(it.achatOverride):getPx(it.ep,it.surface,it.mousse,it.paroi), s=it.surf||it.surfExact||0;
       if(a>0){ vFerme+=v; cFerme+=(p.mode==='journee'?a:(a+p.pose+p.acc))*s; }
       else { vFlou+=v; flou.push('Panneau — '+it.label+' (prix/m² non renseigné)'); }
     } else if(it.type==='por'){
@@ -3882,7 +3904,7 @@ function panPiece(){
 function panAchatBlock(){
   if(!pS.ep||!pS.surface||!pS.mousse) return '';
   if(pS.mousse!=='PIR') return ''; // prix d'achat négocié par devis : panneaux PIR uniquement (pour l'instant)
-  const ref=getPx(pS.ep,pS.surface,pS.mousse);
+  const ref=getPx(pS.ep,pS.surface,pS.mousse,pS.paroi);
   const ov=pS.achatOverride;
   const has=(ov!=null&&String(ov).trim()!==''&&!isNaN(parseFloat(ov)));
   return `<div class="cfg-block"><div class="step-label">Prix d'achat <span style="font-size:11px;color:var(--text3);font-style:italic">(ce devis — si négocié fournisseur)</span></div>`
@@ -3924,7 +3946,7 @@ function panCalc(){
     valid=!!pS.ep&&!!pS.surface&&surf>0;
   }
   const p=P();
-  const refA=getPx(pS.ep,pS.surface,pS.mousse);
+  const refA=getPx(pS.ep,pS.surface,pS.mousse,pS.paroi);
   const ov=pS.achatOverride;
   const a=(ov!=null&&String(ov).trim()!==''&&!isNaN(parseFloat(ov)))?parseFloat(ov):refA;
   const m2=(a+p.pose+p.acc)*p.coef; const tot=m2*surf;
@@ -4777,8 +4799,9 @@ function collectParams(){
   const px = {};
   // Prix panneaux : base PIR (x{ep}ll) + base LR (xLR{ep})
   ['40','60','80','100','120','150'].forEach(ep=>{
-    px['x'+ep+'ll'] = parseFloat(G('x'+ep+'ll')?.value)||0;
-    px['xLR'+ep]    = parseFloat(G('xLR'+ep)?.value)||0;
+    px['x'+ep+'ll']   = parseFloat(G('x'+ep+'ll')?.value)||0;
+    px['xPL'+ep+'ll'] = parseFloat(G('xPL'+ep+'ll')?.value)||0; // base plafond (0 = même que cloison)
+    px['xLR'+ep]      = parseFloat(G('xLR'+ep)?.value)||0;
   });
   // Base BRIO (épaisseurs 2/3/5 mm)
   ['2','3','5'].forEach(ep=>{ px['xBRIO'+ep]=parseFloat(G('xBRIO'+ep)?.value)||0; });
@@ -4823,6 +4846,7 @@ function applyParams(px){
   if(!px) return;
   ['40','60','80','100','120','150'].forEach(ep=>{
     if(G('x'+ep+'ll') && px['x'+ep+'ll']!==undefined) G('x'+ep+'ll').value = px['x'+ep+'ll'];
+    if(G('xPL'+ep+'ll') && px['xPL'+ep+'ll']!==undefined) G('xPL'+ep+'ll').value = px['xPL'+ep+'ll']||'';
     if(G('xLR'+ep) && px['xLR'+ep]!==undefined) G('xLR'+ep).value = px['xLR'+ep];
   });
   ['2','3','5'].forEach(ep=>{ if(G('xBRIO'+ep) && px['xBRIO'+ep]!==undefined) G('xBRIO'+ep).value = px['xBRIO'+ep]; });
@@ -5044,7 +5068,7 @@ function saveDraft(){
     localStorage.setItem('mys_draft', JSON.stringify({
       ts:Date.now(), num:G('devis-num')?.textContent||'', projet:G('projet-nom')?.value||'',
       items:items, travaux:travaux, client:curClient,
-      pp:G('pp')?.value, pa:G('pa')?.value, pc:G('pc')?.value
+      pp:G('pp')?.value, pa:G('pa')?.value, pc:G('pc')?.value, pxOverride:PXOV
     }));
   }catch(e){}
 }
@@ -5052,6 +5076,7 @@ function clearDraft(){ try{ localStorage.removeItem('mys_draft'); }catch(e){} }
 function restoreDraft(d){
   editIdx=null; editType=null;
   items=d.items||[]; travaux=d.travaux||[]; curClient=d.client||null;
+  PXOV=(d.pxOverride&&typeof d.pxOverride==='object')?Object.assign({},d.pxOverride):{};
   if(G('projet-nom')) G('projet-nom').value=d.projet||'';
   if(d.num){ G('devis-num').textContent=d.num; if(G('dnum')) G('dnum').textContent=d.num; }
   if(G('pp')&&d.pp) G('pp').value=d.pp;
@@ -5169,7 +5194,7 @@ async function sauvegarderDevis(){
     client: curClient,
     projet_nom: G('projet-nom')?.value||'',
     items: items,
-    params: { pose: parseFloat(G('pp')?.value)||18, acc: parseFloat(G('pa')?.value)||6, coef: parseFloat(G('pc')?.value)||1.5, depose: {on:DEPOSE.on, panM2:DEPOSE.panM2, porCoul:DEPOSE.porCoul, porPiv:DEPOSE.porPiv} },
+    params: { pose: parseFloat(G('pp')?.value)||18, acc: parseFloat(G('pa')?.value)||6, coef: parseFloat(G('pc')?.value)||1.5, depose: {on:DEPOSE.on, panM2:DEPOSE.panM2, porCoul:DEPOSE.porCoul, porPiv:DEPOSE.porPiv}, pxOverride: PXOV },
     transport: tr,
     evacuation: evac,
     manutention: { base: parseFloat(G('manu-base')?.value)||600, client: G('manu-client')?.checked||false, total: manu },
@@ -5355,7 +5380,7 @@ async function telechargerDevisPDF(id){
   if(!data||!data.length){ showToast('Devis introuvable', true); return; }
   const d=data[0];
   // On génère le PDF du devis sauvegardé sans écraser le devis en cours de travail
-  const bak={items:items, curClient:curClient, trManual:trManual,
+  const bak={items:items, curClient:curClient, trManual:trManual, pxov:PXOV,
     projet:G('projet-nom')?G('projet-nom').value:'', num:G('devis-num')?G('devis-num').textContent:'',
     pp:G('pp')?G('pp').value:'', pa:G('pa')?G('pa').value:'', pc:G('pc')?G('pc').value:''};
   window._noDraft=true; // ne pas écraser le brouillon local avec ce devis temporaire
@@ -5363,6 +5388,7 @@ async function telechargerDevisPDF(id){
     items=d.items||[];
     curClient=d.client||null;
     trManual=false;
+    PXOV=(d.params&&d.params.pxOverride&&typeof d.params.pxOverride==='object')?Object.assign({},d.params.pxOverride):{};
     if(G('pp'))G('pp').value=(d.params&&d.params.pose)||DEFAULT_PARAMS.pp; if(G('pa'))G('pa').value=(d.params&&d.params.acc)||DEFAULT_PARAMS.pa; if(G('pc'))G('pc').value=(d.params&&d.params.coef)||DEFAULT_PARAMS.pc;
     if(G('projet-nom'))G('projet-nom').value=d.projet_nom||'';
     if(G('devis-num'))G('devis-num').textContent=d.numero||'';
@@ -5370,7 +5396,7 @@ async function telechargerDevisPDF(id){
     genPDF();
   }catch(e){ console.error('Génération PDF devis:', e); showToast('Erreur PDF', true); }
   finally{
-    items=bak.items; curClient=bak.curClient; trManual=bak.trManual;
+    items=bak.items; curClient=bak.curClient; trManual=bak.trManual; PXOV=bak.pxov;
     if(G('projet-nom'))G('projet-nom').value=bak.projet;
     if(G('devis-num'))G('devis-num').textContent=bak.num;
     if(G('pp'))G('pp').value=bak.pp; if(G('pa'))G('pa').value=bak.pa; if(G('pc'))G('pc').value=bak.pc;
@@ -5395,6 +5421,7 @@ async function chargerDevis(id){
     if(G('pc')) G('pc').value = (d.params&&d.params.coef)||DEFAULT_PARAMS.pc;
     const dpz = d.params && d.params.depose;
     DEPOSE = dpz ? {on:!!dpz.on, panM2:dpz.panM2==null?null:dpz.panM2, porCoul:dpz.porCoul==null?null:dpz.porCoul, porPiv:dpz.porPiv==null?null:dpz.porPiv} : {on:false,panM2:null,porCoul:null,porPiv:null};
+    PXOV = (d.params && d.params.pxOverride && typeof d.params.pxOverride==='object') ? Object.assign({}, d.params.pxOverride) : {};
     if(G('projet-nom')) G('projet-nom').value = d.projet_nom||'';
     // Numéro
     G('devis-num').textContent = d.numero;
@@ -5418,6 +5445,7 @@ async function nouveauDevis(){
   editIdx=null; editType=null;
   items = [];
   DEPOSE={on:false, panM2:null, porCoul:null, porPiv:null};
+  PXOV={}; // nouveau devis → repart des prix de base
   curClient = null;
   if(G('projet-nom')) G('projet-nom').value = '';
   if(G('pp')) G('pp').value = DEFAULT_PARAMS.pp;
