@@ -2073,6 +2073,7 @@ function poseGlobale(){
     else if(it.type==='por') total+=(it.pose||0);
     else if(it.type==='acc'){
       if(it.accId==='bastaing'){ total+=(it.poseUnit!=null?it.poseUnit:(BASTAING[it.mode]||BASTAING.sh).pose)*(it.qty||0); }
+      else if(it.accId==='iso_sol'){ total+=ISO_SOL.pose*(it.qty||0); }
       else { const pose=getAccPx(it.accId||it._accId||it.id||'').pose;if(pose>0)total+=pose*(it.qty||1); }
     }
   });
@@ -2132,6 +2133,12 @@ const BASTAING = {
   sh: {label:'Simple hauteur', vente:47, mat:13.40, pose:18.00},
   dh: {label:'Double hauteur', vente:66, mat:26.00, pose:18.00},
 };
+
+// ── Isolant de sol — chambre froide négative sur dalle béton ──
+// 2 couches THERMOGREEN SL 80 mm (160 mm). achat = 9,20 €/m² × 2 = 18,40 ; pose 6 €/m²
+// (plaques légères, découpe rapide). Vente = (achat + pose) × coef (= 36,60 €/m² à 1,5).
+// Plaque 1250×600 = 0,75 m² ; colis de 5 plaques = 3,75 m².
+const ISO_SOL = { achat:18.40, pose:6.00, couches:2, colisM2:3.75, plaquesParColis:5, ep:80 };
 
 // ── Dépose de l'existant (démontage) : tarifs dans Paramètres, quantités par devis ──
 // Tarif = prix de vente direct (pas de coef). Quantités pré-remplies depuis le devis, modifiables.
@@ -2366,6 +2373,7 @@ function cpv(it,p){
       return r2(r2(px.achat*p.coef)*(it.qty||1));
     }
     if(it.accId==='bastaing'){ const v=(it.pxUnit!=null?it.pxUnit:(BASTAING[it.mode]||BASTAING.sh).vente); return r2(v*(it.qty||0)); }
+    if(it.accId==='iso_sol'){ return r2(r2((ISO_SOL.achat+ISO_SOL.pose)*p.coef)*(it.qty||0)); }
     const px = getAccPx(it.accId||it._accId||it.id||'');
     return r2(r2((px.achat+px.pose)*p.coef)*(it.qty||1));
   }
@@ -2400,6 +2408,8 @@ function calcMarge(p){
         const b=BASTAING[it.mode]||BASTAING.sh;
         const mat=(it.matUnit!=null?it.matUnit:b.mat), pose=(it.poseUnit!=null?it.poseUnit:b.pose);
         vFerme+=v; cFerme+=(mat+pose)*(it.qty||0);
+      } else if(it.accId==='iso_sol'){
+        vFerme+=v; cFerme+=(ISO_SOL.achat+ISO_SOL.pose)*(it.qty||0);
       } else {
         const px=getAccPx(it.accId||it._accId||it.id||'');
         if(px.achat>0){ vFerme+=v; cFerme+=(px.achat+px.pose)*(it.qty||1); }
@@ -2493,7 +2503,7 @@ function togCatSection(id){const b=G(id);const open=b.classList.toggle('open');c
 let accCat=null,accProd=null;
 const ACC_PRODS={
   equipements:[{id:'soupape',n:"Soupape d'équilibrage",hint:'Panneau ≥ 100mm'},{id:'trappe',n:'Trappe de visite 740×740mm',hint:'Plafond isotherme'},{id:'lisse',n:'Lisse de protection PVC',hint:'ML → nb barres 3m'}],
-  sol:[{id:'sol_phen',n:'Sol phénolique 100mm',hint:'Surface m² → nb panneaux'},{id:'tole',n:'Tôle larmée 4mm',hint:'Surface m² → nb tôles'},{id:'bastaing',n:'Bastaing de protection',hint:'Simple/double hauteur → ML'}],
+  sol:[{id:'sol_phen',n:'Sol phénolique 100mm',hint:'Surface m² → nb panneaux'},{id:'tole',n:'Tôle larmée 4mm',hint:'Surface m² → nb tôles'},{id:'iso_sol',n:'Isolant de sol CF négative',hint:'2 couches 80mm → surface'},{id:'bastaing',n:'Bastaing de protection',hint:'Simple/double hauteur → ML'}],
   plafond:[{id:'te_reprise',n:'Té de reprise (système complet)',hint:'ML + hauteur → Té + coulisses + œillets + clips + câble + éclisses'}],
   finitions:[{id:'corn_ext',n:'Cornière ext. 50×150mm',hint:'ML → nb barres 3m'},{id:'corn_int',n:'Cornière int. 50×50mm',hint:'Angles + périmètre → nb barres'},{id:'plinthe',n:'Plinthe PVC 80mm',hint:'Auto depuis cloisons ≤80mm + ML séparatif'}],
   consommables:[{id:'silicone',n:'Silicone blanc 300ml',hint:'Auto depuis nb panneaux'},{id:'mousse_pu',n:'Mousse PU 750ml',hint:'Auto depuis portes + sol + angles'},{id:'usol',n:'U de sol',hint:'Auto depuis épaisseur + ML cloisons'}]
@@ -2585,6 +2595,21 @@ function renderAccForm(pid){
       </select></div>
       <div class="acc-field"><label>Longueur (ML)</label><input type="number" id="af-bast-ml" value="0" min="0" step="0.5" oninput="calcBastaing()"><span class="acc-unit">m</span></div>
       <div class="acc-result" id="af-res-bast">Saisir les ML</div>`,
+    iso_sol:`<div class="acc-note">Chambre froide négative sur dalle béton — 2 couches THERMOGREEN 80 mm (160 mm).</div>
+      <div class="acc-field"><label>Mode de saisie</label>
+        <div style="display:flex;gap:6px">
+          <button type="button" id="af-iso-btn-dim" onclick="isoSetMode('dim')" style="font-size:12px;padding:5px 11px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif">Dimensions L × l</button>
+          <button type="button" id="af-iso-btn-surf" onclick="isoSetMode('surf')" style="font-size:12px;padding:5px 11px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif">Surface m²</button>
+        </div></div>
+      <input type="hidden" id="af-iso-mode" value="surf">
+      <div id="af-iso-dimfields" style="display:none">
+        <div class="acc-field"><label>Longueur (L)</label><input type="number" id="af-iso-L" value="0" min="0" step="0.05" oninput="calcIsoSol()"><span class="acc-unit">m</span></div>
+        <div class="acc-field"><label>Largeur (l)</label><input type="number" id="af-iso-w" value="0" min="0" step="0.05" oninput="calcIsoSol()"><span class="acc-unit">m</span></div>
+      </div>
+      <div id="af-iso-surffields">
+        <div class="acc-field"><label>Surface à isoler</label><input type="number" id="af-iso-surf" value="0" min="0" step="0.1" oninput="calcIsoSol()"><span class="acc-unit">m²</span></div>
+      </div>
+      <div class="acc-result" id="af-res-iso">Saisir la surface</div>`,
     soupape:`<div class="acc-field"><label>Quantité</label><input type="number" id="af-qty" value="1" min="1" step="1"><span class="acc-unit">unité(s)</span></div>
       <div class="acc-field"><label>Volume chambre</label><input type="number" id="af-soup-vol" value="0" min="0" step="0.5"><span class="acc-unit">m³</span></div>`,
     sol_phen:`<div class="acc-field"><label>Mode de saisie</label>
@@ -2633,7 +2658,7 @@ function renderAccForm(pid){
       ${[mlCl40,mlCl60,mlCl80,mlClNeg].every(m=>m===0)?'<div class="acc-note">Aucune cloison dans le devis</div>':''}`
   };
   el.innerHTML=forms[pid]||`<div class="acc-field"><label>Quantité</label><input type="number" id="af-qty" value="1" min="1" step="1"><span class="acc-unit">unité(s)</span></div>`;
-  if(pid==='lisse')calcLisse();if(pid==='corn_int')calcCornInt();if(pid==='plinthe')calcPlinthe();if(pid==='mousse_pu')calcPU();if(pid==='te_reprise')calcTeReprise();if(pid==='sol_phen')calcSolPhen();if(pid==='bastaing')calcBastaing();
+  if(pid==='lisse')calcLisse();if(pid==='corn_int')calcCornInt();if(pid==='plinthe')calcPlinthe();if(pid==='mousse_pu')calcPU();if(pid==='te_reprise')calcTeReprise();if(pid==='sol_phen')calcSolPhen();if(pid==='bastaing')calcBastaing();if(pid==='iso_sol')isoSetMode('surf');
 }
 function calcBastaing(){
   const mode=G('af-bast-mode')?.value||'sh';
@@ -2642,6 +2667,28 @@ function calcBastaing(){
   const r=G('af-res-bast'); if(!r) return;
   if(ml<=0){ r.textContent='Saisir les ML'; return; }
   r.innerHTML=`${b.label} — ${fmt(ml)} ml × ${fmt(b.vente)} €/ml = <b>${fmt(r2(b.vente*ml))} € HT</b>`;
+}
+function isoSurface(){
+  const mode=G('af-iso-mode')?.value||'surf';
+  if(mode==='dim'){ const L=parseFloat(G('af-iso-L')?.value)||0, w=parseFloat(G('af-iso-w')?.value)||0; return {surf:Math.round(L*w*100)/100, L, w, mode}; }
+  return {surf:parseFloat(G('af-iso-surf')?.value)||0, L:0, w:0, mode};
+}
+function isoSetMode(m){
+  const h=G('af-iso-mode'); if(h) h.value=m;
+  const d=G('af-iso-dimfields'), s=G('af-iso-surffields');
+  if(d) d.style.display=m==='dim'?'block':'none';
+  if(s) s.style.display=m==='surf'?'block':'none';
+  [['af-iso-btn-dim','dim'],['af-iso-btn-surf','surf']].forEach(([id,mm])=>{ const b=G(id); if(b){ const on=mm===m; b.style.borderColor=on?'var(--blue)':'var(--border)'; b.style.background=on?'var(--blue-light)':'var(--surface)'; b.style.color=on?'var(--blue)':'var(--text2)'; } });
+  calcIsoSol();
+}
+function calcIsoSol(){
+  const {surf}=isoSurface();
+  const r=G('af-res-iso'); if(!r) return;
+  if(surf<=0){ r.textContent='Saisir la surface'; return; }
+  const boardM2=Math.round(surf*ISO_SOL.couches*100)/100;
+  const colis=Math.ceil(boardM2/ISO_SOL.colisM2);
+  const puVente=r2((ISO_SOL.achat+ISO_SOL.pose)*((P().coef)||1.5));
+  r.innerHTML=`${fmt(surf)} m² sol × 2 couches = ${fmt(boardM2)} m² isolant → ${colis} colis (${colis*ISO_SOL.plaquesParColis} plaques 80 mm) | ${fmt(puVente)} €/m² → <b>${fmt(r2(puVente*surf))} € HT</b>`;
 }
 function calcLisse(){const ml=parseFloat(G('af-ml')?.value)||0;const niv=parseInt(G('af-niv')?.value)||1;const totMl=ml*niv;const nb=Math.ceil(totMl/3);const px=getAccPx('lisse');const puMl=r2((px.achat/3+px.pose)*((P().coef)||1.5));const r=G('af-res-lisse');if(r)r.innerHTML=`${fmt(totMl)} ml${niv>1?` (${ml} × ${niv} niv.)`:''} → ${nb} barre${nb>1?'s':''} 3m | ~${fmt(puMl)} €/ml | ${nb*2} cache-vis + ${nb*2} embouts`;}
 // ══ SOL PHÉNOLIQUE — optimiseur de plaques (1,2 m de large × 2/2,2/2,4/2,6/2,8/3 m) ══
@@ -2817,6 +2864,18 @@ function accAdd(){
       meta:`${b.label} — ${fmt(ml)} ml × ${fmt(b.vente)} €/ml`,
       qty:ml,unit:'ml',nbU:0,vol:0,pxUnit:b.vente,matUnit:b.mat,poseUnit:b.pose,
       px:b.vente,achat:0,pose:0,rauto:0,surf:0,ep:'',piece:'',cmdDetail:'',formVals});
+    renderAccList();refreshAll();accReset();
+    return;
+  }
+  if(pid==='iso_sol'){
+    const s=isoSurface();
+    if(s.surf<=0){ alert('Saisir la surface (ou L × l).'); return; }
+    const boardM2=Math.round(s.surf*ISO_SOL.couches*100)/100;
+    const colis=Math.ceil(boardM2/ISO_SOL.colisM2);
+    accPush({type:'acc',accId:'iso_sol',label:'Isolant de sol CF négative',
+      meta:`${s.mode==='dim'?`${fmt(s.L)} × ${fmt(s.w)} m = `:''}${fmt(s.surf)} m² — 2 couches 80 mm (160 mm)`,
+      cmdDetail:`THERMOGREEN SL 80 mm — ${colis} colis (${colis*ISO_SOL.plaquesParColis} plaques) = ${fmt(boardM2)} m² isolant pour ${fmt(s.surf)} m² de sol`,
+      qty:s.surf,unit:'m²',nbU:colis,vol:0,px:0,achat:0,pose:0,rauto:0,surf:0,ep:'',piece:'',formVals});
     renderAccList();refreshAll();accReset();
     return;
   }
@@ -3066,8 +3125,8 @@ function cmdAccGroupes(mode){
   r.lines.forEach(L=>{ let u=L.cond||L.u; if(u==='unité'&&(+L.affiche)>1) u='unités'; push(L.fou, [L.nom, L.affiche+' '+u, '']); });
   items.filter(i=>i.type==='acc').forEach(it=>{
     if(it.accId==='bastaing') return; // bastaing = nomenclature bois/supports dédiée (bloc séparé), hors regroupement fournisseurs PVC
-    const def=accById(it.accId)||{}, fou=def.fou||'(non attribué)';
-    const q=it.accId==='te_reprise'?((it.ml||0)+' ml'):it.accId==='sol_phen'?((it.nbU||0)+' plaque'+((it.nbU||0)>1?'s':'')):it.accId==='lisse'?((it.nbU||0)+' barre'+((it.nbU||0)>1?'s':'')+' 3m'):String(it.nbU||it.qty||1);
+    const def=accById(it.accId)||{}, fou=(it.accId==='iso_sol')?'Roofmart':(def.fou||'(non attribué)');
+    const q=it.accId==='te_reprise'?((it.ml||0)+' ml'):it.accId==='sol_phen'?((it.nbU||0)+' plaque'+((it.nbU||0)>1?'s':'')):it.accId==='iso_sol'?((it.nbU||0)+' colis'):it.accId==='lisse'?((it.nbU||0)+' barre'+((it.nbU||0)>1?'s':'')+' 3m'):String(it.nbU||it.qty||1);
     push(fou, [it.label, q, (it.cmdDetail||accDetail(it)||'')]);
   });
   if(mode==='celtek'){ const all=[]; Object.keys(rows).forEach(f=>rows[f].forEach(c=>all.push(c))); return {'Celtek':all}; }
