@@ -4832,9 +4832,14 @@ function applyParams(px){
   if(px.pp) DEFAULT_PARAMS.pp = px.pp;
   if(px.pa) DEFAULT_PARAMS.pa = px.pa;
   if(px.pc) DEFAULT_PARAMS.pc = px.pc;
-  if(G('pp') && px.pp) G('pp').value = px.pp;
-  if(G('pa') && px.pa) G('pa').value = px.pa;
-  if(G('pc') && px.pc) G('pc').value = px.pc;
+  // Réglages pose/acc/coef PROPRES à l'affaire : ne PAS les écraser si un devis est déjà
+  // chargé (sinon un chargement de prix global fausse un devis en cours / sa nouvelle version).
+  // Un devis vierge (nouveauDevis) ou repris (restoreDraft) pose lui-même ses valeurs.
+  if(!items.length){
+    if(G('pp') && px.pp) G('pp').value = px.pp;
+    if(G('pa') && px.pa) G('pa').value = px.pa;
+    if(G('pc') && px.pc) G('pc').value = px.pc;
+  }
   if(G('def-pp') && px.pp) G('def-pp').value = px.pp;
   if(G('def-pa') && px.pa) G('def-pa').value = px.pa;
   if(G('def-pc') && px.pc) G('def-pc').value = px.pc;
@@ -5124,11 +5129,17 @@ async function nouvelleVersionDevis(){
   }catch(e){ console.error('Version devis:', e); showToast('Erreur — version non créée', true); return; }
   const nv=base+'-V'+(maxV+1);
   if(!confirm(`Créer la version V${maxV+1} du devis ${base} ?\n\nLe devis ${cur} sera archivé dans son état actuel — il restera consultable et modifiable depuis « Devis existant ». Tu continueras sur le ${nv}.`)) return;
+  // Fige les réglages tarifaires du devis d'origine → la nouvelle version DOIT en hériter (jamais les valeurs de base)
+  const snapParams={ pp:G('pp')?.value, pa:G('pa')?.value, pc:G('pc')?.value };
   window._skipVersionGuard=true; // le +V gère lui-même la version → pas de garde-fou
   try{
     await sauvegarderDevis();               // fige l'état courant sous son numéro actuel
     G('devis-num').textContent=nv;
     if(G('dnum')) G('dnum').textContent=nv;
+    // Réapplique les réglages d'origine avant de créer la V2 (au cas où ils auraient bougé entre-temps)
+    if(G('pp')&&snapParams.pp!=null) G('pp').value=snapParams.pp;
+    if(G('pa')&&snapParams.pa!=null) G('pa').value=snapParams.pa;
+    if(G('pc')&&snapParams.pc!=null) G('pc').value=snapParams.pc;
     refreshAll();
     await sauvegarderDevis();               // crée la nouvelle version (numéro inconnu → création, statut brouillon)
     showToast('Version '+nv+' créée — l’ancienne est archivée');
