@@ -2062,6 +2062,9 @@ const FOU=[];
 // ══ ÉTAT ══════════════════════════════════════════════════
 let items=[], curClient=null, curView='edit', sortAZ=true, modType='client', secOpen=false;
 let PXOV={}; // override prix panneaux PIR propre au devis courant (clé CL_{ep} / PL_{ep})
+let EVMANU_DEF={ev:660, manu:600}; // défauts globaux évac/manut (chargés de Supabase), base des nouveaux devis
+// Lit un champ numérique en RESPECTANT 0 (vide/NaN → défaut). Évite le piège « 0 || défaut ».
+function valOr(id,def){ const r=G(id)?.value; return (r===''||r==null||isNaN(parseFloat(r)))?def:parseFloat(r); }
 let travaux=[], travauxSeq=0; // lignes libres « Travaux spécifiques »
 let trManual=false; // transport : résultat forcé à la main (override)
 function travauxHT(){return travaux.reduce((s,l)=>s+((parseFloat(l.qty)||0)*(parseFloat(l.pu)||0)),0);}
@@ -4402,7 +4405,8 @@ function apercuDevisRows(items, travaux, p){
 }
 
 function calcEvacuation(p){
-  const base = parseFloat(G('ev-base')?.value) || 660;
+  const raw = G('ev-base')?.value;
+  const base = (raw===''||raw==null||isNaN(parseFloat(raw))) ? 660 : parseFloat(raw); // 0 respecté ; vide = défaut
   // Base HT sans coef
   const el = G('ev-total');
   if(el) el.textContent = fmt(base) + ' €';
@@ -4422,7 +4426,8 @@ function calcManutention(p){
   const chariotJ  = parseFloat(G('manu-chariot-j')?.value)  || 0;
   const nacellePx = parseFloat(G('manu-nacelle-px')?.value) || 0;
   const nacelleJ  = parseFloat(G('manu-nacelle-j')?.value)  || 0;
-  const base      = parseFloat(G('manu-base')?.value)       || 600;
+  const rawB      = G('manu-base')?.value;
+  const base      = (rawB===''||rawB==null||isNaN(parseFloat(rawB))) ? 600 : parseFloat(rawB); // 0 respecté ; vide = défaut
   const calcul    = chariotPx * chariotJ + nacellePx * nacelleJ;
   // Si chariot+nacelle > 0 → cumul × coef, sinon base sans coef
   let net;
@@ -4873,8 +4878,13 @@ function applyParams(px){
   if(G('tr-por-min')     && px.tr_por_min)     G('tr-por-min').value     = px.tr_por_min;
   if(G('tr-por-max')     && px.tr_por_max)     G('tr-por-max').value     = px.tr_por_max;
   if(G('tr-acc-forfait') && px.tr_acc_forfait) G('tr-acc-forfait').value = px.tr_acc_forfait;
-  if(G('ev-base')   && px.ev_base)   G('ev-base').value   = px.ev_base;
-  if(G('manu-base') && px.manu_base) G('manu-base').value = px.manu_base;
+  if(px.ev_base!=null)   EVMANU_DEF.ev   = px.ev_base;
+  if(px.manu_base!=null) EVMANU_DEF.manu = px.manu_base;
+  // Évac/manut = propres au devis : on ne pose les défauts globaux dans ces champs que si aucun devis n'est chargé.
+  if(!items.length){
+    if(G('ev-base')   && px.ev_base!=null)   G('ev-base').value   = px.ev_base;
+    if(G('manu-base') && px.manu_base!=null) G('manu-base').value = px.manu_base;
+  }
   if(G('depose-pan')      && px.depose_pan)      G('depose-pan').value      = px.depose_pan;
   if(G('depose-por-coul') && px.depose_por_coul) G('depose-por-coul').value = px.depose_por_coul;
   if(G('depose-por-piv')  && px.depose_por_piv)  G('depose-por-piv').value  = px.depose_por_piv;
@@ -5068,7 +5078,8 @@ function saveDraft(){
     localStorage.setItem('mys_draft', JSON.stringify({
       ts:Date.now(), num:G('devis-num')?.textContent||'', projet:G('projet-nom')?.value||'',
       items:items, travaux:travaux, client:curClient,
-      pp:G('pp')?.value, pa:G('pa')?.value, pc:G('pc')?.value, pxOverride:PXOV
+      pp:G('pp')?.value, pa:G('pa')?.value, pc:G('pc')?.value, pxOverride:PXOV,
+      evBase:G('ev-base')?.value, manuBase:G('manu-base')?.value, manuClient:G('manu-client')?.checked
     }));
   }catch(e){}
 }
@@ -5082,6 +5093,9 @@ function restoreDraft(d){
   if(G('pp')&&d.pp) G('pp').value=d.pp;
   if(G('pa')&&d.pa) G('pa').value=d.pa;
   if(G('pc')&&d.pc) G('pc').value=d.pc;
+  if(G('ev-base')&&d.evBase!=null&&d.evBase!=='') G('ev-base').value=d.evBase;
+  if(G('manu-base')&&d.manuBase!=null&&d.manuBase!=='') G('manu-base').value=d.manuBase;
+  if(G('manu-client')) G('manu-client').checked=!!d.manuClient;
   if(curClient) setClient(curClient); else clearClient();
   refreshAll(); renderAccList();
 }
@@ -5194,7 +5208,7 @@ async function sauvegarderDevis(){
     client: curClient,
     projet_nom: G('projet-nom')?.value||'',
     items: items,
-    params: { pose: parseFloat(G('pp')?.value)||18, acc: parseFloat(G('pa')?.value)||6, coef: parseFloat(G('pc')?.value)||1.5, depose: {on:DEPOSE.on, panM2:DEPOSE.panM2, porCoul:DEPOSE.porCoul, porPiv:DEPOSE.porPiv}, pxOverride: PXOV },
+    params: { pose: parseFloat(G('pp')?.value)||18, acc: parseFloat(G('pa')?.value)||6, coef: parseFloat(G('pc')?.value)||1.5, depose: {on:DEPOSE.on, panM2:DEPOSE.panM2, porCoul:DEPOSE.porCoul, porPiv:DEPOSE.porPiv}, pxOverride: PXOV, evBase: valOr('ev-base',EVMANU_DEF.ev), manuBase: valOr('manu-base',EVMANU_DEF.manu), manuClient: G('manu-client')?.checked||false },
     transport: tr,
     evacuation: evac,
     manutention: { base: parseFloat(G('manu-base')?.value)||600, client: G('manu-client')?.checked||false, total: manu },
@@ -5382,13 +5396,15 @@ async function telechargerDevisPDF(id){
   // On génère le PDF du devis sauvegardé sans écraser le devis en cours de travail
   const bak={items:items, curClient:curClient, trManual:trManual, pxov:PXOV,
     projet:G('projet-nom')?G('projet-nom').value:'', num:G('devis-num')?G('devis-num').textContent:'',
-    pp:G('pp')?G('pp').value:'', pa:G('pa')?G('pa').value:'', pc:G('pc')?G('pc').value:''};
+    pp:G('pp')?G('pp').value:'', pa:G('pa')?G('pa').value:'', pc:G('pc')?G('pc').value:'',
+    ev:G('ev-base')?G('ev-base').value:'', mn:G('manu-base')?G('manu-base').value:'', mc:G('manu-client')?G('manu-client').checked:false};
   window._noDraft=true; // ne pas écraser le brouillon local avec ce devis temporaire
   try{
     items=d.items||[];
     curClient=d.client||null;
     trManual=false;
     PXOV=(d.params&&d.params.pxOverride&&typeof d.params.pxOverride==='object')?Object.assign({},d.params.pxOverride):{};
+    {const _p=d.params||{}; if(G('ev-base'))G('ev-base').value=(_p.evBase!=null)?_p.evBase:EVMANU_DEF.ev; if(G('manu-base'))G('manu-base').value=(_p.manuBase!=null)?_p.manuBase:EVMANU_DEF.manu; if(G('manu-client'))G('manu-client').checked=!!_p.manuClient;}
     if(G('pp'))G('pp').value=(d.params&&d.params.pose)||DEFAULT_PARAMS.pp; if(G('pa'))G('pa').value=(d.params&&d.params.acc)||DEFAULT_PARAMS.pa; if(G('pc'))G('pc').value=(d.params&&d.params.coef)||DEFAULT_PARAMS.pc;
     if(G('projet-nom'))G('projet-nom').value=d.projet_nom||'';
     if(G('devis-num'))G('devis-num').textContent=d.numero||'';
@@ -5397,6 +5413,7 @@ async function telechargerDevisPDF(id){
   }catch(e){ console.error('Génération PDF devis:', e); showToast('Erreur PDF', true); }
   finally{
     items=bak.items; curClient=bak.curClient; trManual=bak.trManual; PXOV=bak.pxov;
+    if(G('ev-base'))G('ev-base').value=bak.ev; if(G('manu-base'))G('manu-base').value=bak.mn; if(G('manu-client'))G('manu-client').checked=bak.mc;
     if(G('projet-nom'))G('projet-nom').value=bak.projet;
     if(G('devis-num'))G('devis-num').textContent=bak.num;
     if(G('pp'))G('pp').value=bak.pp; if(G('pa'))G('pa').value=bak.pa; if(G('pc'))G('pc').value=bak.pc;
@@ -5422,6 +5439,11 @@ async function chargerDevis(id){
     const dpz = d.params && d.params.depose;
     DEPOSE = dpz ? {on:!!dpz.on, panM2:dpz.panM2==null?null:dpz.panM2, porCoul:dpz.porCoul==null?null:dpz.porCoul, porPiv:dpz.porPiv==null?null:dpz.porPiv} : {on:false,panM2:null,porCoul:null,porPiv:null};
     PXOV = (d.params && d.params.pxOverride && typeof d.params.pxOverride==='object') ? Object.assign({}, d.params.pxOverride) : {};
+    // Évac / manut / manut-client : propres au devis (respecte 0)
+    const _prm=d.params||{};
+    if(G('ev-base'))     G('ev-base').value     = (_prm.evBase!=null)   ? _prm.evBase   : EVMANU_DEF.ev;
+    if(G('manu-base'))   G('manu-base').value   = (_prm.manuBase!=null) ? _prm.manuBase : EVMANU_DEF.manu;
+    if(G('manu-client')) G('manu-client').checked = !!_prm.manuClient;
     if(G('projet-nom')) G('projet-nom').value = d.projet_nom||'';
     // Numéro
     G('devis-num').textContent = d.numero;
@@ -5446,6 +5468,9 @@ async function nouveauDevis(){
   items = [];
   DEPOSE={on:false, panM2:null, porCoul:null, porPiv:null};
   PXOV={}; // nouveau devis → repart des prix de base
+  if(G('ev-base'))     G('ev-base').value     = EVMANU_DEF.ev;
+  if(G('manu-base'))   G('manu-base').value   = EVMANU_DEF.manu;
+  if(G('manu-client')) G('manu-client').checked = false;
   curClient = null;
   if(G('projet-nom')) G('projet-nom').value = '';
   if(G('pp')) G('pp').value = DEFAULT_PARAMS.pp;
