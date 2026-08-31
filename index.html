@@ -208,7 +208,7 @@ body {
 /* ── STATS ── */
 .stats-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
   margin-bottom: 1.25rem;
 }
@@ -1310,9 +1310,10 @@ function togglePwd(){
   <!-- PAGE CONFIG -->
   <div id="page-config" class="page-content">
     <div class="stats-row" style="position:relative">
-      <div class="stat-card"><div class="stat-label">Surface panneaux</div><div class="stat-value" id="stat-surf">0 m²</div></div>
-      <div class="stat-card"><div class="stat-label">Portes & Rideaux</div><div class="stat-value" id="stat-por">0</div></div>
-      <div class="stat-card hero"><div class="stat-label">Total HT</div><div class="stat-value" id="st">0 €</div><div class="stat-sub" id="st-ttc"></div></div>
+      <div class="stat-card"><div class="stat-label">M² panneaux</div><div class="stat-value" id="stat-surf">0 m²</div></div>
+      <div class="stat-card"><div class="stat-label">Nb portes</div><div class="stat-value" id="stat-por">0</div></div>
+      <div class="stat-card hero"><div class="stat-label">Total HT</div><div class="stat-value" id="st">0 €</div></div>
+      <div class="stat-card"><div class="stat-label">Total TTC</div><div class="stat-value blue" id="st-ttc2">0 €</div></div>
       <div class="stat-card" id="stat-client-card" onclick="openClientPicker()" style="cursor:pointer;position:relative" title="Cliquer pour sélectionner un client">
         <div class="stat-label">Client</div>
         <div class="client-line">
@@ -1426,9 +1427,9 @@ function togglePwd(){
   <div id="page-devis" class="page-content" style="display:none">
     <div class="devis-sticky">
     <div class="stats-row">
-      <div class="stat-card"><div class="stat-label">Surface panneaux</div><div class="stat-value" id="stat-surf2">0 m²</div></div>
-      <div class="stat-card"><div class="stat-label">Portes & Rideaux</div><div class="stat-value" id="stat-por2">0</div></div>
-      <div class="stat-card"><div class="stat-label">TVA 20%</div><div class="stat-value" id="stva">0 €</div></div>
+      <div class="stat-card"><div class="stat-label">M² panneaux</div><div class="stat-value" id="stat-surf2">0 m²</div></div>
+      <div class="stat-card"><div class="stat-label">Nb portes</div><div class="stat-value" id="stat-por2">0</div></div>
+      <div class="stat-card hero"><div class="stat-label">Total HT</div><div class="stat-value" id="sht2">0 €</div></div>
       <div class="stat-card"><div class="stat-label">Total TTC</div><div class="stat-value blue" id="sttc">0 €</div></div>
     </div>
 
@@ -3419,11 +3420,11 @@ function refreshAll(){
   const porTot=items.filter(i=>i.type==='por').length;
   ['stat-surf','stat-surf2'].forEach(id=>{const e=G(id);if(e)e.textContent=surfTot>0?fmt(surfTot)+' m²':'0 m²';});
   ['stat-por','stat-por2'].forEach(id=>{const e=G(id);if(e)e.textContent=porTot;});
-  ['st','st2'].forEach(id=>{const e=G(id);if(e)e.textContent=grp(Math.round(tot))+' €';});
+  // Total HT (tout compris : produits + transport + annexes) et Total TTC — identiques Configurateur & Devis
+  const _htTxt=grp(Math.round(totAvecTr))+' €', _ttcTxt=grp(Math.round(totAvecTr+tva))+' €';
+  ['st','sht2'].forEach(id=>{const e=G(id);if(e)e.textContent=_htTxt;});
+  ['sttc','st-ttc2'].forEach(id=>{const e=G(id);if(e)e.textContent=_ttcTxt;});
   const dhd=G('dh-date');if(dhd)dhd.textContent=new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})+' — validité 30 jours';
-  const sv=G('stva');if(sv)sv.textContent=grp(Math.round(tva))+' €';
-  const sttc=G('sttc');if(sttc)sttc.textContent=grp(Math.round(totAvecTr+tva))+' €';
-  const sh=G('st-ttc'); if(sh) sh.textContent='TTC '+grp(Math.round(totAvecTr+tva))+' €';
   G('bdg').textContent=items.length;
   try{ renderCfgItems(p); }catch(e){}
   renderAccList();
@@ -3760,8 +3761,9 @@ function syncTravauxTotals(){
   travaux.forEach(l=>{const e=G('trv-lt-'+l.id);if(e)e.textContent=fmt((parseFloat(l.qty)||0)*(parseFloat(l.pu)||0))+' €';});
   const sumE=G('trv-sum'); if(sumE) sumE.textContent=fmt(trvHT)+' €';
   const htE=G('tot-ht-val'); if(htE) htE.textContent=fmt(totAvecTr)+' €';
-  const sv=G('stva'); if(sv) sv.textContent=grp(Math.round(tva))+' €';
-  const sttc=G('sttc'); if(sttc) sttc.textContent=grp(Math.round(totAvecTr+tva))+' €';
+  const _htTxt=grp(Math.round(totAvecTr))+' €', _ttcTxt=grp(Math.round(totAvecTr+tva))+' €';
+  ['st','sht2'].forEach(id=>{const e=G(id);if(e)e.textContent=_htTxt;});
+  ['sttc','st-ttc2'].forEach(id=>{const e=G(id);if(e)e.textContent=_ttcTxt;});
 }
 
 // ══ CONTACTS ══════════════════════════════════════════════
