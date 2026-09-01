@@ -2087,6 +2087,7 @@ let items=[], curClient=null, curView='edit', sortAZ=true, modType='client', sec
 let PXOV={}; // override prix panneaux PIR propre au devis courant (clé CL_{ep} / PL_{ep})
 let EVMANU_DEF={ev:660, manu:600}; // défauts globaux évac/manut (chargés de Supabase), base des nouveaux devis
 let _maxNumHandedOut=0; // plus haut n° attribué CETTE session (même non enregistré) → évite 2 devis au même n°
+let POSE_DEF={mode:'budget', px:1125}; // défauts globaux mode de pose / forfait journée (base des nouveaux devis)
 // Lit un champ numérique en RESPECTANT 0 (vide/NaN → défaut). Évite le piège « 0 || défaut ».
 function valOr(id,def){ const r=G(id)?.value; return (r===''||r==null||isNaN(parseFloat(r)))?def:parseFloat(r); }
 let travaux=[], travauxSeq=0; // lignes libres « Travaux spécifiques »
@@ -2142,7 +2143,7 @@ const P = () => {
     acc:  journee ? 0 : (parseFloat(G('pa').value)||6),
     coef: parseFloat(G('pc').value)||1.5,
     mode,
-    journeePx: parseFloat(G('journee-px')?.value)||1125
+    journeePx: valOr('journee-px', 1125) // 0 respecté (forfait journée à 0 possible)
   };
 };
 
@@ -4914,10 +4915,16 @@ function applyParams(px){
   if(G('depose-pan')      && px.depose_pan)      G('depose-pan').value      = px.depose_pan;
   if(G('depose-por-coul') && px.depose_por_coul) G('depose-por-coul').value = px.depose_por_coul;
   if(G('depose-por-piv')  && px.depose_por_piv)  G('depose-por-piv').value  = px.depose_por_piv;
-  if(G('journee-px') && px.journee_px) G('journee-px').value = px.journee_px;
-  if(px.pose_mode){
-    const radio = document.querySelector(`input[name="pose-mode"][value="${px.pose_mode}"]`);
-    if(radio) radio.checked = true;
+  // Mode de pose + forfait journée = propres au devis : on mémorise les défauts globaux
+  // et on ne les pose dans les champs que si aucun devis n'est chargé.
+  if(px.journee_px!=null) POSE_DEF.px = px.journee_px;
+  if(px.pose_mode) POSE_DEF.mode = px.pose_mode;
+  if(!items.length){
+    if(G('journee-px') && px.journee_px!=null) G('journee-px').value = px.journee_px;
+    if(px.pose_mode){
+      const radio = document.querySelector(`input[name="pose-mode"][value="${px.pose_mode}"]`);
+      if(radio) radio.checked = true;
+    }
   }
   ACC_DEFAULTS.forEach(a=>{
     if(px['acc_a_'+a.id]!==undefined) accPxWrite('a',a.id,px['acc_a_'+a.id]);
@@ -5115,7 +5122,8 @@ function saveDraft(){
   const o=readDrafts();
   o[num]={ ts:Date.now(), num, projet:G('projet-nom')?.value||'', items:items, travaux:travaux, client:curClient,
     pp:G('pp')?.value, pa:G('pa')?.value, pc:G('pc')?.value, pxOverride:PXOV,
-    evBase:G('ev-base')?.value, manuBase:G('manu-base')?.value, manuClient:G('manu-client')?.checked };
+    evBase:G('ev-base')?.value, manuBase:G('manu-base')?.value, manuClient:G('manu-client')?.checked,
+    poseMode:document.querySelector('input[name="pose-mode"]:checked')?.value, journeePx:G('journee-px')?.value };
   const keys=Object.keys(o).sort((a,b)=>(o[b].ts||0)-(o[a].ts||0)); keys.slice(30).forEach(k=>delete o[k]); // garder les 30 plus récents
   writeDrafts(o);
   scheduleAutoSave(); // programme une sauvegarde Supabase auto (débounce 25 s)
@@ -5142,6 +5150,8 @@ function restoreDraft(d){
   if(G('ev-base')&&d.evBase!=null&&d.evBase!=='') G('ev-base').value=d.evBase;
   if(G('manu-base')&&d.manuBase!=null&&d.manuBase!=='') G('manu-base').value=d.manuBase;
   if(G('manu-client')) G('manu-client').checked=!!d.manuClient;
+  if(d.poseMode){ const r=document.querySelector('input[name="pose-mode"][value="'+d.poseMode+'"]'); if(r) r.checked=true; }
+  if(G('journee-px')&&d.journeePx!=null&&d.journeePx!=='') G('journee-px').value=d.journeePx;
   if(curClient) setClient(curClient); else clearClient();
   refreshAll(); renderAccList();
 }
@@ -5257,7 +5267,7 @@ async function sauvegarderDevis(opts){
     client: curClient,
     projet_nom: G('projet-nom')?.value||'',
     items: items,
-    params: { pose: parseFloat(G('pp')?.value)||18, acc: parseFloat(G('pa')?.value)||6, coef: parseFloat(G('pc')?.value)||1.5, depose: {on:DEPOSE.on, panM2:DEPOSE.panM2, porCoul:DEPOSE.porCoul, porPiv:DEPOSE.porPiv}, pxOverride: PXOV, evBase: valOr('ev-base',EVMANU_DEF.ev), manuBase: valOr('manu-base',EVMANU_DEF.manu), manuClient: G('manu-client')?.checked||false },
+    params: { pose: parseFloat(G('pp')?.value)||18, acc: parseFloat(G('pa')?.value)||6, coef: parseFloat(G('pc')?.value)||1.5, depose: {on:DEPOSE.on, panM2:DEPOSE.panM2, porCoul:DEPOSE.porCoul, porPiv:DEPOSE.porPiv}, pxOverride: PXOV, evBase: valOr('ev-base',EVMANU_DEF.ev), manuBase: valOr('manu-base',EVMANU_DEF.manu), manuClient: G('manu-client')?.checked||false, poseMode: document.querySelector('input[name="pose-mode"]:checked')?.value||'budget', journeePx: valOr('journee-px',POSE_DEF.px) },
     transport: tr,
     evacuation: evac,
     manutention: { base: parseFloat(G('manu-base')?.value)||600, client: G('manu-client')?.checked||false, total: manu },
@@ -5533,6 +5543,8 @@ async function chargerDevis(id){
     if(G('ev-base'))     G('ev-base').value     = (_prm.evBase!=null)   ? _prm.evBase   : EVMANU_DEF.ev;
     if(G('manu-base'))   G('manu-base').value   = (_prm.manuBase!=null) ? _prm.manuBase : EVMANU_DEF.manu;
     if(G('manu-client')) G('manu-client').checked = !!_prm.manuClient;
+    { const pm=_prm.poseMode||POSE_DEF.mode; const r=document.querySelector('input[name="pose-mode"][value="'+pm+'"]'); if(r) r.checked=true; }
+    if(G('journee-px')) G('journee-px').value = (_prm.journeePx!=null) ? _prm.journeePx : POSE_DEF.px;
     if(G('projet-nom')) G('projet-nom').value = d.projet_nom||'';
     // Numéro
     G('devis-num').textContent = d.numero;
@@ -5560,6 +5572,8 @@ async function nouveauDevis(force){
   if(G('ev-base'))     G('ev-base').value     = EVMANU_DEF.ev;
   if(G('manu-base'))   G('manu-base').value   = EVMANU_DEF.manu;
   if(G('manu-client')) G('manu-client').checked = false;
+  { const r=document.querySelector('input[name="pose-mode"][value="'+POSE_DEF.mode+'"]'); if(r) r.checked=true; }
+  if(G('journee-px')) G('journee-px').value = POSE_DEF.px;
   curClient = null;
   if(G('projet-nom')) G('projet-nom').value = '';
   if(G('pp')) G('pp').value = DEFAULT_PARAMS.pp;
