@@ -2177,31 +2177,37 @@ const ISO_SOL = { achat:18.40, pose:6.00, couches:2, colisM2:3.75, plaquesParCol
 
 // ── Dépose de l'existant (démontage) : tarifs dans Paramètres, quantités par devis ──
 // Tarif = prix de vente direct (pas de coef). Quantités pré-remplies depuis le devis, modifiables.
-let DEPOSE={on:false, panM2:null, porCoul:null, porPiv:null}; // null/'' = auto (quantités du devis)
+let DEPOSE={cloisonM2:0, plafondM2:0, porCoul:0, porPiv:0}; // quantités par devis (0 = pas de dépose sur cette ligne)
 const DEPOSE_COUL=['PCIP','PCIN','PCS']; // portes coulissantes ; le reste (hors CHASSIS/RIDEAU) = pivotant
 function deposeAuto(){
-  const panM2=items.filter(i=>i.type==='pan').reduce((s,i)=>s+(i.surf||0),0);
+  let clo=0, plaf=0;
+  items.filter(i=>i.type==='pan').forEach(i=>{ const s=i.surf||0; if(i.paroi==='Plafond') plaf+=s; else clo+=s; });
   let coul=0,piv=0;
   items.filter(i=>i.type==='por').forEach(it=>{ const t=it.subtype||''; if(DEPOSE_COUL.includes(t)) coul++; else if(t&&t!=='CHASSIS'&&t!=='RIDEAU') piv++; });
-  return {panM2:Math.round(panM2*100)/100, porCoul:coul, porPiv:piv};
+  return {cloisonM2:Math.round(clo*100)/100, plafondM2:Math.round(plaf*100)/100, porCoul:coul, porPiv:piv};
 }
-function deposeQtes(){ const a=deposeAuto(); const use=(ov,au)=>(ov!=null&&ov!=='')?(parseFloat(ov)||0):au;
-  return {panM2:use(DEPOSE.panM2,a.panM2), porCoul:use(DEPOSE.porCoul,a.porCoul), porPiv:use(DEPOSE.porPiv,a.porPiv)}; }
+function deposeLoad(dpz){
+  if(!dpz||typeof dpz!=='object') return {cloisonM2:0,plafondM2:0,porCoul:0,porPiv:0};
+  if(dpz.cloisonM2!=null||dpz.plafondM2!=null) return {cloisonM2:+dpz.cloisonM2||0, plafondM2:+dpz.plafondM2||0, porCoul:+dpz.porCoul||0, porPiv:+dpz.porPiv||0};
+  // Migration ancien format {on,panM2,porCoul,porPiv} : si activé, panM2 (combiné) → ligne cloisons (même tarif → total préservé)
+  if(dpz.on){ const a=deposeAuto(); const use=(ov,au)=>(ov!=null&&ov!=='')?(parseFloat(ov)||0):au; return {cloisonM2:use(dpz.panM2,a.cloisonM2+a.plafondM2), plafondM2:0, porCoul:use(dpz.porCoul,a.porCoul), porPiv:use(dpz.porPiv,a.porPiv)}; }
+  return {cloisonM2:0,plafondM2:0,porCoul:0,porPiv:0};
+}
 function calcDepose(){
-  if(!DEPOSE.on) return {on:false,total:0,costTotal:0,coef:1.5,lines:[],q:deposeAuto()};
-  const q=deposeQtes();
+  const q={cloisonM2:+DEPOSE.cloisonM2||0, plafondM2:+DEPOSE.plafondM2||0, porCoul:+DEPOSE.porCoul||0, porPiv:+DEPOSE.porPiv||0};
   const coef=(P().coef)||1.5; // les tarifs saisis incluent la marge → coût poseur = tarif ÷ coef
   const rPan=parseFloat(G('depose-pan')?.value)||0, rCoul=parseFloat(G('depose-por-coul')?.value)||0, rPiv=parseFloat(G('depose-por-piv')?.value)||0;
   // pu = prix de vente client ; puCost = coût poseur (budget) ; montant/costMontant = totaux ligne
   const mk=(label,qty,unit,pu)=>({label,qty,unit,pu,montant:r2(pu*qty),puCost:r2(pu/coef),costMontant:r2((pu/coef)*qty)});
   const lines=[];
-  if(q.panM2>0&&rPan>0) lines.push(mk('Dépose cloisons / plafond',q.panM2,'m²',rPan));
+  if(q.cloisonM2>0&&rPan>0) lines.push(mk('Dépose cloisons',q.cloisonM2,'m²',rPan));
+  if(q.plafondM2>0&&rPan>0) lines.push(mk('Dépose plafond',q.plafondM2,'m²',rPan));
   if(q.porCoul>0&&rCoul>0) lines.push(mk('Dépose porte coulissante',q.porCoul,'u',rCoul));
   if(q.porPiv>0&&rPiv>0) lines.push(mk('Dépose porte pivotante',q.porPiv,'u',rPiv));
-  return {on:true,coef,total:r2(lines.reduce((s,l)=>s+l.montant,0)),costTotal:r2(lines.reduce((s,l)=>s+l.costMontant,0)),lines,q};
+  return {on:lines.length>0, coef, total:r2(lines.reduce((s,l)=>s+l.montant,0)), costTotal:r2(lines.reduce((s,l)=>s+l.costMontant,0)), lines, q};
 }
-function deposeToggle(v){ DEPOSE.on=!!v; if(DEPOSE.on){ DEPOSE.panM2=null; DEPOSE.porCoul=null; DEPOSE.porPiv=null; } refreshAll(); }
-function deposeSet(k,v){ DEPOSE[k]=(v===''?null:v); refreshAll(); }
+function deposeSet(k,v){ DEPOSE[k]=(v===''?0:(parseFloat(v)||0)); refreshAll(); }
+function deposePrefill(){ const a=deposeAuto(); DEPOSE={cloisonM2:a.cloisonM2, plafondM2:a.plafondM2, porCoul:a.porCoul, porPiv:a.porPiv}; refreshAll(); }
 // ── Onglets Configurateur : Travaux spécifiques & Dépose de l'existant ──
 function renderTravauxCfg(){
   const el=G('trv-config'); if(!el) return;
@@ -2235,27 +2241,24 @@ function renderTravauxCfg(){
 }
 function renderDeposeCfg(){
   const el=G('dep-config'); if(!el) return;
-  const dep=calcDepose();
-  const q = dep.on ? dep.q : deposeAuto();
+  const dep=calcDepose(), a=deposeAuto();
   const rPan=parseFloat(G('depose-pan')?.value)||0, rCoul=parseFloat(G('depose-por-coul')?.value)||0, rPiv=parseFloat(G('depose-por-piv')?.value)||0;
+  const drow=(lab,k,val,unit,rate,sugg)=>`<div style="display:flex;align-items:center;gap:8px;padding:4px .75rem;font-size:12px">
+      <span style="flex:1">${lab} <span style="color:var(--text3)">${fmt(rate)} €/${unit}</span></span>
+      <input type="number" min="0" step="any" value="${val>0?val:''}" placeholder="${sugg>0?fmt(sugg):'0'}" onchange="deposeSet('${k}',this.value)" class="sr-input" style="width:74px;text-align:right">
+      <span style="color:var(--text3);width:20px">${unit}</span>
+      <span style="width:82px;text-align:right;font-weight:600">${val>0?fmt(r2(rate*val))+' €':'—'}</span></div>`;
   let h=`<div class="items-section" style="margin-top:0">
     <div class="items-section-title" style="display:flex;justify-content:space-between;align-items:center;text-transform:none;padding:.45rem .75rem">
       <span style="text-transform:uppercase;letter-spacing:.07em">Dépose de l'existant</span>
-      <label style="display:flex;align-items:center;gap:6px;font-size:12px;text-transform:none;cursor:pointer"><input type="checkbox" ${DEPOSE.on?'checked':''} onchange="deposeToggle(this.checked)"> Inclure</label>
+      <button class="btn-sec-add outline" onclick="deposePrefill()" title="Reprendre les quantités du devis">↺ Pré-remplir depuis le devis</button>
     </div>`;
-  if(DEPOSE.on){
-    const drow=(lab,k,val,unit,rate)=>`<div style="display:flex;align-items:center;gap:8px;padding:3px .75rem;font-size:12px">
-      <span style="flex:1">${lab} <span style="color:var(--text3)">${fmt(rate)} €/${unit}</span></span>
-      <input type="number" min="0" step="any" value="${val}" onchange="deposeSet('${k}',this.value)" class="sr-input" style="width:70px;text-align:right">
-      <span style="color:var(--text3);width:20px">${unit}</span>
-      <span style="width:82px;text-align:right;font-weight:600">${fmt(r2(rate*val))} €</span></div>`;
-    h+=drow('Cloisons / plafond','panM2',q.panM2,'m²',rPan);
-    h+=drow('Porte coulissante','porCoul',q.porCoul,'u',rCoul);
-    h+=drow('Porte pivotante','porPiv',q.porPiv,'u',rPiv);
-    h+=`<div class="total-row" style="padding-top:.5rem"><span class="total-label">Total dépose</span><span class="total-value" style="font-size:16px">${fmt(dep.total)} €</span></div>`;
-  } else {
-    h+=`<div class="trv-empty">Cochez « Inclure » pour chiffrer la dépose (pré-remplie depuis le devis, modifiable).</div>`;
-  }
+  h+=drow('Cloisons','cloisonM2',dep.q.cloisonM2,'m²',rPan,a.cloisonM2);
+  h+=drow('Plafond','plafondM2',dep.q.plafondM2,'m²',rPan,a.plafondM2);
+  h+=drow('Porte coulissante','porCoul',dep.q.porCoul,'u',rCoul,a.porCoul);
+  h+=drow('Porte pivotante','porPiv',dep.q.porPiv,'u',rPiv,a.porPiv);
+  if(dep.total>0) h+=`<div class="total-row" style="padding-top:.5rem"><span class="total-label">Total dépose</span><span class="total-value" style="font-size:16px">${fmt(dep.total)} €</span></div>`;
+  else h+=`<div class="trv-empty">Saisis les quantités à déposer (ou « Pré-remplir depuis le devis »). Vide = pas de dépose.</div>`;
   h+=`</div>`;
   el.innerHTML=h;
 }
@@ -3525,7 +3528,7 @@ function refreshAll(){
     {
       const pans=items.filter(i=>i.type==='pan'),pors=items.filter(i=>i.type==='por'),accs=items.filter(i=>i.type==='acc');
       let h='';
-      if(!items.length) h+='<div class="empty-state" style="padding:1.25rem 0">Aucun produit — utilisez le Configurateur, ou ajoutez directement des travaux spécifiques ci-dessous.</div>';
+      if(!items.length && !travaux.length && !dep.on) h+='<div class="empty-state" style="padding:1.25rem 0">Devis vide — utilise le Configurateur (panneaux, portes, produits complémentaires, travaux spécifiques ou dépose).</div>';
       if(pans.length){const stPan=pans.reduce((s,it)=>s+cpv(it,p),0);h+=`<div class="items-section"><div class="items-section-title sec-tog" onclick="togSec('edit_pan')"><span>${secFold.edit_pan?'▾':'▸'} Panneaux (${pans.length})</span><span>${fmt(stPan)} €</span></div>`;if(secFold.edit_pan)h+=items.map((it,i)=>{if(it.type!=='pan')return'';const pvm2=it.surf>0?cpv(it,p)/it.surf:0;const warn=it.dimsIncomplete?`<div style="margin-top:5px;display:inline-flex;align-items:center;gap:6px;background:#FDE7E9;color:#B4232A;border:1px solid #F1B0B4;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:600">⚠ Hauteur / ML à compléter <a onclick="event.stopPropagation();completerPanneau(${i})" style="color:#B4232A;text-decoration:underline;cursor:pointer">compléter</a></div>`:'';return`<div class="item-row"><div class="item-left"><div class="item-name"><span class="tag tag-pan">Pan</span>${it.label}</div><div class="item-meta">${it.meta}${pvm2>0?` · <span style="color:var(--blue);font-weight:600">${fmt(pvm2)} €/m²</span>`:''}</div>${warn}</div><div class="item-right"><div class="item-price">${fmt(cpv(it,p))} €</div><button class="item-del item-edit" title="Modifier ce panneau" onclick="editItem(${i})">✎</button><button class="item-del" onclick="delItem(${i})">×</button></div></div>`;}).join('');h+='</div>';}
       if(pors.length){const stPor=pors.reduce((s,it)=>s+cpv(it,p),0);h+=`<div class="items-section"><div class="items-section-title sec-tog" onclick="togSec('edit_por')"><span>${secFold.edit_por?'▾':'▸'} Portes & Rideaux (${pors.length})</span><span>${fmt(stPor)} €</span></div>`;if(secFold.edit_por)h+=items.map((it,i)=>{
         if(it.type!=='por')return'';
@@ -3540,9 +3543,17 @@ function refreshAll(){
       }).join('');h+='</div>';}
       if(accs.length){const stAcc=accs.reduce((s,it)=>s+cpv(it,p),0);h+=`<div class="items-section"><div class="items-section-title sec-tog" onclick="togSec('edit_acc')"><span>${secFold.edit_acc?'▾':'▸'} Compléments (${accs.length})</span><span>${stAcc>0?fmt(stAcc)+' €':''}</span></div>`;if(secFold.edit_acc)h+=items.map((it,i)=>{if(it.type!=='acc')return'';const v=cpv(it,p);return`<div class="item-row"><div class="item-left"><div class="item-name"><span class="tag tag-acc">+</span>${it.label}</div><div class="item-meta">${it.meta}</div></div><div class="item-right"><div class="item-price"${v>0?'':' style="color:var(--text2)"'}>${v>0?fmt(v)+' €':'À chiffrer'}</div><button class="item-del item-edit" title="Modifier ce complément" onclick="editAccItem(${i})">✎</button><button class="item-del" onclick="delItem(${i})">×</button></div></div>`;}).join('');h+='</div>';}
       if(items.length) h+=`<div class="total-row"><span class="total-label">Total HT produits</span><span class="total-value" style="font-size:18px">${fmt(tot)} €</span></div>`;
-      // Travaux spécifiques + Dépose de l'existant : déplacés dans le Configurateur
-      // (onglets dédiés) → voir renderTravauxCfg() / renderDeposeCfg(). Le résumé
-      // reste dans l'aperçu devis (sections ap_trv / ap_dep).
+      // ── Travaux spécifiques & Dépose : lignes-résumé (édition dans le Configurateur) ──
+      if(travaux.length){
+        h+=`<div class="items-section"><div class="items-section-title" style="display:flex;justify-content:space-between;align-items:center;text-transform:none"><span style="text-transform:uppercase;letter-spacing:.07em">Travaux spécifiques (${travaux.length}) <a onclick="showPage('config',document.querySelector('.nav-item'));swCfg('trv')" style="font-size:11px;color:var(--blue);cursor:pointer;text-transform:none;letter-spacing:0;font-weight:500">✎ modifier</a></span><span>${fmt(trvHT)} €</span></div>`;
+        h+=travaux.map(l=>{const lt=(parseFloat(l.qty)||0)*(parseFloat(l.pu)||0);return `<div class="item-row"><div class="item-left"><div class="item-name"><span class="tag tag-acc">TS</span>${esc(l.desig||'(sans désignation)')}</div><div class="item-meta">${l.qty||0} ${esc(l.unit||'')} × ${fmt(l.pu||0)} €</div></div><div class="item-right"><div class="item-price">${fmt(lt)} €</div></div></div>`;}).join('');
+        h+=`</div>`;
+      }
+      if(dep.on){
+        h+=`<div class="items-section"><div class="items-section-title" style="display:flex;justify-content:space-between;align-items:center;text-transform:none"><span style="text-transform:uppercase;letter-spacing:.07em">Dépose de l'existant <a onclick="showPage('config',document.querySelector('.nav-item'));swCfg('dep')" style="font-size:11px;color:var(--blue);cursor:pointer;text-transform:none;letter-spacing:0;font-weight:500">✎ modifier</a></span><span>${fmt(dep.total)} €</span></div>`;
+        h+=dep.lines.map(L=>`<div class="item-row"><div class="item-left"><div class="item-name"><span class="tag tag-acc">DÉ</span>${L.label}</div><div class="item-meta">${L.qty} ${L.unit} × ${fmt(L.pu)} €</div></div><div class="item-right"><div class="item-price">${fmt(L.montant)} €</div></div></div>`).join('');
+        h+=`</div>`;
+      }
       // Bloc frais annexes
       const hasAnnexes = tr.trNet > 0 || evac > 0 || manu > 0 || journeeForfait > 0;
       if(hasAnnexes){
@@ -5142,7 +5153,7 @@ function saveDraft(){
   o[num]={ ts:Date.now(), num, projet:G('projet-nom')?.value||'', items:items, travaux:travaux, client:curClient,
     pp:G('pp')?.value, pa:G('pa')?.value, pc:G('pc')?.value, pxOverride:PXOV,
     evBase:G('ev-base')?.value, manuBase:G('manu-base')?.value, manuClient:G('manu-client')?.checked,
-    poseMode:document.querySelector('input[name="pose-mode"]:checked')?.value, journeePx:G('journee-px')?.value };
+    poseMode:document.querySelector('input[name="pose-mode"]:checked')?.value, journeePx:G('journee-px')?.value, depose:DEPOSE };
   const keys=Object.keys(o).sort((a,b)=>(o[b].ts||0)-(o[a].ts||0)); keys.slice(30).forEach(k=>delete o[k]); // garder les 30 plus récents
   writeDrafts(o);
   scheduleAutoSave(); // programme une sauvegarde Supabase auto (débounce 25 s)
@@ -5161,6 +5172,7 @@ function restoreDraft(d){
   editIdx=null; editType=null;
   items=d.items||[]; travaux=d.travaux||[]; curClient=d.client||null;
   PXOV=(d.pxOverride&&typeof d.pxOverride==='object')?Object.assign({},d.pxOverride):{};
+  DEPOSE=deposeLoad(d.depose);
   if(G('projet-nom')) G('projet-nom').value=d.projet||'';
   if(d.num){ G('devis-num').textContent=d.num; if(G('dnum')) G('dnum').textContent=d.num; }
   if(G('pp')&&d.pp) G('pp').value=d.pp;
@@ -5286,7 +5298,7 @@ async function sauvegarderDevis(opts){
     client: curClient,
     projet_nom: G('projet-nom')?.value||'',
     items: items,
-    params: { pose: parseFloat(G('pp')?.value)||18, acc: parseFloat(G('pa')?.value)||6, coef: parseFloat(G('pc')?.value)||1.5, depose: {on:DEPOSE.on, panM2:DEPOSE.panM2, porCoul:DEPOSE.porCoul, porPiv:DEPOSE.porPiv}, pxOverride: PXOV, evBase: valOr('ev-base',EVMANU_DEF.ev), manuBase: valOr('manu-base',EVMANU_DEF.manu), manuClient: G('manu-client')?.checked||false, poseMode: document.querySelector('input[name="pose-mode"]:checked')?.value||'budget', journeePx: valOr('journee-px',POSE_DEF.px) },
+    params: { pose: parseFloat(G('pp')?.value)||18, acc: parseFloat(G('pa')?.value)||6, coef: parseFloat(G('pc')?.value)||1.5, depose: {cloisonM2:DEPOSE.cloisonM2, plafondM2:DEPOSE.plafondM2, porCoul:DEPOSE.porCoul, porPiv:DEPOSE.porPiv}, pxOverride: PXOV, evBase: valOr('ev-base',EVMANU_DEF.ev), manuBase: valOr('manu-base',EVMANU_DEF.manu), manuClient: G('manu-client')?.checked||false, poseMode: document.querySelector('input[name="pose-mode"]:checked')?.value||'budget', journeePx: valOr('journee-px',POSE_DEF.px) },
     transport: tr,
     evacuation: evac,
     manutention: { base: parseFloat(G('manu-base')?.value)||600, client: G('manu-client')?.checked||false, total: manu },
@@ -5555,7 +5567,7 @@ async function chargerDevis(id){
     if(G('pa')) G('pa').value = (d.params&&d.params.acc)||DEFAULT_PARAMS.pa;
     if(G('pc')) G('pc').value = (d.params&&d.params.coef)||DEFAULT_PARAMS.pc;
     const dpz = d.params && d.params.depose;
-    DEPOSE = dpz ? {on:!!dpz.on, panM2:dpz.panM2==null?null:dpz.panM2, porCoul:dpz.porCoul==null?null:dpz.porCoul, porPiv:dpz.porPiv==null?null:dpz.porPiv} : {on:false,panM2:null,porCoul:null,porPiv:null};
+    DEPOSE = deposeLoad(dpz);
     PXOV = (d.params && d.params.pxOverride && typeof d.params.pxOverride==='object') ? Object.assign({}, d.params.pxOverride) : {};
     // Évac / manut / manut-client : propres au devis (respecte 0)
     const _prm=d.params||{};
@@ -5586,7 +5598,7 @@ async function nouveauDevis(force){
   const num = await genNumero();
   editIdx=null; editType=null;
   items = [];
-  DEPOSE={on:false, panM2:null, porCoul:null, porPiv:null};
+  DEPOSE={cloisonM2:0, plafondM2:0, porCoul:0, porPiv:0};
   PXOV={}; // nouveau devis → repart des prix de base
   if(G('ev-base'))     G('ev-base').value     = EVMANU_DEF.ev;
   if(G('manu-base'))   G('manu-base').value   = EVMANU_DEF.manu;
