@@ -1247,6 +1247,7 @@ function togglePwd(){
     <button class="btn" onclick="location.href='cockpit.html'" title="Passer au Cockpit (suivi chantiers, finances, tâches)" style="display:inline-flex;align-items:center;gap:7px;background:linear-gradient(100deg,#6D5BD0,#C23D7B);color:#fff;border-color:transparent"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 13A6 6 0 1 1 8 1a6 6 0 0 1 0 12z" opacity=".5"/><path d="M8 8l3-3"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/></svg>Cockpit</button>
     <button class="btn" onclick="showPage('devis-existant')" style="display:inline-flex;align-items:center;gap:7px"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h12M2 12h8"/></svg>Mes devis</button>
     <button class="btn" onclick="nouveauDevis()" style="display:inline-flex;align-items:center;gap:7px"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>Nouveau</button>
+    <span id="save-status" style="font-size:11px;color:var(--text3);margin-right:8px;white-space:nowrap"></span>
     <button class="btn btn-green" onclick="sauvegarderDevis()" style="display:inline-flex;align-items:center;gap:7px"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2h8l3 3v9H3z"/><path d="M5 2v4h5V2"/><rect x="5" y="9" width="6" height="4"/></svg>Sauvegarder</button>
   </div>
 </header>
@@ -5076,6 +5077,7 @@ async function exporterTout(){
     const a = document.createElement('a');
     a.href=url; a.download=nom; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(url), 1000);
+    try{ localStorage.setItem('mys_last_export', String(Date.now())); }catch(e){} // pour le rappel d'export
     showToast(`Sauvegarde téléchargée — ${data.nb_devis} devis`);
   }catch(e){
     console.error('Export:', e);
@@ -5116,8 +5118,18 @@ function saveDraft(){
     evBase:G('ev-base')?.value, manuBase:G('manu-base')?.value, manuClient:G('manu-client')?.checked };
   const keys=Object.keys(o).sort((a,b)=>(o[b].ts||0)-(o[a].ts||0)); keys.slice(30).forEach(k=>delete o[k]); // garder les 30 plus récents
   writeDrafts(o);
+  scheduleAutoSave(); // programme une sauvegarde Supabase auto (débounce 25 s)
 }
 function clearDraft(num){ num=num||G('devis-num')?.textContent||''; const o=readDrafts(); if(o[num]){ delete o[num]; writeDrafts(o); } }
+// Auto-sauvegarde Supabase : ~25 s après la dernière modif, met à jour la ligne du devis
+// (uniquement les brouillons — un devis envoyé/accepté n'est pas écrasé en silence).
+let _autoSaveTimer=null;
+function scheduleAutoSave(){
+  if(window._noDraft) return;
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer=setTimeout(()=>{ try{ sauvegarderDevis({auto:true, silent:true}); }catch(e){} }, 25000);
+}
+function majSaveStatus(){ const e=G('save-status'); if(!e) return; const t=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}); e.textContent='✓ enregistré '+t; e.style.color='var(--green)'; }
 function restoreDraft(d){
   editIdx=null; editType=null;
   items=d.items||[]; travaux=d.travaux||[]; curClient=d.client||null;
@@ -5259,6 +5271,7 @@ async function sauvegarderDevis(opts){
       // Garde-fou : ne jamais écraser un devis déjà envoyé/accepté/facturé sans confirmation
       // → proposer d'en créer une nouvelle version (l'original reste intact).
       const st=exists[0].statut||'brouillon';
+      if(opts.auto && st!=='brouillon') return; // auto-save : ne JAMAIS écraser en silence un devis envoyé/accepté/facturé
       if(!window._skipVersionGuard && st!=='brouillon'){
         const base=baseNum(num); let maxV=verNum(num);
         try{ const rows=await sbFetch('/rest/v1/devis?select=numero&numero=like.'+encodeURIComponent(base+'*')); (rows||[]).forEach(r=>{ if(baseNum(r.numero)===base) maxV=Math.max(maxV,verNum(r.numero)); }); }catch(e){}
@@ -5277,6 +5290,7 @@ async function sauvegarderDevis(opts){
       await sbFetch('/rest/v1/devis', { method:'POST', body: Object.assign({statut:'brouillon'}, payload), prefer:'return=minimal' });
     }
     if(!opts.silent) showToast('Devis sauvegardé');
+    majSaveStatus(); // indicateur « ✓ enregistré HH:MM » (topbar)
     clearDraft(); // le devis est en base, plus besoin du brouillon local
   } catch(e) {
     console.error('Sauvegarde:', e);
@@ -6223,6 +6237,12 @@ function bootAuthed(){
       .then(()=>chargerParams({tries:3}))
       .then(()=>{ try{ verifierPrixCharges(); }catch(e){} try{ maybeRestoreDraft(); }catch(e){ console.error('maybeRestoreDraft:', e); } });
   } catch(e) { console.error('boot données:', e); }
+  // Rappel d'export (sauvegarde de secours sur le PC) si > 7 jours ou jamais fait
+  try {
+    const last=parseInt(localStorage.getItem('mys_last_export')||'0')||0;
+    const days=last?Math.floor((Date.now()-last)/86400000):null;
+    if(!last || days>=7){ setTimeout(()=>{ try{ showToast(last?('💾 Sauvegarde conseillée — dernier export il y a '+days+' j. Paramètres → Exporter mes données'):'💾 Pense à exporter tes données (Paramètres → Exporter) — sauvegarde de secours sur ton PC', true); }catch(e){} }, 3000); }
+  } catch(e) {}
   try {
     genNumero().then(num=>{
       if(window._draftRestored) return; // le devis repris garde son numéro
