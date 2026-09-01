@@ -2092,7 +2092,6 @@ const FOU=[];
 let items=[], curClient=null, curView='edit', sortAZ=true, modType='client', secOpen=false;
 let PXOV={}; // override prix panneaux PIR propre au devis courant (clé CL_{ep} / PL_{ep})
 let EVMANU_DEF={ev:660, manu:600}; // défauts globaux évac/manut (chargés de Supabase), base des nouveaux devis
-let _maxNumHandedOut=0; // plus haut n° attribué CETTE session (même non enregistré) → évite 2 devis au même n°
 let POSE_DEF={mode:'budget', px:1125}; // défauts globaux mode de pose / forfait journée (base des nouveaux devis)
 // Lit un champ numérique en RESPECTANT 0 (vide/NaN → défaut). Évite le piège « 0 || défaut ».
 function valOr(id,def){ const r=G(id)?.value; return (r===''||r==null||isNaN(parseFloat(r)))?def:parseFloat(r); }
@@ -5232,17 +5231,15 @@ async function sbFetch(path, opts={}){
 
 // Générer numéro séquentiel
 async function genNumero(){
+  // Numéro = max des numéros ENREGISTRÉS + 1. Comme créer un devis l'enregistre aussitôt
+  // (numéro réservé en base dès le nom d'affaire), pas de doublon ; et un devis abandonné
+  // (jamais enregistré) libère son numéro → pas de trou.
   let mx=1000;
   try {
-    // Max sur TOUS les numéros enregistrés (le dernier créé peut être une V2 d'un vieux devis)
     const data = await sbFetch('/rest/v1/devis?select=numero');
     if(data && data.length){ data.forEach(r=>{ const n=parseInt(String(r.numero||'').split('-')[1]); if(n>mx) mx=n; }); }
   } catch(e){ console.warn('Supabase genNumero:', e); }
-  // Tient compte des devis déjà ouverts CETTE session (même non enregistrés) → pas de doublon
-  mx = Math.max(mx, _maxNumHandedOut);
-  const n = mx + 1;
-  _maxNumHandedOut = n; // réserve ce numéro pour la session
-  return '2026-'+n;
+  return '2026-'+(mx+1);
 }
 
 // ── Nouvelle version du devis courant : fige l'actuel, crée une copie n° base-Vn ──
