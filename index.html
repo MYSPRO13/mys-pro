@@ -1237,6 +1237,7 @@ function togglePwd(){
     <img id="topbar-logo" style="height:36px;width:auto;display:block;cursor:pointer" onclick="showHome()" title="Accueil MYS Pro">
     <div class="divider-v"></div>
     <div class="page-title" id="page-title">Configurateur</div>
+    <button onclick="nouveauDevisSauve()" title="Enregistrer le devis en cours et en créer un nouveau" style="margin-left:14px;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--surface);color:var(--blue);border-radius:8px;padding:5px 11px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M8 3.5v9M3.5 8h9"/></svg>Nouveau devis</button>
   </div>
   <div class="topbar-center">
     <div class="devis-badge">N° <span id="devis-num">2026-1041</span><button onclick="nouvelleVersionDevis()" title="Créer une nouvelle version de ce devis (l'actuel est archivé tel quel)" style="margin-left:7px;border:1px solid var(--border);background:var(--surface);border-radius:6px;padding:1px 7px;font-size:11px;cursor:pointer;color:var(--blue);font-weight:600;font-family:'DM Sans',sans-serif">+V</button></div>
@@ -2064,6 +2065,7 @@ const FOU=[];
 let items=[], curClient=null, curView='edit', sortAZ=true, modType='client', secOpen=false;
 let PXOV={}; // override prix panneaux PIR propre au devis courant (clé CL_{ep} / PL_{ep})
 let EVMANU_DEF={ev:660, manu:600}; // défauts globaux évac/manut (chargés de Supabase), base des nouveaux devis
+let _maxNumHandedOut=0; // plus haut n° attribué CETTE session (même non enregistré) → évite 2 devis au même n°
 // Lit un champ numérique en RESPECTANT 0 (vide/NaN → défaut). Évite le piège « 0 || défaut ».
 function valOr(id,def){ const r=G(id)?.value; return (r===''||r==null||isNaN(parseFloat(r)))?def:parseFloat(r); }
 let travaux=[], travauxSeq=0; // lignes libres « Travaux spécifiques »
@@ -4475,6 +4477,7 @@ function trAuto(){ trManual=false; refreshAll(); }
 function genPDF(){
   if(!items.length && !travaux.length){alert('Devis vide — ajoutez au moins un produit ou une ligne de travaux spécifiques.');return;}
   if(items.some(i=>i.type==='pan') && !prixPanneauxCharges()){ alert("⚠️ Prix des panneaux non chargés — ils s'affichent au tarif plancher (37,50 €).\n\nRecharge la page (Ctrl+F5) avant de générer le PDF, sinon le devis serait sous-facturé."); return; }
+  try{ sauvegarderDevis({silent:true}); }catch(e){} // générer un PDF = enregistrer le devis en base
   const {jsPDF} = window.jspdf;
   const doc = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
   const p = P();
@@ -5073,19 +5076,28 @@ async function resetParams(){
 // ══ BROUILLON LOCAL ═════════════════════════════════════════
 // Le devis en cours est sauvegardé en continu dans le navigateur (localStorage) :
 // une session expirée, un F5 ou une fermeture d'onglet ne font plus perdre le travail.
+// ── Brouillons locaux MULTI-DEVIS (mys_drafts) : chaque devis non enregistré est gardé
+// (keyé par numéro), plus jamais écrasé quand on en démarre un autre. Effacé uniquement
+// à l'enregistrement Supabase du devis concerné. Récupérables dans « Devis existant ».
+function readDrafts(){
+  let o={}; try{ o=JSON.parse(localStorage.getItem('mys_drafts')||'{}')||{}; }catch(e){ o={}; }
+  try{ const old=localStorage.getItem('mys_draft'); if(old){ const d=JSON.parse(old); if(d&&d.num&&!o[d.num]) o[d.num]=d; localStorage.removeItem('mys_draft'); } }catch(e){} // migration ancien brouillon unique
+  return o;
+}
+function writeDrafts(o){ try{ localStorage.setItem('mys_drafts', JSON.stringify(o)); }catch(e){} }
+function listeDrafts(){ const o=readDrafts(); return Object.keys(o).map(k=>o[k]).filter(d=>d&&((d.items&&d.items.length)||(d.travaux&&d.travaux.length))).sort((a,b)=>(b.ts||0)-(a.ts||0)); }
 function saveDraft(){
   if(window._noDraft) return; // suspendu pendant la génération d'un PDF d'un autre devis
-  try{
-    if(!items.length && !travaux.length) return;
-    localStorage.setItem('mys_draft', JSON.stringify({
-      ts:Date.now(), num:G('devis-num')?.textContent||'', projet:G('projet-nom')?.value||'',
-      items:items, travaux:travaux, client:curClient,
-      pp:G('pp')?.value, pa:G('pa')?.value, pc:G('pc')?.value, pxOverride:PXOV,
-      evBase:G('ev-base')?.value, manuBase:G('manu-base')?.value, manuClient:G('manu-client')?.checked
-    }));
-  }catch(e){}
+  if(!items.length && !travaux.length) return;
+  const num=G('devis-num')?.textContent||''; if(!num) return;
+  const o=readDrafts();
+  o[num]={ ts:Date.now(), num, projet:G('projet-nom')?.value||'', items:items, travaux:travaux, client:curClient,
+    pp:G('pp')?.value, pa:G('pa')?.value, pc:G('pc')?.value, pxOverride:PXOV,
+    evBase:G('ev-base')?.value, manuBase:G('manu-base')?.value, manuClient:G('manu-client')?.checked };
+  const keys=Object.keys(o).sort((a,b)=>(o[b].ts||0)-(o[a].ts||0)); keys.slice(30).forEach(k=>delete o[k]); // garder les 30 plus récents
+  writeDrafts(o);
 }
-function clearDraft(){ try{ localStorage.removeItem('mys_draft'); }catch(e){} }
+function clearDraft(num){ num=num||G('devis-num')?.textContent||''; const o=readDrafts(); if(o[num]){ delete o[num]; writeDrafts(o); } }
 function restoreDraft(d){
   editIdx=null; editType=null;
   items=d.items||[]; travaux=d.travaux||[]; curClient=d.client||null;
@@ -5103,18 +5115,19 @@ function restoreDraft(d){
 }
 function maybeRestoreDraft(){
   if(items.length||travaux.length) return; // du travail est déjà en cours
-  let d=null; try{ d=JSON.parse(localStorage.getItem('mys_draft')||'null'); }catch(e){}
-  if(!d||!((d.items&&d.items.length)||(d.travaux&&d.travaux.length))) return;
+  const drafts=listeDrafts(); if(!drafts.length) return;
+  const d=drafts[0]; // le plus récent
   const nbA=(d.items||[]).length, nbT=(d.travaux||[]).length;
   const when=d.ts?new Date(d.ts).toLocaleString('fr-FR'):'';
-  if(!confirm(`Un devis non sauvegardé a été retrouvé${d.num?' (N° '+d.num+')':''} — ${nbA} article${nbA>1?'s':''}${nbT?' + '+nbT+' ligne(s) de travaux':''}${when?', du '+when:''}.\nReprendre ce devis ?`)){
-    clearDraft(); return;
+  const extra=drafts.length>1?`\n\n(${drafts.length-1} autre brouillon(s) non enregistré(s) sont récupérables.)`:'';
+  if(!confirm(`Un devis non enregistré a été retrouvé${d.num?' (N° '+d.num+')':''} — ${nbA} article${nbA>1?'s':''}${nbT?' + '+nbT+' ligne(s) de travaux':''}${when?', du '+when:''}.\nReprendre ce devis ?${extra}`)){
+    return; // décliné → on GARDE les brouillons (ne rien effacer)
   }
   window._draftRestored=true;
   restoreDraft(d);
   const hs=document.getElementById('home-screen'); if(hs) hs.style.display='none';
   showPage('config', document.querySelector('.nav-item'));
-  showToast('Devis repris — pense à le sauvegarder');
+  showToast('Devis repris — pense à l\'enregistrer');
 }
 
 // ══ SUPABASE ══════════════════════════════════════════════
@@ -5146,16 +5159,17 @@ async function sbFetch(path, opts={}){
 
 // Générer numéro séquentiel
 async function genNumero(){
+  let mx=1000;
   try {
-    // Max sur TOUS les numéros de base (le dernier créé peut être une V2 d'un vieux devis)
+    // Max sur TOUS les numéros enregistrés (le dernier créé peut être une V2 d'un vieux devis)
     const data = await sbFetch('/rest/v1/devis?select=numero');
-    if(data && data.length){
-      let mx=1000;
-      data.forEach(r=>{ const n=parseInt(String(r.numero||'').split('-')[1]); if(n>mx) mx=n; });
-      return '2026-'+(mx+1);
-    }
+    if(data && data.length){ data.forEach(r=>{ const n=parseInt(String(r.numero||'').split('-')[1]); if(n>mx) mx=n; }); }
   } catch(e){ console.warn('Supabase genNumero:', e); }
-  return '2026-1001';
+  // Tient compte des devis déjà ouverts CETTE session (même non enregistrés) → pas de doublon
+  mx = Math.max(mx, _maxNumHandedOut);
+  const n = mx + 1;
+  _maxNumHandedOut = n; // réserve ce numéro pour la session
+  return '2026-'+n;
 }
 
 // ── Nouvelle version du devis courant : fige l'actuel, crée une copie n° base-Vn ──
@@ -5194,8 +5208,9 @@ async function versionDevisDepuisListe(id){
 }
 
 // Sauvegarder devis courant
-async function sauvegarderDevis(){
-  if(items.some(i=>i.type==='pan') && !prixPanneauxCharges()){ alert("⚠️ Prix des panneaux non chargés — recharge la page (Ctrl+F5) avant d'enregistrer, sinon le devis serait sauvegardé au tarif plancher."); return; }
+async function sauvegarderDevis(opts){
+  opts=opts||{};
+  if(items.some(i=>i.type==='pan') && !prixPanneauxCharges()){ if(!opts.silent) alert("⚠️ Prix des panneaux non chargés — recharge la page (Ctrl+F5) avant d'enregistrer, sinon le devis serait sauvegardé au tarif plancher."); return; }
   const p = P();
   const tr = calcTransport(p, items);
   const evac = calcEvacuation(p);
@@ -5241,7 +5256,7 @@ async function sauvegarderDevis(){
     } else {
       await sbFetch('/rest/v1/devis', { method:'POST', body: Object.assign({statut:'brouillon'}, payload), prefer:'return=minimal' });
     }
-    showToast('Devis sauvegardé');
+    if(!opts.silent) showToast('Devis sauvegardé');
     clearDraft(); // le devis est en base, plus besoin du brouillon local
   } catch(e) {
     console.error('Sauvegarde:', e);
@@ -5463,8 +5478,8 @@ async function chargerDevis(id){
 }
 
 // Nouveau devis
-async function nouveauDevis(){
-  if(items.length && !confirm('Créer un nouveau devis ? Le devis actuel non sauvegardé sera perdu.')) return;
+async function nouveauDevis(force){
+  if(!force && items.length && !confirm('Créer un nouveau devis ? Le devis actuel non sauvegardé sera perdu.')) return;
   const num = await genNumero();
   editIdx=null; editType=null;
   items = [];
@@ -5508,6 +5523,14 @@ function projModalConfirm(){
   if(G('projet-nom')) G('projet-nom').value=v;
   G('projet-modal').classList.remove('open');
   refreshAll();
+  // Création = enregistrer immédiatement en base → numéro verrouillé (plus de doublon) + rien de perdu
+  try{ sauvegarderDevis({silent:true}); }catch(e){}
+  showToast('Devis '+(G('devis-num')?.textContent||'')+' créé et enregistré');
+}
+// Enregistre le devis en cours puis en crée un nouveau (bouton « Nouveau devis »)
+async function nouveauDevisSauve(){
+  if(items.length || travaux.length){ try{ await sauvegarderDevis({silent:true}); }catch(e){} }
+  nouveauDevis(true);
 }
 function projModalSkip(){ const m=G('projet-modal'); if(m) m.classList.remove('open'); } // échappatoire discrète (Échap)
 function projModalQuit(){ const m=G('projet-modal'); if(m) m.classList.remove('open'); if(typeof showHome==='function') showHome(); } // croix : ferme la modale et revient au menu principal
