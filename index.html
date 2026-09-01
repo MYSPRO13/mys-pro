@@ -5287,7 +5287,9 @@ async function sauvegarderDevis(opts){
   const manu = calcManutention(p);
   const tot = items.reduce((s,it)=>s+cpv(it,p), 0);
   const deposeSave = calcDepose();
-  const totAvecTr = tot + tr.trNet + evac + manu + deposeSave.total;
+  const trvHT = travauxHT();                                   // travaux spécifiques
+  const journeeForfait = p.mode==='journee' ? p.journeePx : 0; // forfait journée
+  const totAvecTr = tot + tr.trNet + evac + manu + journeeForfait + trvHT + deposeSave.total; // même formule que refreshAll/genPDF
   let num = G('devis-num').textContent;
   const payload = {
     numero: num,
