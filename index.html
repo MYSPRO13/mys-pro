@@ -1681,9 +1681,18 @@ function togglePwd(){
       #page-devis-existant .dx-chip.on{border-color:var(--blue);color:var(--blue);background:var(--blue-light);}
       #page-devis-existant .dx-chip.on .n{background:rgba(41,35,92,.12);}
       #page-devis-existant tr.dx-group{cursor:default;}
-      #page-devis-existant tr.dx-group td{background:var(--bg2);font-size:10px;text-transform:uppercase;letter-spacing:.07em;font-weight:600;color:var(--text2);padding:6px 14px;}
-      #page-devis-existant tr.dx-vertog td{background:var(--bg);color:var(--blue);font-size:11.5px;font-weight:500;padding:5px 14px 5px 28px;cursor:pointer;}
-      #page-devis-existant tr.dx-vertog:hover td{background:var(--blue-light);}
+      #page-devis-existant tr.dx-group td{padding:0;border-bottom:none;}
+      #page-devis-existant .dxg-band{display:flex;align-items:center;gap:9px;padding:10px 14px;border-left:4px solid var(--dxg-c,var(--text3));background:var(--dxg-bg,var(--bg2));border-top:1px solid var(--border);}
+      #page-devis-existant .dxg-label{font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;color:var(--dxg-c,var(--text2));}
+      #page-devis-existant .dxg-count{font-size:11px;font-weight:700;border-radius:20px;padding:1px 9px;background:var(--dxg-bg2,var(--bg3));color:var(--dxg-c,var(--text2));}
+      #page-devis-existant tr.dx-group.brouillon .dxg-band{--dxg-c:#6E7278;--dxg-bg:var(--bg2);--dxg-bg2:var(--bg3);}
+      #page-devis-existant tr.dx-group.envoye   .dxg-band{--dxg-c:var(--orange);--dxg-bg:var(--orange-light);--dxg-bg2:#fff;}
+      #page-devis-existant tr.dx-group.accepte  .dxg-band,#page-devis-existant tr.dx-group.signe .dxg-band{--dxg-c:#0F6E56;--dxg-bg:var(--green-light);--dxg-bg2:#fff;}
+      #page-devis-existant tr.dx-group.refuse   .dxg-band{--dxg-c:var(--red);--dxg-bg:var(--red-light);--dxg-bg2:#fff;}
+      #page-devis-existant tr.dx-group.facture  .dxg-band{--dxg-c:var(--blue);--dxg-bg:var(--blue-light);--dxg-bg2:#fff;}
+      /* Lignes « versions précédentes » : clairement des sous-lignes imbriquées (pas des sections) */
+      #page-devis-existant tr.dx-vertog td{background:transparent;color:var(--text3);font-size:11px;font-weight:500;font-style:italic;padding:4px 14px 4px 44px;cursor:pointer;}
+      #page-devis-existant tr.dx-vertog:hover td{color:var(--blue);background:var(--bg2);}
       #page-devis-existant tr.dx-oldver td{background:var(--bg);color:var(--text2);font-size:12.5px;padding:8px 14px;}
       #page-devis-existant tr.dx-oldver .dx-num{padding-left:28px;font-weight:500;color:var(--text3);}
       #page-devis-existant th:last-child{text-align:right;}
@@ -5316,8 +5325,9 @@ function dxSetSort(col){
 }
 function updateDxHeader(){
   document.querySelectorAll('#page-devis-existant .dxarr').forEach(s=>{
-    const col=s.getAttribute('data-arr');
-    s.textContent = (dxSort.col===col) ? (dxSort.dir==='asc'?'▲':'▼') : '';
+    const col=s.getAttribute('data-arr'), on=(dxSort.col===col);
+    s.textContent = on ? (dxSort.dir==='asc'?'▲':'▼') : '⇅'; // ⇅ discret = colonne triable
+    s.style.opacity = on ? '1' : '.3';
   });
 }
 function dxSortGroups(groups){
@@ -5395,7 +5405,7 @@ function renderDevisExistant(groups){
     DEVIS_STATUTS.forEach(([k,lab])=>{
       const grp=groups.filter(g=>devisStatut(g.latest)===k);
       if(!grp.length) return;
-      h+=`<tr class="dx-group"><td colspan="7">${lab} (${grp.length})</td></tr>`+grp.map(groupHtml).join('');
+      h+=`<tr class="dx-group ${k}"><td colspan="7"><div class="dxg-band"><span class="dxg-label">${lab}</span><span class="dxg-count">${grp.length}</span></div></td></tr>`+grp.map(groupHtml).join('');
     });
     el.innerHTML=h;
   } else {
