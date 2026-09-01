@@ -1687,6 +1687,9 @@ function togglePwd(){
       #page-devis-existant tr.dx-oldver td{background:var(--bg);color:var(--text2);font-size:12.5px;padding:8px 14px;}
       #page-devis-existant tr.dx-oldver .dx-num{padding-left:28px;font-weight:500;color:var(--text3);}
       #page-devis-existant th:last-child{text-align:right;}
+      #page-devis-existant th[onclick]{user-select:none;}
+      #page-devis-existant th[onclick]:hover{color:var(--text);background:var(--bg2);}
+      #page-devis-existant .dxarr{font-size:9px;margin-left:4px;color:var(--blue);}
       #page-devis-existant .dx-act{white-space:nowrap;text-align:right;}
       #page-devis-existant .dx-ic{background:none;border:none;cursor:pointer;font-size:14px;padding:4px 6px;border-radius:6px;line-height:1;opacity:.7;}
       #page-devis-existant .dx-ic:hover{background:var(--bg2);opacity:1;}
@@ -1700,7 +1703,15 @@ function togglePwd(){
     <div class="dx-chips" id="dx-chips"></div>
     <div class="dx-card">
       <table>
-        <thead><tr><th>N°</th><th>Projet</th><th>Client</th><th>Date</th><th>Total HT</th><th>Statut</th><th>Actions</th></tr></thead>
+        <thead><tr>
+          <th onclick="dxSetSort('numero')" style="cursor:pointer" title="Trier par N°">N°<span class="dxarr" data-arr="numero"></span></th>
+          <th onclick="dxSetSort('projet')" style="cursor:pointer" title="Trier par projet">Projet<span class="dxarr" data-arr="projet"></span></th>
+          <th onclick="dxSetSort('client')" style="cursor:pointer" title="Trier par client">Client<span class="dxarr" data-arr="client"></span></th>
+          <th onclick="dxSetSort('date')" style="cursor:pointer" title="Trier par date">Date<span class="dxarr" data-arr="date"></span></th>
+          <th onclick="dxSetSort('total')" style="cursor:pointer" title="Trier par total">Total HT<span class="dxarr" data-arr="total"></span></th>
+          <th onclick="dxSetSort('statut')" style="cursor:pointer" title="Trier par statut">Statut<span class="dxarr" data-arr="statut"></span></th>
+          <th>Actions</th>
+        </tr></thead>
         <tbody id="dx-rows"><tr><td colspan="7" class="dx-empty">Chargement…</td></tr></tbody>
       </table>
     </div>
@@ -5294,6 +5305,41 @@ function groupDevisVersions(list){
 let _devisCache=[];
 let dxFilter='tous';
 let dxVerOpen={}; // groupes de versions dépliés (par numéro de base)
+// Tri du tableau « Devis existant » : col=null → tri par défaut (groupé par statut, récents d'abord).
+// Clic sur une colonne : asc → desc → défaut (3 états).
+let dxSort={col:null, dir:'asc'};
+function dxSetSort(col){
+  if(dxSort.col!==col) dxSort={col, dir:'asc'};
+  else if(dxSort.dir==='asc') dxSort.dir='desc';
+  else dxSort={col:null, dir:'asc'};
+  filterDevisExistant();
+}
+function updateDxHeader(){
+  document.querySelectorAll('#page-devis-existant .dxarr').forEach(s=>{
+    const col=s.getAttribute('data-arr');
+    s.textContent = (dxSort.col===col) ? (dxSort.dir==='asc'?'▲':'▼') : '';
+  });
+}
+function dxSortGroups(groups){
+  if(!dxSort.col) return groups; // tri par défaut conservé
+  const val=g=>{ const d=g.latest;
+    switch(dxSort.col){
+      case 'numero': return String(d.numero||'');
+      case 'projet': return String(d.projet_nom||'').toLowerCase();
+      case 'client': return String((d.client&&d.client.nom)||'').toLowerCase();
+      case 'date':   return String(d.updated_at||'');
+      case 'total':  return Number(d.total_ht)||0;
+      case 'statut': return String(devisStatut(d)||'');
+      default: return '';
+    }
+  };
+  const arr=groups.slice().sort((a,b)=>{
+    const va=val(a), vb=val(b);
+    const c = (typeof va==='number' && typeof vb==='number') ? va-vb : String(va).localeCompare(String(vb),'fr',{numeric:true});
+    return dxSort.dir==='asc'?c:-c;
+  });
+  return arr;
+}
 function togDxVer(b){ dxVerOpen[b]=!dxVerOpen[b]; filterDevisExistant(); }
 async function loadDevisExistant(){
   const el=G('dx-rows'); if(el) el.innerHTML='<tr><td colspan="7" class="dx-empty">Chargement…</td></tr>';
@@ -5343,8 +5389,8 @@ function renderDevisExistant(groups){
     }
     return h;
   };
-  // Vue « Tous » : devis rangés par état (celui de la dernière version), avec une ligne d'en-tête par groupe
-  if(dxFilter==='tous'){
+  // Vue « Tous » sans tri manuel : devis rangés par état (en-tête par groupe). Dès qu'on trie une colonne → liste à plat triée.
+  if(dxFilter==='tous' && !dxSort.col){
     let h='';
     DEVIS_STATUTS.forEach(([k,lab])=>{
       const grp=groups.filter(g=>devisStatut(g.latest)===k);
@@ -5366,7 +5412,9 @@ function filterDevisExistant(){
     const hay=[d.numero||'', d.projet_nom||'', (d.client&&d.client.nom)||''].join(' ').toLowerCase();
     return hay.includes(q);
   }));
+  groups=dxSortGroups(groups);
   renderDevisExistant(groups);
+  updateDxHeader();
 }
 async function changerStatutDevis(id,st){
   const d=_devisCache.find(x=>x.id===id); if(!d) return;
