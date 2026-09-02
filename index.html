@@ -3661,14 +3661,14 @@ function refreshAll(){
     if(por.length){
       cpor.innerHTML=`<table class="cmd-table">
         <thead><tr><th>Réf.</th><th>Type</th><th>Dimensions</th><th>Ferrage</th><th>Ép. cadre</th><th>Qté</th><th>Détails</th></tr></thead>
-        <tbody>${por.map(it=>`<tr>
-          <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3)">${it.ref||''}</td>
-          <td><strong>${porTypeName(it)}</strong></td>
-          <td>${it._larg||''}×${it._haut||''} mm</td>
-          <td>${porFerrage(it)}</td>
-          <td>${porCadre(it)}</td>
-          <td>1</td>
-          <td style="font-size:12px;color:var(--text2)">${porDetails(it)}</td>
+        <tbody>${por.flatMap(porCmdRows).map(c=>`<tr>
+          <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3)">${c[0]}</td>
+          <td><strong>${c[1]}</strong></td>
+          <td>${c[2]}</td>
+          <td>${c[3]}</td>
+          <td>${c[4]}</td>
+          <td>${c[5]}</td>
+          <td style="font-size:12px;color:var(--text2)">${c[6]}</td>
         </tr>`).join('')}</tbody>
       </table>`;
     } else {
@@ -4402,6 +4402,16 @@ function porAdd(){
 function porReset(){ if(editType==='por'){ editIdx=null; editType=null; } qS={}; porRender(); }
 // Rideau à lanières auto (porte négative) : référence liée + dimensions (recalculées si absentes, pour anciens devis)
 function porRideauRef(it){ return (it.ref||'')+'-R'; }
+// Lignes de commande d'une porte : la porte elle-même + son rideau à lanières attaché (s'il est inclus).
+// Même format de cellules pour l'écran « Cmd portes » et le PDF : [Réf, Type, Dimensions, Ferrage, Ép. cadre, Qté, Détails]
+function porCmdRows(it){
+  const rows=[[it.ref||'',porTypeName(it),`${it._larg||''}×${it._haut||''} mm`,porFerrage(it),porCadre(it),'1',porDetails(it)]];
+  if(it.rideauOn!==false && it.rauto){
+    const dim=porRideauDim(it);
+    rows.push([porRideauRef(it),'Rideau à lanières',dim?dim+' mm':'—','—','—','1','Pour la porte '+(it.ref||'')]);
+  }
+  return rows;
+}
 function porRideauDim(it){
   if(it.rautoDim) return it.rautoDim;
   if(it._larg && it._haut){ const r=fc(RNEG, it._larg, it._haut); if(r) return r.kl+'×'+r.kh; }
@@ -5894,7 +5904,7 @@ function genCmdPDF(type, ov){
     colWidths=[15,100,22,25,20];
   } else if(type==='por'){
     headers=['Réf.','Type','Dimensions','Ferrage','Ép. cadre','Qté','Détails'];
-    colWidths=[11,54,25,19,22,11,40];
+    colWidths=[15,50,25,19,22,11,40]; // Réf. élargie (P001-R tient sur une ligne), total 182 inchangé
   } else {
     headers=['Désignation','Quantité','Détails'];
     colWidths=[85,25,72];
@@ -5913,7 +5923,7 @@ function genCmdPDF(type, ov){
 
   // Lignes produits — soit fournies (ov.rows = tableaux de cellules déjà prêts), soit calculées
   const filtered = ov.rows ? ov.rows : (type==='pan'?groupPanneaux(items.filter(i=>i.type==='pan'))
-    :type==='por'?items.filter(i=>i.type==='por')
+    :type==='por'?items.filter(i=>i.type==='por').flatMap(porCmdRows) // porte + rideau à lanières attaché
     :items.filter(i=>i.type==='acc'));
 
   filtered.forEach((it,idx)=>{
@@ -5924,7 +5934,7 @@ function genCmdPDF(type, ov){
       const desig=isBrio?`BRIO ${it.ep}mm`:`${it.paroi} ${it.ep}mm — ${it.mousse}${it.surface?' — '+it.surface:''}${it.piece?' — '+it.piece:''}`;
       cells=[it.ref||'',desig,it.ep,it._h?String(Math.round(parseFloat(it._h)*1000)):'—',it.nbPan||'—'];
     } else if(type==='por'){
-      cells=[it.ref||'',porTypeName(it),`${it._larg||''}×${it._haut||''} mm`,porFerrage(it),porCadre(it),'1',porDetails(it)];
+      cells=it; // déjà des cellules (porCmdRows)
     } else {
       cells=[it.label||'', it.accId==='te_reprise'?((it.ml||0)+' ml'):String(it.nbU||it.qty||1), accDetail(it)];
     }
