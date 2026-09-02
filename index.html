@@ -1211,7 +1211,7 @@ function homeGo(dest){
   const h=document.getElementById('home-screen'); if(h) h.style.display='none';
   if(dest==='config'){ if(typeof nouveauDevis==='function') nouveauDevis(); else showPage('config', document.querySelector('.nav-item')); }
   else if(dest==='devis'){ showPage('devis-existant'); }
-  else if(dest==='clients'){ showPage('contacts', document.querySelector('.nav-item[onclick*="contacts"]')); }
+  else if(dest==='clients'){ showContacts('cli'); }
   else if(dest==='params'){ showPage('catalogue', document.querySelector('.nav-item[onclick*="catalogue"]')); }
 }
 
@@ -1288,9 +1288,13 @@ function togglePwd(){
   </div>
   <!-- Utilitaires : discrets, en bas -->
   <div class="nav-utils">
-    <div class="nav-item nav-util" onclick="showPage('contacts',this)">
+    <div class="nav-item nav-util" id="nav-cli" onclick="showContacts('cli')">
       <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="1" width="10" height="14" rx="1"/><path d="M6 5h4M6 8h4M6 11h2"/></svg>
-      Base client
+      Clients
+    </div>
+    <div class="nav-item nav-util" id="nav-fou" onclick="showContacts('fou')">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 13V6l3-3h6l3 3v7z"/><path d="M2 6h12M6 13V9h4v4"/></svg>
+      Fournisseurs
     </div>
     <div class="nav-item nav-util" onclick="showPage('catalogue',this)">
       <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h10"/><circle cx="13" cy="12" r="2"/><path d="M13 10v1M13 13v1"/></svg>
@@ -1454,7 +1458,7 @@ function togglePwd(){
           <div class="dh-label">Client</div>
           <div id="client-display">
             <div class="client-empty">Aucun client sélectionné</div>
-            <button class="btn" style="margin-top:8px;font-size:11px" onclick="showPage('contacts',null)">Sélectionner dans l'annuaire</button>
+            <button class="btn" style="margin-top:8px;font-size:11px" onclick="showContacts('cli')">Sélectionner dans l'annuaire</button>
           </div>
           <div class="dh-num">N° <span id="dnum">2026-1041</span></div>
           <div class="dh-line" style="font-size:11px;color:var(--text2)" id="dh-date">— validité 30 jours</div>
@@ -1781,7 +1785,10 @@ function togglePwd(){
     </div>
 
     <div class="c-panel" id="cp-fou">
-      <div class="section-header"><div><div class="section-title">Fournisseurs</div></div></div>
+      <div class="section-header">
+        <div><div class="section-title">Fournisseurs</div><div class="section-sub">Noms et adresses utilisés pour les commandes</div></div>
+        <button class="btn btn-primary" onclick="openModal('fournisseur')">+ Ajouter</button>
+      </div>
       <div id="list-fou"></div>
     </div>
   </div>
@@ -3437,7 +3444,7 @@ function setClient(c){
 }
 function clearClient(){
   curClient=null;
-  G('client-display').innerHTML=`<div class="client-empty">Aucun client sélectionné</div><button class="btn" style="margin-top:8px;font-size:11px" onclick="showPage('contacts',null)">Sélectionner dans l'annuaire</button>`;
+  G('client-display').innerHTML=`<div class="client-empty">Aucun client sélectionné</div><button class="btn" style="margin-top:8px;font-size:11px" onclick="showContacts('cli')">Sélectionner dans l'annuaire</button>`;
   G('scli').textContent='—';
   const chip=G('scli-chip');
   if(chip) chip.style.display='none';
@@ -3842,8 +3849,16 @@ function renApp(){
   G('cnt-app').textContent=APP.length;
 }
 function renFou(){
-  G('list-fou').innerHTML=FOU.map(f=>`<div class="fou-card"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div class="fou-name">${f.nom}${f.note?` <span style="font-size:10px;font-weight:400;color:var(--text2)">— ${f.note}</span>`:''}</div><div class="fou-detail">${f.det||''}</div></div><span class="cc-tag tag-fou">Fournisseur</span></div></div>`).join('');
+  G('list-fou').innerHTML=FOU.map((f,i)=>`<div class="fou-card"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div style="flex:1"><div class="fou-name">${esc(f.nom)}${f.note?` <span style="font-size:10px;font-weight:400;color:var(--text2)">— ${esc(f.note)}</span>`:''}</div><div class="fou-detail">${esc(f.det||'')}</div></div><span class="cc-tag tag-fou">Fournisseur</span><button class="item-del" title="Supprimer ce fournisseur" onclick="delFou(${i})" style="margin-left:6px">×</button></div></div>`).join('');
   G('cnt-fou').textContent=FOU.length;
+}
+function delFou(i){ if(!confirm('Supprimer ce fournisseur ?')) return; FOU.splice(i,1); renFou(); try{ initCmdSelects(); }catch(e){} sauvegarderContacts(); }
+// Ouvre la page contacts directement sur l'onglet voulu (menu « Clients » / « Fournisseurs »)
+function showContacts(tab){
+  showPage('contacts', G('nav-'+tab)||null);
+  const btn=Array.from(document.querySelectorAll('#page-contacts .c-tab')).find(b=>(b.getAttribute('onclick')||'').includes("'"+tab+"'"));
+  if(btn) swCtab(tab, btn);
+  const t=G('page-title'); if(t) t.textContent = (tab==='fou') ? 'Fournisseurs' : 'Clients';
 }
 function usePon(){
   const n=G('pon-nom').value.trim();
@@ -3855,7 +3870,7 @@ function clearPon(){['pon-nom','pon-cont','pon-adr','pon-cp','pon-vil','pon-tel'
 // ══ MODAL ══════════════════════════════════════════════════
 function openModal(t){
   modType=t;
-  const tt={client:'Ajouter un client récurrent',poseur:'Ajouter un poseur',apporteur:"Ajouter un apporteur d'affaires"};
+  const tt={client:'Ajouter un client récurrent',poseur:'Ajouter un poseur',apporteur:"Ajouter un apporteur d'affaires",fournisseur:'Ajouter un fournisseur'};
   G('modal-title').textContent=tt[t]||'Ajouter';
   ['m-nom','m-cont','m-adr','m-cp','m-vil','m-tel'].forEach(id=>G(id).value='');
   G('modal').classList.add('open');
@@ -3867,6 +3882,13 @@ function confModal(){
   if(modType==='client'){CLI.push(e);CLI.sort((a,b)=>a.nom.localeCompare(b.nom));renCli();}
   else if(modType==='poseur'){POS.push(e);POS.sort((a,b)=>a.nom.localeCompare(b.nom));renPos();}
   else if(modType==='apporteur'){APP.push(e);renApp();}
+  else if(modType==='fournisseur'){
+    // Fournisseur = {nom, det (adresse — CP ville — tél), note (contact/activité)} ; alimente les listes de commande
+    const det=[e.adresse,[e.cp,e.ville].filter(Boolean).join(' '),e.tel].filter(Boolean).join(' — ');
+    FOU.push({nom:n, det, note:G('m-cont').value.trim()});
+    FOU.sort((a,b)=>a.nom.localeCompare(b.nom));
+    renFou(); try{ initCmdSelects(); }catch(err){}
+  }
   closeModal();
   sauvegarderContacts(); // persiste dans Supabase (sinon perdu au rechargement)
 }
