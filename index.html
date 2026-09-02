@@ -1789,7 +1789,11 @@ function togglePwd(){
         <div><div class="section-title">Fournisseurs</div><div class="section-sub">Noms et adresses utilisés pour les commandes</div></div>
         <button class="btn btn-primary" onclick="openModal('fournisseur')">+ Ajouter</button>
       </div>
-      <div id="list-fou"></div>
+      <div class="search-bar">
+        <input class="search-input" type="text" id="s-fou" placeholder="Rechercher un fournisseur..." oninput="renFou()">
+        <button class="sort-btn active" id="sort-btn-fou" onclick="togSortFou()">A → Z</button>
+      </div>
+      <div class="clients-grid" id="grid-fou"></div>
     </div>
   </div>
 
@@ -3834,22 +3838,35 @@ function renCli(){
   l.sort((a,b)=>sortAZ?a.nom.localeCompare(b.nom):b.nom.localeCompare(a.nom));
   const grid=G('grid-cli');
   if(!l.length){grid.innerHTML='<div class="no-results">Aucun résultat pour cette recherche</div>';return;}
-  grid.innerHTML=l.map(c=>{const i=CLI.indexOf(c);return`<div class="client-card"><div class="cc-top"><div class="cc-avatar">${ini(c.nom)}</div><div class="cc-actions"><button class="cc-btn use" onclick="setClient(CLI[${i}])">Utiliser</button><button class="cc-btn del" onclick="delCli(${i})">×</button></div></div><div class="cc-name">${c.nom}</div><div class="cc-detail">${[c.adresse,c.cp&&c.ville?c.cp+' '+c.ville:''].filter(Boolean).join('<br>')}${c.tel?'<br>'+c.tel:''}</div><span class="cc-tag tag-rec">Récurrent</span></div>`;}).join('');
+  grid.innerHTML=l.map(c=>{const i=CLI.indexOf(c);return`<div class="client-card"><div class="cc-top"><div class="cc-avatar">${ini(c.nom)}</div><div class="cc-actions"><button class="cc-btn use" onclick="setClient(CLI[${i}])">Utiliser</button><button class="cc-btn" title="Modifier" onclick="openModal('client',${i})">✎</button><button class="cc-btn del" onclick="delCli(${i})">×</button></div></div><div class="cc-name">${c.nom}</div><div class="cc-detail">${[c.adresse,c.cp&&c.ville?c.cp+' '+c.ville:''].filter(Boolean).join('<br>')}${c.tel?'<br>'+c.tel:''}</div><span class="cc-tag tag-rec">Récurrent</span></div>`;}).join('');
   G('cnt-cli').textContent=CLI.length;
 }
 function togSort(){sortAZ=!sortAZ;G('sort-btn').textContent=sortAZ?'A → Z':'Z → A';G('sort-btn').classList.toggle('active',sortAZ);renCli();}
 function renPos(){
   const q=(G('s-pos').value||'').toLowerCase();
   let l=[...POS].filter(p=>!q||p.nom.toLowerCase().includes(q)||(p.ville||'').toLowerCase().includes(q));
-  G('list-pos').innerHTML=l.map(p=>{const i=POS.indexOf(p);return`<div class="poseur-row"><div class="pr-left"><div class="pr-av">${ini(p.nom)}</div><div><div class="pr-name">${p.nom}</div><div class="pr-detail">${[p.ville,p.tel].filter(Boolean).join(' — ')}</div></div></div><div style="display:flex;gap:5px;align-items:center"><span class="cc-tag tag-pos">Poseur</span><button class="cc-btn del" onclick="delPos(${i})">×</button></div></div>`;}).join('');
+  G('list-pos').innerHTML=l.map(p=>{const i=POS.indexOf(p);return`<div class="poseur-row"><div class="pr-left"><div class="pr-av">${ini(p.nom)}</div><div><div class="pr-name">${p.nom}</div><div class="pr-detail">${[p.ville,p.tel].filter(Boolean).join(' — ')}</div></div></div><div style="display:flex;gap:5px;align-items:center"><span class="cc-tag tag-pos">Poseur</span><button class="cc-btn" title="Modifier" onclick="openModal('poseur',${i})">✎</button><button class="cc-btn del" onclick="delPos(${i})">×</button></div></div>`;}).join('');
   G('cnt-pos').textContent=POS.length;
 }
 function renApp(){
-  G('list-app').innerHTML=APP.length?APP.map((a,i)=>`<div class="poseur-row"><div class="pr-left"><div class="pr-av" style="background:var(--orange-light);color:var(--orange)">${ini(a.nom)}</div><div><div class="pr-name">${a.nom}</div><div class="pr-detail">${[a.ville,a.tel].filter(Boolean).join(' — ')}</div></div></div><div style="display:flex;gap:5px;align-items:center"><span class="cc-tag tag-app">Apporteur</span><button class="cc-btn del" onclick="delApp(${i})">×</button></div></div>`).join(''):'<div class="empty-state">Aucun apporteur enregistré</div>';
+  G('list-app').innerHTML=APP.length?APP.map((a,i)=>`<div class="poseur-row"><div class="pr-left"><div class="pr-av" style="background:var(--orange-light);color:var(--orange)">${ini(a.nom)}</div><div><div class="pr-name">${a.nom}</div><div class="pr-detail">${[a.ville,a.tel].filter(Boolean).join(' — ')}</div></div></div><div style="display:flex;gap:5px;align-items:center"><span class="cc-tag tag-app">Apporteur</span><button class="cc-btn" title="Modifier" onclick="openModal('apporteur',${i})">✎</button><button class="cc-btn del" onclick="delApp(${i})">×</button></div></div>`).join(''):'<div class="empty-state">Aucun apporteur enregistré</div>';
   G('cnt-app').textContent=APP.length;
 }
+let sortAZFou=true;
+function togSortFou(){ sortAZFou=!sortAZFou; const b=G('sort-btn-fou'); if(b){ b.textContent=sortAZFou?'A → Z':'Z → A'; b.classList.toggle('active',sortAZFou); } renFou(); }
+// Adresse d'un fournisseur en lignes (champs structurés), sinon l'ancien bloc « det »
+function fouDetailHtml(f){
+  const parts=[f.adresse, (f.cp||f.ville)?[f.cp,f.ville].filter(Boolean).join(' '):'', f.tel].filter(Boolean).map(esc);
+  return parts.length ? parts.join('<br>') : esc(f.det||'');
+}
 function renFou(){
-  G('list-fou').innerHTML=FOU.map((f,i)=>`<div class="fou-card"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div style="flex:1"><div class="fou-name">${esc(f.nom)}${f.note?` <span style="font-size:10px;font-weight:400;color:var(--text2)">— ${esc(f.note)}</span>`:''}</div><div class="fou-detail">${esc(f.det||'')}</div></div><span class="cc-tag tag-fou">Fournisseur</span><button class="item-del" title="Supprimer ce fournisseur" onclick="delFou(${i})" style="margin-left:6px">×</button></div></div>`).join('');
+  const q=(G('s-fou')?.value||'').toLowerCase();
+  let l=[...FOU];
+  if(q) l=l.filter(f=>[f.nom,f.ville,f.det,f.note,f.adresse].some(v=>(v||'').toLowerCase().includes(q)));
+  l.sort((a,b)=>sortAZFou?(a.nom||'').localeCompare(b.nom||''):(b.nom||'').localeCompare(a.nom||''));
+  const grid=G('grid-fou'); if(!grid) return;
+  if(!l.length){ grid.innerHTML='<div class="no-results">'+(q?'Aucun résultat pour cette recherche':'Aucun fournisseur — clique sur « + Ajouter »')+'</div>'; }
+  else grid.innerHTML=l.map(f=>{const i=FOU.indexOf(f);return`<div class="client-card"><div class="cc-top"><div class="cc-avatar">${ini(f.nom||'')}</div><div class="cc-actions"><button class="cc-btn" title="Modifier" onclick="openModal('fournisseur',${i})">✎</button><button class="cc-btn del" title="Supprimer" onclick="delFou(${i})">×</button></div></div><div class="cc-name">${esc(f.nom||'')}</div><div class="cc-detail">${fouDetailHtml(f)}</div><span class="cc-tag tag-fou">${f.note?esc(f.note):'Fournisseur'}</span></div>`;}).join('');
   G('cnt-fou').textContent=FOU.length;
 }
 function delFou(i){ if(!confirm('Supprimer ce fournisseur ?')) return; FOU.splice(i,1); renFou(); try{ initCmdSelects(); }catch(e){} sauvegarderContacts(); }
@@ -3868,27 +3885,45 @@ function usePon(){
 function clearPon(){['pon-nom','pon-cont','pon-adr','pon-cp','pon-vil','pon-tel'].forEach(id=>G(id).value='');}
 
 // ══ MODAL ══════════════════════════════════════════════════
-function openModal(t){
-  modType=t;
-  const tt={client:'Ajouter un client récurrent',poseur:'Ajouter un poseur',apporteur:"Ajouter un apporteur d'affaires",fournisseur:'Ajouter un fournisseur'};
-  G('modal-title').textContent=tt[t]||'Ajouter';
+let modIdx=null; // null = ajout ; sinon index de la fiche modifiée
+function openModal(t, idx){
+  modType=t; modIdx=(idx==null)?null:idx;
+  const T={client:['Ajouter un client récurrent','Modifier le client'],poseur:['Ajouter un poseur','Modifier le poseur'],apporteur:["Ajouter un apporteur d'affaires","Modifier l'apporteur"],fournisseur:['Ajouter un fournisseur','Modifier le fournisseur']};
+  G('modal-title').textContent=(T[t]||['Ajouter','Modifier'])[modIdx==null?0:1];
   ['m-nom','m-cont','m-adr','m-cp','m-vil','m-tel'].forEach(id=>G(id).value='');
+  const list=(t==='client'?CLI:t==='poseur'?POS:t==='apporteur'?APP:FOU);
+  const src=(modIdx!=null)?list[modIdx]:null;
+  if(src){
+    G('m-nom').value=src.nom||''; G('m-cont').value=(t==='fournisseur'?(src.note||''):(src.contact||''));
+    G('m-adr').value=src.adresse||''; G('m-cp').value=src.cp||''; G('m-vil').value=src.ville||''; G('m-tel').value=src.tel||'';
+    // Ancien fournisseur sans champs séparés : son bloc « det » est proposé dans Adresse pour être retravaillé
+    if(t==='fournisseur' && !src.adresse && !src.cp && !src.ville && !src.tel && src.det) G('m-adr').value=src.det;
+  }
+  const ok=document.querySelector('#modal .modal-actions .btn-primary'); if(ok) ok.textContent=(modIdx==null?'Ajouter':'Enregistrer');
   G('modal').classList.add('open');
 }
 function closeModal(){G('modal').classList.remove('open');}
 function confModal(){
   const n=G('m-nom').value.trim();if(!n){alert('Nom obligatoire.');return;}
-  const e={nom:n,adresse:G('m-adr').value.trim(),cp:G('m-cp').value.trim(),ville:G('m-vil').value.trim(),tel:G('m-tel').value.trim()};
-  if(modType==='client'){CLI.push(e);CLI.sort((a,b)=>a.nom.localeCompare(b.nom));renCli();}
-  else if(modType==='poseur'){POS.push(e);POS.sort((a,b)=>a.nom.localeCompare(b.nom));renPos();}
-  else if(modType==='apporteur'){APP.push(e);renApp();}
-  else if(modType==='fournisseur'){
-    // Fournisseur = {nom, det (adresse — CP ville — tél), note (contact/activité)} ; alimente les listes de commande
-    const det=[e.adresse,[e.cp,e.ville].filter(Boolean).join(' '),e.tel].filter(Boolean).join(' — ');
-    FOU.push({nom:n, det, note:G('m-cont').value.trim()});
-    FOU.sort((a,b)=>a.nom.localeCompare(b.nom));
-    renFou(); try{ initCmdSelects(); }catch(err){}
+  const base={nom:n,adresse:G('m-adr').value.trim(),cp:G('m-cp').value.trim(),ville:G('m-vil').value.trim(),tel:G('m-tel').value.trim()};
+  const cont=G('m-cont').value.trim();
+  let list,e;
+  if(modType==='fournisseur'){
+    list=FOU;
+    // det = bloc adresse joint (utilisé par les bons de commande) ; note = contact/activité
+    const det=[base.adresse,[base.cp,base.ville].filter(Boolean).join(' '),base.tel].filter(Boolean).join(' — ');
+    e=Object.assign({},base,{note:cont,det});
+  } else {
+    list=(modType==='client'?CLI:modType==='poseur'?POS:APP);
+    e=Object.assign({},base,{contact:cont});
   }
+  if(modIdx!=null && list[modIdx]) Object.assign(list[modIdx],e); // modification en place
+  else list.push(e);
+  if(modType!=='apporteur') list.sort((a,b)=>(a.nom||'').localeCompare(b.nom||''));
+  if(modType==='client') renCli();
+  else if(modType==='poseur'){ renPos(); try{ initMissionSelect(); }catch(err){} }
+  else if(modType==='apporteur') renApp();
+  else { renFou(); try{ initCmdSelects(); }catch(err){} }
   closeModal();
   sauvegarderContacts(); // persiste dans Supabase (sinon perdu au rechargement)
 }
