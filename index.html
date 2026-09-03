@@ -2156,7 +2156,7 @@ const P = () => {
   const journee = mode === 'journee';
   return {
     pose: journee ? 0 : (parseFloat(G('pp').value)||18),
-    acc:  journee ? 0 : (parseFloat(G('pa').value)||6),
+    acc:  parseFloat(G('pa').value)||6, // accessoires €/m² TOUJOURS comptés (même en journée : seule la pose est remplacée par le forfait)
     coef: parseFloat(G('pc').value)||1.5,
     mode,
     journeePx: valOr('journee-px', 1125) // 0 respecté (forfait journée à 0 possible)
@@ -2482,8 +2482,7 @@ function cpv(it,p){
   if(it.type==='pan'){
     const a=(it.achatOverride!=null&&!isNaN(it.achatOverride))?Number(it.achatOverride):getPx(it.ep,it.surface,it.mousse,it.paroi);
     const s=it.surf||it.surfExact||0; // la quantité FACTURÉE = celle affichée sur le devis
-    if(p.mode==='journee') return r2(r2(a*p.coef)*s);
-    return r2(r2((a+p.pose+p.acc)*p.coef)*s);
+    return r2(r2((a+p.pose+p.acc)*p.coef)*s); // journée : p.pose=0 mais p.acc conservé
   }
   if(it.type==='por'){
     const rid = (it.rideauOn!==false && it.rauto) ? r2(it.rauto*p.coef) : 0;
@@ -2514,7 +2513,7 @@ function calcMarge(p){
     const v=cpv(it,p);
     if(it.type==='pan'){
       const a=(it.achatOverride!=null&&!isNaN(it.achatOverride))?Number(it.achatOverride):getPx(it.ep,it.surface,it.mousse,it.paroi), s=it.surf||it.surfExact||0;
-      if(a>0){ vFerme+=v; cFerme+=(p.mode==='journee'?a:(a+p.pose+p.acc))*s; }
+      if(a>0){ vFerme+=v; cFerme+=(a+p.pose+p.acc)*s; } // journée : pose=0, accessoires toujours dans le coût
       else { vFlou+=v; flou.push('Panneau — '+it.label+' (prix/m² non renseigné)'); }
     } else if(it.type==='por'){
       if(it.achat>0){
