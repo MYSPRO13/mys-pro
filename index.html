@@ -700,7 +700,7 @@ body {
 .dep-u { font-size: 11px; color: var(--text3); white-space: nowrap; }
 .dep-x { font-size: 12px; color: var(--text3); padding: 0 1px; }
 .dep-m2 { min-width: 76px; text-align: right; font-family: 'DM Mono', monospace; font-size: 12px; white-space: nowrap; }
-.dep-legacy { font-size: 11px; color: var(--text3); font-style: italic; }
+.dep-m2-inp.is-calc { color: var(--text2); background: var(--bg2); }
 .dep-sub { display: flex; justify-content: space-between; font-size: 12px; color: var(--text2); font-weight: 600; padding: .25rem 0 .1rem 24px; }
 .dep-door { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; }
 /* ── Adresse de livraison structurée (fiches commande) ── */
@@ -2206,11 +2206,12 @@ function devisVide(){ return !items.length && !travaux.length && !calcDepose().o
 let depSeq=0;
 function deposeEmpty(){ return {cloisons:[], plafonds:[], porCoul:0, porPiv:0}; }
 function depNewLine(fam,vals){ return Object.assign({id:(fam==='cloisons'?'dc':'dp')+(++depSeq)}, vals||{}); }
+function depDims(l){ const a=parseFloat(l.ml!=null?l.ml:l.L)||0, b=parseFloat(l.h!=null?l.h:l.l)||0; return a>0&&b>0; }
 function depLineM2(l){
   if(!l) return 0;
-  if(l.m2!=null) return parseFloat(l.m2)||0;
   const a=parseFloat(l.ml!=null?l.ml:l.L)||0, b=parseFloat(l.h!=null?l.h:l.l)||0;
-  return r2(a*b);
+  if(a>0&&b>0) return r2(a*b);   // dimensions renseignées → surface calculée
+  return parseFloat(l.m2)||0;    // sinon surface saisie directement dans la case m²
 }
 function deposeTotaux(){
   const sum=arr=>r2((arr||[]).reduce((t,l)=>t+depLineM2(l),0));
@@ -2218,20 +2219,29 @@ function deposeTotaux(){
 }
 // Forme enregistrée : totaux (lisibles par les anciennes versions) + détail des lignes
 function deposePayload(){ const t=deposeTotaux(); return {cloisonM2:t.cloisonM2, plafondM2:t.plafondM2, porCoul:+DEPOSE.porCoul||0, porPiv:+DEPOSE.porPiv||0, cloisons:DEPOSE.cloisons, plafonds:DEPOSE.plafonds}; }
-function deposeAddLine(fam,mode){
-  // mode 'm2' = surface saisie directement (calcul déjà fait) ; sinon dimensions (ml × h ou L × l)
-  const l=depNewLine(fam, mode==='m2'?{m2:''}:(fam==='cloisons'?{ml:'',h:''}:{L:'',l:''}));
+function deposeAddLine(fam){
+  const l=depNewLine(fam, fam==='cloisons'?{ml:'',h:'',m2:''}:{L:'',l:'',m2:''});
   DEPOSE[fam].push(l); refreshAll();
   const el=G('dep-a-'+l.id); if(el) el.focus();
 }
 function deposeDelLine(fam,id){ DEPOSE[fam]=(DEPOSE[fam]||[]).filter(x=>x.id!==id); refreshAll(); }
-function onDeposeInput(fam,id,field,val){ const l=(DEPOSE[fam]||[]).find(x=>x.id===id); if(!l) return; l[field]=val; syncDeposeTotals(); }
+function onDeposeInput(fam,id,field,val){
+  const l=(DEPOSE[fam]||[]).find(x=>x.id===id); if(!l) return;
+  l[field]=val;
+  if(field==='m2'){ // surface tapée directement → les dimensions s'effacent (la case m² fait foi)
+    if(fam==='cloisons'){ l.ml=''; l.h=''; } else { l.L=''; l.l=''; }
+    const a=G('dep-a-'+id), b=G('dep-b-'+id); if(a) a.value=''; if(b) b.value='';
+  } else { l.m2=''; } // dimensions tapées → la case m² se recalcule
+  syncDeposeTotals();
+}
 // Met à jour m² / € des lignes, sous-totaux et total SANS re-render (garde le focus pendant la saisie)
 function syncDeposeTotals(){
   const rPan=parseFloat(G('depose-pan')?.value)||0;
   ['cloisons','plafonds'].forEach(fam=>{
     let m2=0;
-    (DEPOSE[fam]||[]).forEach(l=>{ const sf=depLineM2(l); m2+=sf; const a=G('dep-m2-'+l.id), b=G('dep-eur-'+l.id); if(a) a.textContent=fmt(sf)+' m²'; if(b) b.textContent=fmt(r2(rPan*sf))+' €'; });
+    (DEPOSE[fam]||[]).forEach(l=>{ const sf=depLineM2(l); m2+=sf;
+      const c=G('dep-c-'+l.id); if(c){ if(depDims(l)){ c.value=String(sf); c.classList.add('is-calc'); } else c.classList.remove('is-calc'); }
+      const b=G('dep-eur-'+l.id); if(b) b.textContent=fmt(r2(rPan*sf))+' €'; });
     const sub=G('dep-sub-'+fam); if(sub) sub.textContent=fmt(r2(m2))+' m² — '+fmt(r2(rPan*m2))+' €';
   });
   const tot=G('dep-total'); if(tot) tot.textContent=fmt(calcDepose().total)+' €';
@@ -2247,7 +2257,8 @@ function deposeAuto(){
 function deposeLoad(dpz){
   const out=deposeEmpty();
   if(!dpz||typeof dpz!=='object') return out;
-  const norm=(arr,fam)=>(Array.isArray(arr)?arr:[]).map(l=>depNewLine(fam, (l.m2!=null)?{m2:l.m2}:(fam==='cloisons'?{ml:(l.ml!=null?l.ml:''),h:(l.h!=null?l.h:'')}:{L:(l.L!=null?l.L:''),l:(l.l!=null?l.l:'')})));
+  const v=x=>(x!=null?x:'');
+  const norm=(arr,fam)=>(Array.isArray(arr)?arr:[]).map(l=>depNewLine(fam, fam==='cloisons'?{ml:v(l.ml),h:v(l.h),m2:v(l.m2)}:{L:v(l.L),l:v(l.l),m2:v(l.m2)}));
   if(Array.isArray(dpz.cloisons)||Array.isArray(dpz.plafonds)){
     out.cloisons=norm(dpz.cloisons,'cloisons'); out.plafonds=norm(dpz.plafonds,'plafonds');
     out.porCoul=+dpz.porCoul||0; out.porPiv=+dpz.porPiv||0; return out;
@@ -2256,8 +2267,8 @@ function deposeLoad(dpz){
   let c=0,pl=0,coul=0,piv=0;
   if(dpz.cloisonM2!=null||dpz.plafondM2!=null){ c=+dpz.cloisonM2||0; pl=+dpz.plafondM2||0; coul=+dpz.porCoul||0; piv=+dpz.porPiv||0; }
   else if(dpz.on){ const a=deposeAuto(); const use=(ov,au)=>(ov!=null&&ov!=='')?(parseFloat(ov)||0):au; c=use(dpz.panM2,a.cloisonM2+a.plafondM2); coul=use(dpz.porCoul,a.porCoul); piv=use(dpz.porPiv,a.porPiv); }
-  if(c>0)  out.cloisons.push(depNewLine('cloisons',{m2:c}));
-  if(pl>0) out.plafonds.push(depNewLine('plafonds',{m2:pl}));
+  if(c>0)  out.cloisons.push(depNewLine('cloisons',{ml:'',h:'',m2:c}));
+  if(pl>0) out.plafonds.push(depNewLine('plafonds',{L:'',l:'',m2:pl}));
   out.porCoul=coul; out.porPiv=piv;
   return out;
 }
@@ -2279,8 +2290,8 @@ function deposePrefill(){
   const a=deposeAuto(); const d=deposeEmpty();
   items.filter(i=>i.type==='pan').forEach(i=>{
     const ml=parseFloat(i._ml)||0, h=parseFloat(i._h)||0, lg=parseFloat(i._lg)||0, sf=parseFloat(i.surf)||0;
-    if(i.paroi==='Plafond') d.plafonds.push(depNewLine('plafonds', (ml>0&&lg>0)?{L:ml,l:lg}:{m2:sf}));
-    else d.cloisons.push(depNewLine('cloisons', (ml>0&&h>0)?{ml:ml,h:h}:{m2:sf}));
+    if(i.paroi==='Plafond') d.plafonds.push(depNewLine('plafonds', (ml>0&&lg>0)?{L:ml,l:lg,m2:''}:{L:'',l:'',m2:sf}));
+    else d.cloisons.push(depNewLine('cloisons', (ml>0&&h>0)?{ml:ml,h:h,m2:''}:{ml:'',h:'',m2:sf}));
   });
   d.porCoul=a.porCoul; d.porPiv=a.porPiv;
   DEPOSE=d; refreshAll();
@@ -2320,17 +2331,17 @@ function renderDeposeCfg(){
   const el=G('dep-config'); if(!el) return;
   const dep=calcDepose();
   const rPan=parseFloat(G('depose-pan')?.value)||0, rCoul=parseFloat(G('depose-por-coul')?.value)||0, rPiv=parseFloat(G('depose-por-piv')?.value)||0;
-  const inp=(id,fam,field,val,pos,w)=>`<input class="trv-qty" id="dep-${pos}-${id}" type="number" min="0" step="any" value="${esc(val==null?'':val)}" oninput="onDeposeInput('${fam}','${id}','${field}',this.value)" onchange="refreshAll()" style="width:${w||72}px">`;
+  const inp=(id,fam,field,val,pos,w,cls)=>`<input class="trv-qty${cls?' '+cls:''}" id="dep-${pos}-${id}" type="number" min="0" step="any" value="${esc(val==null?'':val)}" oninput="onDeposeInput('${fam}','${id}','${field}',this.value)" onchange="refreshAll()" style="width:${w||72}px">`;
   const famille=(key,titre,vide,addLab,dA,dB)=>{
     const lines=DEPOSE[key]||[]; let m2=0;
-    let h=`<div class="dep-fam"><div class="dep-fam-head"><span>${titre} <span class="dep-rate">tarif ${fmt(rPan)} €/m²</span></span><span style="display:flex;gap:6px"><button class="btn-sec-add outline trv-add" onclick="deposeAddLine('${key}')" title="Longueur × hauteur (ou longueur × largeur)">+ ${addLab}</button><button class="btn-sec-add outline trv-add" onclick="deposeAddLine('${key}','m2')" title="Surface déjà calculée">+ Surface en m²</button></span></div>`;
-    if(!lines.length) h+=`<div class="trv-empty">${vide} — « + ${addLab} » (dimensions) ou « + Surface en m² » (calcul déjà fait).</div>`;
+    let h=`<div class="dep-fam"><div class="dep-fam-head"><span>${titre} <span class="dep-rate">tarif ${fmt(rPan)} €/m²</span></span><button class="btn-sec-add outline trv-add" onclick="deposeAddLine('${key}')">+ ${addLab}</button></div>`;
+    if(!lines.length) h+=`<div class="trv-empty">${vide} — clique sur « + ${addLab} », puis saisis ${dA.u==='ml'?'longueur × hauteur':'longueur × largeur'} ou directement la surface en m².</div>`;
     lines.forEach((l,n)=>{
-      const sf=depLineM2(l); m2+=sf;
-      const saisie=(l.m2!=null)
-        ? `${inp(l.id,key,'m2',l.m2,'a',84)}<span class="dep-u">m²</span><span class="dep-legacy">surface saisie directement</span>`
-        : `${inp(l.id,key,dA.f,l[dA.f],'a')}<span class="dep-u">${dA.u}</span><span class="dep-x">×</span>${inp(l.id,key,dB.f,l[dB.f],'b')}<span class="dep-u">${dB.u}</span><span class="dep-x">=</span><span class="dep-m2" id="dep-m2-${l.id}">${fmt(sf)} m²</span>`;
-      h+=`<div class="trv-row dep-row"><span class="dep-n">${n+1}</span>${saisie}<span class="trv-lt" id="dep-eur-${l.id}">${fmt(r2(rPan*sf))} €</span><button class="item-del" title="Supprimer cette ligne" onclick="deposeDelLine('${key}','${l.id}')">×</button></div>`;
+      const sf=depLineM2(l); m2+=sf; const calc=depDims(l);
+      h+=`<div class="trv-row dep-row"><span class="dep-n">${n+1}</span>`
+        +`${inp(l.id,key,dA.f,l[dA.f],'a')}<span class="dep-u">${dA.u}</span><span class="dep-x">×</span>${inp(l.id,key,dB.f,l[dB.f],'b')}<span class="dep-u">${dB.u}</span><span class="dep-x">=</span>`
+        +`${inp(l.id,key,'m2',calc?sf:l.m2,'c',80,'dep-m2-inp'+(calc?' is-calc':''))}<span class="dep-u">m²</span>`
+        +`<span class="trv-lt" id="dep-eur-${l.id}">${fmt(r2(rPan*sf))} €</span><button class="item-del" title="Supprimer cette ligne" onclick="deposeDelLine('${key}','${l.id}')">×</button></div>`;
     });
     if(lines.length) h+=`<div class="dep-sub"><span>Sous-total ${titre.toLowerCase()}</span><span id="dep-sub-${key}">${fmt(r2(m2))} m² — ${fmt(r2(rPan*m2))} €</span></div>`;
     return h+`</div>`;
