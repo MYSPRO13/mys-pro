@@ -2218,8 +2218,9 @@ function deposeTotaux(){
 }
 // Forme enregistrée : totaux (lisibles par les anciennes versions) + détail des lignes
 function deposePayload(){ const t=deposeTotaux(); return {cloisonM2:t.cloisonM2, plafondM2:t.plafondM2, porCoul:+DEPOSE.porCoul||0, porPiv:+DEPOSE.porPiv||0, cloisons:DEPOSE.cloisons, plafonds:DEPOSE.plafonds}; }
-function deposeAddLine(fam){
-  const l=depNewLine(fam, fam==='cloisons'?{ml:'',h:''}:{L:'',l:''});
+function deposeAddLine(fam,mode){
+  // mode 'm2' = surface saisie directement (calcul déjà fait) ; sinon dimensions (ml × h ou L × l)
+  const l=depNewLine(fam, mode==='m2'?{m2:''}:(fam==='cloisons'?{ml:'',h:''}:{L:'',l:''}));
   DEPOSE[fam].push(l); refreshAll();
   const el=G('dep-a-'+l.id); if(el) el.focus();
 }
@@ -2322,12 +2323,12 @@ function renderDeposeCfg(){
   const inp=(id,fam,field,val,pos,w)=>`<input class="trv-qty" id="dep-${pos}-${id}" type="number" min="0" step="any" value="${esc(val==null?'':val)}" oninput="onDeposeInput('${fam}','${id}','${field}',this.value)" onchange="refreshAll()" style="width:${w||72}px">`;
   const famille=(key,titre,vide,addLab,dA,dB)=>{
     const lines=DEPOSE[key]||[]; let m2=0;
-    let h=`<div class="dep-fam"><div class="dep-fam-head"><span>${titre} <span class="dep-rate">tarif ${fmt(rPan)} €/m²</span></span><button class="btn-sec-add outline trv-add" onclick="deposeAddLine('${key}')">+ ${addLab}</button></div>`;
-    if(!lines.length) h+=`<div class="trv-empty">${vide} — clique sur « + ${addLab} ».</div>`;
+    let h=`<div class="dep-fam"><div class="dep-fam-head"><span>${titre} <span class="dep-rate">tarif ${fmt(rPan)} €/m²</span></span><span style="display:flex;gap:6px"><button class="btn-sec-add outline trv-add" onclick="deposeAddLine('${key}')" title="Longueur × hauteur (ou longueur × largeur)">+ ${addLab}</button><button class="btn-sec-add outline trv-add" onclick="deposeAddLine('${key}','m2')" title="Surface déjà calculée">+ Surface en m²</button></span></div>`;
+    if(!lines.length) h+=`<div class="trv-empty">${vide} — « + ${addLab} » (dimensions) ou « + Surface en m² » (calcul déjà fait).</div>`;
     lines.forEach((l,n)=>{
       const sf=depLineM2(l); m2+=sf;
       const saisie=(l.m2!=null)
-        ? `${inp(l.id,key,'m2',l.m2,'a',84)}<span class="dep-u">m²</span><span class="dep-legacy">surface reprise de l'ancien devis</span>`
+        ? `${inp(l.id,key,'m2',l.m2,'a',84)}<span class="dep-u">m²</span><span class="dep-legacy">surface saisie directement</span>`
         : `${inp(l.id,key,dA.f,l[dA.f],'a')}<span class="dep-u">${dA.u}</span><span class="dep-x">×</span>${inp(l.id,key,dB.f,l[dB.f],'b')}<span class="dep-u">${dB.u}</span><span class="dep-x">=</span><span class="dep-m2" id="dep-m2-${l.id}">${fmt(sf)} m²</span>`;
       h+=`<div class="trv-row dep-row"><span class="dep-n">${n+1}</span>${saisie}<span class="trv-lt" id="dep-eur-${l.id}">${fmt(r2(rPan*sf))} €</span><button class="item-del" title="Supprimer cette ligne" onclick="deposeDelLine('${key}','${l.id}')">×</button></div>`;
     });
