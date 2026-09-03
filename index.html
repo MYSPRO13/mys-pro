@@ -2380,7 +2380,7 @@ const ACC_DEFAULTS = [
 ];
 
 // Correspondance produits du configurateur accessoires → lignes de prix « Accessoires Divers »
-const ACC_PX_MAP={te_systeme:'te', mousse_pu:'mousse', usol:'u_sol'};
+const ACC_PX_MAP={te_systeme:'te', mousse_pu:'mousse', usol:'u_sol', ecrou_pom:'ecrou_pom_10'};
 // Les prix vivent en mémoire, pas dans les champs : les familles repliées n'ont pas
 // de champ dans la page, et lire le DOM ferait perdre leur prix à la sauvegarde.
 const ACC_PX_STORE={};
@@ -2629,7 +2629,7 @@ let accCat=null,accProd=null;
 const ACC_PRODS={
   equipements:[{id:'soupape',n:"Soupape d'équilibrage",hint:'Panneau ≥ 100mm'},{id:'trappe',n:'Trappe de visite 740×740mm',hint:'Plafond isotherme'},{id:'lisse',n:'Lisse de protection PVC',hint:'ML → nb barres 3m'}],
   sol:[{id:'sol_phen',n:'Sol phénolique 100mm',hint:'Surface m² → nb panneaux'},{id:'tole',n:'Tôle larmée 4mm',hint:'Surface m² → nb tôles'},{id:'iso_sol',n:'Isolant de sol CF négative',hint:'2 couches 80mm → surface'},{id:'bastaing',n:'Bastaing de protection',hint:'Simple/double hauteur → ML'}],
-  plafond:[{id:'te_reprise',n:'Té de reprise (système complet)',hint:'ML + hauteur → Té + coulisses + œillets + clips + câble + éclisses'}],
+  plafond:[{id:'te_reprise',n:'Té de reprise (système complet)',hint:'ML + hauteur → Té + coulisses + œillets + clips + câble + éclisses'},{id:'ecrou_pom',n:'Écrou POM ø10 mm',hint:'Quantité → unités (Fixone)'}],
   finitions:[{id:'corn_ext',n:'Cornière ext. 50×150mm',hint:'ML → nb barres 3m'},{id:'corn_int',n:'Cornière int. 50×50mm',hint:'Angles + périmètre → nb barres'},{id:'plinthe',n:'Plinthe PVC 80mm',hint:'Auto depuis cloisons ≤80mm + ML séparatif'}],
   consommables:[{id:'silicone',n:'Silicone blanc 300ml',hint:'Auto depuis nb panneaux'},{id:'mousse_pu',n:'Mousse PU 750ml',hint:'Auto depuis portes + sol + angles'},{id:'usol',n:'U de sol',hint:'Auto depuis épaisseur + ML cloisons'}]
 };
@@ -2709,6 +2709,7 @@ function renderAccForm(pid){
   const nbPor=items.filter(i=>i.type==='por').length;
   const forms={
     soupape:`<div class="acc-note">1 soupape par chambre négative.</div><div class="acc-field"><label>Quantité</label><input type="number" id="af-qty" value="1" min="1" step="1"><span class="acc-unit">unité(s)</span></div>`,
+    ecrou_pom:`<div class="acc-note">Écrou POM ø10 mm sans rondelle (Fixone). Prix : Paramètres › Accessoires › Plafond &amp; suspension.</div><div class="acc-field"><label>Quantité</label><input type="number" id="af-qty" value="1" min="1" step="1"><span class="acc-unit">unité(s)</span></div>`,
     trappe:`<div class="acc-note">1 trappe par plafond isotherme.</div><div class="acc-field"><label>Quantité</label><input type="number" id="af-qty" value="1" min="1" step="1"><span class="acc-unit">unité(s)</span></div>`,
     lisse:`<div class="acc-field"><label>Longueur totale (ML)</label><input type="number" id="af-ml" value="0" min="0" step="0.5" oninput="calcLisse()"><span class="acc-unit">m</span></div>
       <div class="acc-field"><label>Niveaux</label><select id="af-niv" onchange="calcLisse()"><option value="1">1 niveau</option><option value="2">2 niveaux</option></select></div>
@@ -3005,7 +3006,7 @@ function accAdd(){
     return;
   }
   if(pid==='soupape'){qty=parseInt(G('af-qty')?.value)||1;vol=parseFloat(G('af-soup-vol')?.value)||0;meta=`${qty} unité${qty>1?'s':''}`;}
-  else if(['trappe','silicone'].includes(pid)){qty=parseInt(G('af-qty')?.value)||1;meta=`${qty} unité${qty>1?'s':''}`;}
+  else if(['trappe','silicone','ecrou_pom'].includes(pid)){qty=parseInt(G('af-qty')?.value)||1;meta=`${qty} unité${qty>1?'s':''}`;}
   else if(pid==='lisse'){const ml=parseFloat(G('af-ml')?.value)||0;const niv=parseInt(G('af-niv')?.value)||1;const totMl=ml*niv;const barres=Math.ceil(totMl/3);qty=totMl;unit='ml';nbU=barres;meta=`${fmt(totMl)} ml${niv>1?` (${ml} × ${niv} niv.)`:''} — ${barres} barre${barres>1?'s':''} 3m`;}
   else if(pid==='sol_phen'){const out=solResult();if(!out){alert((G('af-sol-mode')?.value)==='surf'?'Saisir la surface.':'Saisir la longueur et la largeur.');return;}qty=out.qty;nbU=out.nb;unit='m²';meta=out.meta;cmdDetail=out.cmdDetail;}
   else if(pid==='brio'){const ml=parseFloat(G('af-brio-ml')?.value)||0;const ep=G('af-brio-ep')?.value;const h=G('af-brio-h')?.value;qty=Math.ceil(Math.round(ml/1.22*1e10)/1e10);meta=`${qty} panneaux BRIO ${ep}mm × ${(parseInt(h)/1000).toFixed(2)}m`;}
@@ -3046,7 +3047,7 @@ function accQtyChange(i,d){if(items[i]){items[i].qty=Math.max(1,(items[i].qty||1
 // mesures de chantier saisies au passage en commande. Sert UNIQUEMENT à la
 // commande (jamais facturé — le coût est dans le paramètre « Accessoires €/m² »).
 let METRE={ sepa:0, cornFinH:0, angIntPos:0, angIntNeg:0, angExt:0, margeOverride:'', chevronEsp:40, chambres:[], overrides:{} };
-function accById(id){ return ACC_DEFAULTS.find(a=>a.id===id); }
+function accById(id){ id=ACC_PX_MAP[id]||id; return ACC_DEFAULTS.find(a=>a.id===id); }
 function metreMarge(surfTot, ov){
   if(ov!==''&&ov!=null&&!isNaN(parseFloat(ov))) return parseFloat(ov)/100;
   if(surfTot<50) return .10; if(surfTot<150) return .08; if(surfTot<300) return .06; if(surfTot<600) return .05; return .04;
@@ -5216,7 +5217,7 @@ function saveDraft(){
   const num=G('devis-num')?.textContent||''; if(!num) return;
   const o=readDrafts();
   o[num]={ ts:Date.now(), num, projet:G('projet-nom')?.value||'', items:items, travaux:travaux, client:curClient,
-    pp:G('pp')?.value, pa:G('pa')?.value, pc:G('pc')?.value, pxOverride:PXOV,
+    pp:G('pp')?.value, pa:G('pa')?.value, pc:G('pc')?.value, pxOverride:PXOV, trManual:trManual, trTotal:G('tr-total')?.value,
     evBase:G('ev-base')?.value, manuBase:G('manu-base')?.value, manuClient:G('manu-client')?.checked,
     poseMode:document.querySelector('input[name="pose-mode"]:checked')?.value, journeePx:G('journee-px')?.value, depose:DEPOSE };
   const keys=Object.keys(o).sort((a,b)=>(o[b].ts||0)-(o[a].ts||0)); keys.slice(30).forEach(k=>delete o[k]); // garder les 30 plus récents
@@ -5237,6 +5238,7 @@ function restoreDraft(d){
   editIdx=null; editType=null;
   items=d.items||[]; travaux=d.travaux||[]; curClient=d.client||null;
   PXOV=(d.pxOverride&&typeof d.pxOverride==='object')?Object.assign({},d.pxOverride):{};
+  trManual=!!d.trManual; if(trManual&&G('tr-total')&&d.trTotal!=null&&d.trTotal!=='') G('tr-total').value=d.trTotal;
   DEPOSE=deposeLoad(d.depose);
   if(G('projet-nom')) G('projet-nom').value=d.projet||'';
   if(d.num){ G('devis-num').textContent=d.num; if(G('dnum')) G('dnum').textContent=d.num; }
@@ -5589,7 +5591,7 @@ async function telechargerDevisPDF(id){
   if(!data||!data.length){ showToast('Devis introuvable', true); return; }
   const d=data[0];
   // On génère le PDF du devis sauvegardé sans écraser le devis en cours de travail
-  const bak={items:items, curClient:curClient, trManual:trManual, pxov:PXOV, trv:travaux,
+  const bak={items:items, curClient:curClient, trManual:trManual, trTotal:G('tr-total')?G('tr-total').value:'', pxov:PXOV, trv:travaux,
     projet:G('projet-nom')?G('projet-nom').value:'', num:G('devis-num')?G('devis-num').textContent:'',
     pp:G('pp')?G('pp').value:'', pa:G('pa')?G('pa').value:'', pc:G('pc')?G('pc').value:'',
     ev:G('ev-base')?G('ev-base').value:'', mn:G('manu-base')?G('manu-base').value:'', mc:G('manu-client')?G('manu-client').checked:false};
@@ -5598,7 +5600,7 @@ async function telechargerDevisPDF(id){
     items=d.items||[];
     travaux=(d.params&&Array.isArray(d.params.travaux))?d.params.travaux:[];
     curClient=d.client||null;
-    trManual=false;
+    trManual=!!(d.transport&&d.transport.trManual); if(trManual&&G('tr-total')) G('tr-total').value=d.transport.trNet;
     PXOV=(d.params&&d.params.pxOverride&&typeof d.params.pxOverride==='object')?Object.assign({},d.params.pxOverride):{};
     {const _p=d.params||{}; if(G('ev-base'))G('ev-base').value=(_p.evBase!=null)?_p.evBase:EVMANU_DEF.ev; if(G('manu-base'))G('manu-base').value=(_p.manuBase!=null)?_p.manuBase:EVMANU_DEF.manu; if(G('manu-client'))G('manu-client').checked=!!_p.manuClient;}
     if(G('pp'))G('pp').value=(d.params&&d.params.pose)||DEFAULT_PARAMS.pp; if(G('pa'))G('pa').value=(d.params&&d.params.acc)||DEFAULT_PARAMS.pa; if(G('pc'))G('pc').value=(d.params&&d.params.coef)||DEFAULT_PARAMS.pc;
@@ -5609,6 +5611,7 @@ async function telechargerDevisPDF(id){
   }catch(e){ console.error('Génération PDF devis:', e); showToast('Erreur PDF', true); }
   finally{
     items=bak.items; travaux=bak.trv; curClient=bak.curClient; trManual=bak.trManual; PXOV=bak.pxov;
+    if(G('tr-total')) G('tr-total').value=bak.trTotal;
     if(G('ev-base'))G('ev-base').value=bak.ev; if(G('manu-base'))G('manu-base').value=bak.mn; if(G('manu-client'))G('manu-client').checked=bak.mc;
     if(G('projet-nom'))G('projet-nom').value=bak.projet;
     if(G('devis-num'))G('devis-num').textContent=bak.num;
@@ -5637,6 +5640,8 @@ async function chargerDevis(id){
     const dpz = d.params && d.params.depose;
     DEPOSE = deposeLoad(dpz);
     PXOV = (d.params && d.params.pxOverride && typeof d.params.pxOverride==='object') ? Object.assign({}, d.params.pxOverride) : {};
+    trManual = !!(d.transport && d.transport.trManual); // transport forcé à la main : propre au devis
+    if(trManual && G('tr-total')) G('tr-total').value = d.transport.trNet;
     // Évac / manut / manut-client : propres au devis (respecte 0)
     const _prm=d.params||{};
     if(G('ev-base'))     G('ev-base').value     = (_prm.evBase!=null)   ? _prm.evBase   : EVMANU_DEF.ev;
@@ -5648,8 +5653,8 @@ async function chargerDevis(id){
     // Numéro
     G('devis-num').textContent = d.numero;
     if(G('dnum')) G('dnum').textContent = d.numero;
-    // Client display
-    if(curClient) setClient(curClient);
+    // Client display (sinon le client du devis précédent restait affiché)
+    if(curClient) setClient(curClient); else clearClient();
     refreshAll();
     renderAccList();
     showToast('Devis '+d.numero+' chargé');
@@ -5669,6 +5674,7 @@ async function nouveauDevis(force){
   travaux = []; travauxSeq = 0;
   DEPOSE={cloisonM2:0, plafondM2:0, porCoul:0, porPiv:0};
   PXOV={}; // nouveau devis → repart des prix de base
+  trManual=false; // transport : le montant forcé du devis précédent ne se transmet pas
   if(G('ev-base'))     G('ev-base').value     = EVMANU_DEF.ev;
   if(G('manu-base'))   G('manu-base').value   = EVMANU_DEF.manu;
   if(G('manu-client')) G('manu-client').checked = false;
