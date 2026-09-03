@@ -2202,6 +2202,7 @@ const ISO_SOL = { achat:18.40, pose:6.00, couches:2, colisM2:3.75, plaquesParCol
 // Dépose de l'existant, par devis : lignes de cloisons (longueur × hauteur), lignes de plafonds (longueur × largeur),
 // portes en nombre. Une ligne {m2} = surface saisie directement (reprise d'un ancien devis).
 let DEPOSE=deposeEmpty();
+function devisVide(){ return !items.length && !travaux.length && !calcDepose().on; }
 let depSeq=0;
 function deposeEmpty(){ return {cloisons:[], plafonds:[], porCoul:0, porPiv:0}; }
 function depNewLine(fam,vals){ return Object.assign({id:(fam==='cloisons'?'dc':'dp')+(++depSeq)}, vals||{}); }
@@ -2216,7 +2217,7 @@ function deposeTotaux(){
   return {cloisonM2:sum(DEPOSE.cloisons), plafondM2:sum(DEPOSE.plafonds)};
 }
 // Forme enregistrée : totaux (lisibles par les anciennes versions) + détail des lignes
-function deposeSave(){ const t=deposeTotaux(); return {cloisonM2:t.cloisonM2, plafondM2:t.plafondM2, porCoul:+DEPOSE.porCoul||0, porPiv:+DEPOSE.porPiv||0, cloisons:DEPOSE.cloisons, plafonds:DEPOSE.plafonds}; }
+function deposePayload(){ const t=deposeTotaux(); return {cloisonM2:t.cloisonM2, plafondM2:t.plafondM2, porCoul:+DEPOSE.porCoul||0, porPiv:+DEPOSE.porPiv||0, cloisons:DEPOSE.cloisons, plafonds:DEPOSE.plafonds}; }
 function deposeAddLine(fam){
   const l=depNewLine(fam, fam==='cloisons'?{ml:'',h:''}:{L:'',l:''});
   DEPOSE[fam].push(l); refreshAll();
@@ -3660,10 +3661,10 @@ function refreshAll(){
         else if(manu>0) h+=`<div style="display:flex;justify-content:space-between;padding:2px 0;color:var(--text2)"><span>Manutention & Déchargement</span><span style="color:var(--text)">${fmt(manu)} €</span></div>`;
         h+=`</div>`;
       }
-      if(items.length || travaux.length) h+=`<div class="total-row" style="padding-top:.625rem"><span class="total-label" style="font-weight:600">Total HT</span><span class="total-value" id="tot-ht-val">${fmt(totAvecTr)} €</span></div>`;
+      if(!devisVide()) h+=`<div class="total-row" style="padding-top:.625rem"><span class="total-label" style="font-weight:600">Total HT</span><span class="total-value" id="tot-ht-val">${fmt(totAvecTr)} €</span></div>`;
       if(items.length) h+=`<div class="total-row" style="border-top:1px dashed var(--border);padding-top:.5rem;margin-top:.5rem"><span class="total-label" style="color:var(--text2)">Prix de pose global<span style="color:var(--text3);font-size:11px"> — main d'œuvre, indicatif</span></span><span class="total-value" id="pose-glob-val" style="font-size:15px;color:var(--text2)">${fmt(poseGlobale())} €</span></div>`;
       // ── Marge interne (uniquement dans l'app, jamais sur le devis/PDF client) ──
-      if(items.length || travaux.length){
+      if(!devisVide()){
         const mg=calcMarge(p);
         h+=`<div class="marge-box"><div class="marge-head sec-tog" onclick="togSec('edit_marge')"><span>${secFold.edit_marge?'▾':'▸'} 🔒 Marge interne</span><span class="marge-badge">non visible client</span></div>`;
         if(secFold.edit_marge){
@@ -5293,7 +5294,7 @@ function writeDrafts(o){ try{ localStorage.setItem('mys_drafts', JSON.stringify(
 function listeDrafts(){ const o=readDrafts(); return Object.keys(o).map(k=>o[k]).filter(d=>d&&((d.items&&d.items.length)||(d.travaux&&d.travaux.length))).sort((a,b)=>(b.ts||0)-(a.ts||0)); }
 function saveDraft(){
   if(window._noDraft) return; // suspendu pendant la génération d'un PDF d'un autre devis
-  if(!items.length && !travaux.length) return;
+  if(devisVide()) return;
   const num=G('devis-num')?.textContent||''; if(!num) return;
   const o=readDrafts();
   o[num]={ ts:Date.now(), num, projet:G('projet-nom')?.value||'', items:items, travaux:travaux, client:curClient,
@@ -5334,7 +5335,7 @@ function restoreDraft(d){
   refreshAll(); renderAccList();
 }
 function maybeRestoreDraft(){
-  if(items.length||travaux.length) return; // du travail est déjà en cours
+  if(!devisVide()) return; // du travail est déjà en cours
   const drafts=listeDrafts(); if(!drafts.length) return;
   const d=drafts[0]; // le plus récent
   const nbA=(d.items||[]).length, nbT=(d.travaux||[]).length;
@@ -5445,7 +5446,7 @@ async function sauvegarderDevis(opts){
     client: curClient,
     projet_nom: G('projet-nom')?.value||'',
     items: items,
-    params: { pose: parseFloat(G('pp')?.value)||18, acc: parseFloat(G('pa')?.value)||6, coef: parseFloat(G('pc')?.value)||1.5, depose: deposeSave(), pxOverride: PXOV, evBase: valOr('ev-base',EVMANU_DEF.ev), manuBase: valOr('manu-base',EVMANU_DEF.manu), manuClient: G('manu-client')?.checked||false, poseMode: document.querySelector('input[name="pose-mode"]:checked')?.value||'budget', journeePx: valOr('journee-px',POSE_DEF.px), travaux: travaux },
+    params: { pose: parseFloat(G('pp')?.value)||18, acc: parseFloat(G('pa')?.value)||6, coef: parseFloat(G('pc')?.value)||1.5, depose: deposePayload(), pxOverride: PXOV, evBase: valOr('ev-base',EVMANU_DEF.ev), manuBase: valOr('manu-base',EVMANU_DEF.manu), manuClient: G('manu-client')?.checked||false, poseMode: document.querySelector('input[name="pose-mode"]:checked')?.value||'budget', journeePx: valOr('journee-px',POSE_DEF.px), travaux: travaux },
     transport: tr,
     evacuation: evac,
     manutention: { base: parseFloat(G('manu-base')?.value)||600, client: G('manu-client')?.checked||false, total: manu },
@@ -5803,7 +5804,7 @@ function projModalConfirm(){
 }
 // Enregistre le devis en cours puis en crée un nouveau (bouton « Nouveau devis »)
 async function nouveauDevisSauve(){
-  if(items.length || travaux.length){ try{ await sauvegarderDevis({silent:true}); }catch(e){} }
+  if(!devisVide()){ try{ await sauvegarderDevis({silent:true}); }catch(e){} }
   nouveauDevis(true);
 }
 function projModalSkip(){ const m=G('projet-modal'); if(m) m.classList.remove('open'); } // échappatoire discrète (Échap)
