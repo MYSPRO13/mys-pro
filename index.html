@@ -1897,6 +1897,9 @@ function togglePwd(){
             <span>Porte coulissante</span><input id="depose-por-coul" type="number" value="150" step="5" style="width:82px" oninput="refreshAll()"><span style="color:var(--text3)">€/u</span>
             <span>Porte pivotante</span><input id="depose-por-piv" type="number" value="100" step="5" style="width:82px" oninput="refreshAll()"><span style="color:var(--text3)">€/u</span>
           </div>
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 4px">Dépose — supplément distance (interne, jamais sur le devis)</div>
+          <div style="font-size:11.5px;color:var(--text3);margin-bottom:8px;line-height:1.45">Majoration du tarif cloisons / plafond au m² selon la distance du chantier (à vol d'oiseau depuis Clapiers). La distance se saisit ou se calcule dans l'onglet Dépose de chaque devis.</div>
+          <div id="dkb-table"></div>
           <div style="font-size:11px;color:var(--text3);font-style:italic;margin-top:10px;line-height:1.5">Le total transport, l'évacuation et la manutention de l'affaire en cours restent réglables dans la barre latérale (valeurs propres au devis).</div>
         </div>
       </div>
@@ -2202,9 +2205,55 @@ const ISO_SOL = { achat:18.40, pose:6.00, couches:2, colisM2:3.75, plaquesParCol
 // Dépose de l'existant, par devis : lignes de cloisons (longueur × hauteur), lignes de plafonds (longueur × largeur),
 // portes en nombre. Une ligne {m2} = surface saisie directement (reprise d'un ancien devis).
 let DEPOSE=deposeEmpty();
+// Barème distance → supplément €/m² sur la dépose cloisons/plafonds (interne : le devis ne montre que le tarif final).
+// Chaque ligne = « jusqu'à max km » ; la dernière (max null) = au-delà. Modifiable dans Paramètres › Divers, enregistré avec les prix.
+let DEPOSE_KM_BAREME=[{max:30,sup:0},{max:70,sup:1},{max:120,sup:2},{max:200,sup:3},{max:250,sup:4},{max:300,sup:5},{max:400,sup:6},{max:null,sup:7}];
+function deposeKmSup(km){
+  km=parseFloat(km)||0; if(km<=0||!DEPOSE_KM_BAREME.length) return 0;
+  for(const r of DEPOSE_KM_BAREME){ if(r.max==null||r.max===''||km<(parseFloat(r.max)||0)) return parseFloat(r.sup)||0; }
+  return parseFloat(DEPOSE_KM_BAREME[DEPOSE_KM_BAREME.length-1].sup)||0;
+}
+function renderDkb(){
+  const el=G('dkb-table'); if(!el) return;
+  el.innerHTML='<div style="display:grid;grid-template-columns:auto auto auto auto;gap:6px 8px;max-width:380px;font-size:12.5px;align-items:center">'+DEPOSE_KM_BAREME.map((r,i)=>{
+    const last=(i===DEPOSE_KM_BAREME.length-1);
+    return `<span>${last?'au-delà':"jusqu'à"}</span>`
+      +(last?'<span></span>':`<span><input id="dkb-max-${i}" type="number" min="0" step="5" value="${r.max==null?'':r.max}" style="width:70px" oninput="dkbInput(${i},'max',this.value)" onchange="refreshAll()"> km</span>`)
+      +`<span>→ +</span><span><input id="dkb-sup-${i}" type="number" min="0" step="0.5" value="${r.sup}" style="width:60px" oninput="dkbInput(${i},'sup',this.value)" onchange="refreshAll()"> €/m²</span>`;
+  }).join('')+'</div>';
+}
+function dkbInput(i,f,v){ const r=DEPOSE_KM_BAREME[i]; if(!r) return; r[f]=(v===''?null:(parseFloat(v)||0)); }
+renderDkb(); // la page Paramètres est déjà dans le DOM à ce stade
+// Distance du chantier : ville / CP → annuaire officiel des communes (geo.api.gouv.fr) → vol d'oiseau depuis le siège
+const SIEGE_COORD={lat:43.6578, lon:3.8908}; // Clapiers (34830)
+function haversineKm(a,b){ const R=6371, toR=x=>x*Math.PI/180; const dLat=toR(b.lat-a.lat), dLon=toR(b.lon-a.lon); const h=Math.sin(dLat/2)**2+Math.cos(toR(a.lat))*Math.cos(toR(b.lat))*Math.sin(dLon/2)**2; return 2*R*Math.asin(Math.sqrt(h)); }
+async function geoCommune(q){
+  const cp=q.match(/\b\d{5}\b/); const nom=q.replace(/\b\d{5}\b/,'').replace(/[,;]/g,' ').trim();
+  const base='https://geo.api.gouv.fr/communes?fields=nom,codesPostaux,centre&format=json';
+  const url=cp ? base+'&codePostal='+cp[0] : base+'&nom='+encodeURIComponent(nom)+'&boost=population&limit=5';
+  const r=await fetch(url); if(!r.ok) throw new Error('geo '+r.status);
+  let list=await r.json(); if(!Array.isArray(list)) list=[];
+  if(cp&&nom&&list.length>1){ const n=nom.toLowerCase(); const m=list.find(x=>(x.nom||'').toLowerCase()===n)||list.find(x=>(x.nom||'').toLowerCase().startsWith(n)); if(m) list=[m]; }
+  const c=list[0]; if(!c||!c.centre||!c.centre.coordinates) return null;
+  return {nom:c.nom, cp:(c.codesPostaux||[])[0]||'', lat:c.centre.coordinates[1], lon:c.centre.coordinates[0]};
+}
+async function deposeEstimerKm(){
+  let q=(DEPOSE.lieu||'').trim();
+  if(!q&&curClient){ q=[curClient.cp,curClient.ville].filter(Boolean).join(' ').trim(); if(q){ DEPOSE.lieu=q; const li=G('dep-lieu'); if(li) li.value=q; } }
+  if(!q){ showToast('Indique la ville ou le code postal du chantier', true); return; }
+  const info=G('dep-km-info'); if(info) info.textContent='Recherche…';
+  try{
+    const c=await geoCommune(q);
+    if(!c){ showToast('Commune introuvable : '+q, true); refreshAll(); return; }
+    const km=Math.round(haversineKm(SIEGE_COORD,c));
+    DEPOSE.km=km; DEPOSE.lieuTrouve=c.nom+(c.cp?' ('+c.cp+')':'');
+    showToast(c.nom+' : ≈ '+km+' km à vol d\'oiseau → +'+fmt(deposeKmSup(km))+' €/m²');
+    refreshAll();
+  }catch(e){ console.error('Distance chantier:', e); showToast('Distance indisponible (réseau) — saisis les km à la main', true); refreshAll(); }
+}
 function devisVide(){ return !items.length && !travaux.length && !calcDepose().on; }
 let depSeq=0;
-function deposeEmpty(){ return {cloisons:[], plafonds:[], porCoul:0, porPiv:0}; }
+function deposeEmpty(){ return {cloisons:[], plafonds:[], porCoul:0, porPiv:0, km:'', lieu:'', lieuTrouve:''}; }
 function depNewLine(fam,vals){ return Object.assign({id:(fam==='cloisons'?'dc':'dp')+(++depSeq)}, vals||{}); }
 function depDims(l){ const a=parseFloat(l.ml!=null?l.ml:l.L)||0, b=parseFloat(l.h!=null?l.h:l.l)||0; return a>0&&b>0; }
 function depLineM2(l){
@@ -2218,7 +2267,7 @@ function deposeTotaux(){
   return {cloisonM2:sum(DEPOSE.cloisons), plafondM2:sum(DEPOSE.plafonds)};
 }
 // Forme enregistrée : totaux (lisibles par les anciennes versions) + détail des lignes
-function deposePayload(){ const t=deposeTotaux(); return {cloisonM2:t.cloisonM2, plafondM2:t.plafondM2, porCoul:+DEPOSE.porCoul||0, porPiv:+DEPOSE.porPiv||0, cloisons:DEPOSE.cloisons, plafonds:DEPOSE.plafonds}; }
+function deposePayload(){ const t=deposeTotaux(); return {cloisonM2:t.cloisonM2, plafondM2:t.plafondM2, porCoul:+DEPOSE.porCoul||0, porPiv:+DEPOSE.porPiv||0, cloisons:DEPOSE.cloisons, plafonds:DEPOSE.plafonds, km:DEPOSE.km, lieu:DEPOSE.lieu||'', lieuTrouve:DEPOSE.lieuTrouve||''}; }
 function deposeAddLine(fam){
   const l=depNewLine(fam, fam==='cloisons'?{ml:'',h:'',m2:''}:{L:'',l:'',m2:''});
   DEPOSE[fam].push(l); refreshAll();
@@ -2235,8 +2284,15 @@ function onDeposeInput(fam,id,field,val){
   syncDeposeTotals();
 }
 // Met à jour m² / € des lignes, sous-totaux et total SANS re-render (garde le focus pendant la saisie)
+function deposeRateTxt(dep){ return dep.kmSup>0 ? `tarif ${fmt(dep.rPan)} €/m² (${fmt(dep.rPanBase)} + ${fmt(dep.kmSup)} distance)` : `tarif ${fmt(dep.rPan)} €/m²`; }
+function deposeKmInfoTxt(dep){
+  if(!(dep.km>0)) return `vide = tarif de base ${fmt(dep.rPanBase)} €/m²`;
+  return `${DEPOSE.lieuTrouve?esc(DEPOSE.lieuTrouve)+' · ':''}+ ${fmt(dep.kmSup)} €/m² → tarif ${fmt(dep.rPan)} €/m²`;
+}
 function syncDeposeTotals(){
-  const rPan=parseFloat(G('depose-pan')?.value)||0;
+  const dep0=calcDepose(); const rPan=dep0.rPan;
+  const ki=G('dep-km-info'); if(ki) ki.innerHTML=deposeKmInfoTxt(dep0);
+  ['cloisons','plafonds'].forEach(fam=>{ const e=G('dep-rate-'+fam); if(e) e.textContent=deposeRateTxt(dep0); });
   ['cloisons','plafonds'].forEach(fam=>{
     let m2=0;
     (DEPOSE[fam]||[]).forEach(l=>{ const sf=depLineM2(l); m2+=sf;
@@ -2261,7 +2317,8 @@ function deposeLoad(dpz){
   const norm=(arr,fam)=>(Array.isArray(arr)?arr:[]).map(l=>depNewLine(fam, fam==='cloisons'?{ml:v(l.ml),h:v(l.h),m2:v(l.m2)}:{L:v(l.L),l:v(l.l),m2:v(l.m2)}));
   if(Array.isArray(dpz.cloisons)||Array.isArray(dpz.plafonds)){
     out.cloisons=norm(dpz.cloisons,'cloisons'); out.plafonds=norm(dpz.plafonds,'plafonds');
-    out.porCoul=+dpz.porCoul||0; out.porPiv=+dpz.porPiv||0; return out;
+    out.porCoul=+dpz.porCoul||0; out.porPiv=+dpz.porPiv||0;
+    out.km=v(dpz.km); out.lieu=v(dpz.lieu); out.lieuTrouve=v(dpz.lieuTrouve); return out;
   }
   // Anciens formats : {cloisonM2,plafondM2} ou {on,panM2} → chaque surface devient une ligne « surface reprise » (modifiable)
   let c=0,pl=0,coul=0,piv=0;
@@ -2275,7 +2332,9 @@ function deposeLoad(dpz){
 function calcDepose(){
   const tq=deposeTotaux(); const q={cloisonM2:tq.cloisonM2, plafondM2:tq.plafondM2, porCoul:+DEPOSE.porCoul||0, porPiv:+DEPOSE.porPiv||0};
   const coef=(P().coef)||1.5; // les tarifs saisis incluent la marge → coût poseur = tarif ÷ coef
-  const rPan=parseFloat(G('depose-pan')?.value)||0, rCoul=parseFloat(G('depose-por-coul')?.value)||0, rPiv=parseFloat(G('depose-por-piv')?.value)||0;
+  const rPanBase=parseFloat(G('depose-pan')?.value)||0, rCoul=parseFloat(G('depose-por-coul')?.value)||0, rPiv=parseFloat(G('depose-por-piv')?.value)||0;
+  const km=parseFloat(DEPOSE.km)||0, kmSup=deposeKmSup(km);
+  const rPan=rPanBase>0 ? r2(rPanBase+kmSup) : 0; // supplément distance fondu dans le tarif (jamais détaillé sur le devis)
   // pu = prix de vente client ; puCost = coût poseur (budget) ; montant/costMontant = totaux ligne
   const mk=(label,qty,unit,pu)=>({label,qty,unit,pu,montant:r2(pu*qty),puCost:r2(pu/coef),costMontant:r2((pu/coef)*qty)});
   const lines=[];
@@ -2283,7 +2342,7 @@ function calcDepose(){
   if(q.plafondM2>0&&rPan>0) lines.push(mk('Dépose plafond',q.plafondM2,'m²',rPan));
   if(q.porCoul>0&&rCoul>0) lines.push(mk('Dépose porte coulissante',q.porCoul,'u',rCoul));
   if(q.porPiv>0&&rPiv>0) lines.push(mk('Dépose porte pivotante',q.porPiv,'u',rPiv));
-  return {on:lines.length>0, coef, total:r2(lines.reduce((s,l)=>s+l.montant,0)), costTotal:r2(lines.reduce((s,l)=>s+l.costMontant,0)), lines, q};
+  return {on:lines.length>0, coef, total:r2(lines.reduce((s,l)=>s+l.montant,0)), costTotal:r2(lines.reduce((s,l)=>s+l.costMontant,0)), lines, q, rPan, rPanBase, km, kmSup};
 }
 function deposeSet(k,v){ DEPOSE[k]=(v===''?0:(parseFloat(v)||0)); refreshAll(); }
 function deposePrefill(){
@@ -2294,6 +2353,7 @@ function deposePrefill(){
     else d.cloisons.push(depNewLine('cloisons', (ml>0&&h>0)?{ml:ml,h:h,m2:''}:{ml:'',h:'',m2:sf}));
   });
   d.porCoul=a.porCoul; d.porPiv=a.porPiv;
+  d.km=DEPOSE.km; d.lieu=DEPOSE.lieu; d.lieuTrouve=DEPOSE.lieuTrouve; // la distance reste
   DEPOSE=d; refreshAll();
 }
 // ── Onglets Configurateur : Travaux spécifiques & Dépose de l'existant ──
@@ -2330,11 +2390,11 @@ function renderTravauxCfg(){
 function renderDeposeCfg(){
   const el=G('dep-config'); if(!el) return;
   const dep=calcDepose();
-  const rPan=parseFloat(G('depose-pan')?.value)||0, rCoul=parseFloat(G('depose-por-coul')?.value)||0, rPiv=parseFloat(G('depose-por-piv')?.value)||0;
+  const rPan=dep.rPan, rCoul=parseFloat(G('depose-por-coul')?.value)||0, rPiv=parseFloat(G('depose-por-piv')?.value)||0;
   const inp=(id,fam,field,val,pos,w,cls)=>`<input class="trv-qty${cls?' '+cls:''}" id="dep-${pos}-${id}" type="number" min="0" step="any" value="${esc(val==null?'':val)}" oninput="onDeposeInput('${fam}','${id}','${field}',this.value)" onchange="refreshAll()" style="width:${w||72}px">`;
   const famille=(key,titre,vide,addLab,dA,dB)=>{
     const lines=DEPOSE[key]||[]; let m2=0;
-    let h=`<div class="dep-fam"><div class="dep-fam-head"><span>${titre} <span class="dep-rate">tarif ${fmt(rPan)} €/m²</span></span><button class="btn-sec-add outline trv-add" onclick="deposeAddLine('${key}')">+ ${addLab}</button></div>`;
+    let h=`<div class="dep-fam"><div class="dep-fam-head"><span>${titre} <span class="dep-rate" id="dep-rate-${key}">${deposeRateTxt(dep)}</span></span><button class="btn-sec-add outline trv-add" onclick="deposeAddLine('${key}')">+ ${addLab}</button></div>`;
     if(!lines.length) h+=`<div class="trv-empty">${vide} — clique sur « + ${addLab} », puis saisis ${dA.u==='ml'?'longueur × hauteur':'longueur × largeur'} ou directement la surface en m².</div>`;
     lines.forEach((l,n)=>{
       const sf=depLineM2(l); m2+=sf; const calc=depDims(l);
@@ -2354,6 +2414,14 @@ function renderDeposeCfg(){
       <span style="text-transform:uppercase;letter-spacing:.07em">Dépose de l'existant</span>
       <button class="btn-sec-add outline" onclick="deposePrefill()" title="Une ligne par panneau du devis, avec ses dimensions">↺ Pré-remplir depuis le devis</button>
     </div>`;
+  // Distance du chantier (interne) → majoration silencieuse du tarif m²
+  h+=`<div class="dep-fam"><div class="dep-fam-head"><span>Distance du chantier <span class="dep-rate">interne — n'apparaît pas sur le devis</span></span></div>
+    <div class="trv-row dep-row" style="flex-wrap:wrap">
+      <span class="dep-u">Ville / CP</span><input id="dep-lieu" type="text" value="${esc(DEPOSE.lieu||'')}" oninput="DEPOSE.lieu=this.value" style="width:170px">
+      <button class="btn-sec-add outline trv-add" onclick="deposeEstimerKm()" title="Vol d'oiseau depuis Clapiers ; reprend l'adresse du client si la ville est vide">Calculer la distance</button>
+      <input class="trv-qty" id="dep-km" type="number" min="0" step="1" value="${esc(DEPOSE.km==null?'':DEPOSE.km)}" oninput="DEPOSE.km=this.value; syncDeposeTotals()" onchange="refreshAll()" style="width:72px"><span class="dep-u">km</span>
+      <span class="dep-rate" id="dep-km-info">${deposeKmInfoTxt(dep)}</span>
+    </div></div>`;
   h+=famille('cloisons','Cloisons','Aucune cloison à déposer','Ajouter une cloison',{f:'ml',u:'ml'},{f:'h',u:'m haut.'});
   h+=famille('plafonds','Plafonds','Aucun plafond à déposer','Ajouter un plafond',{f:'L',u:'m long.'},{f:'l',u:'m larg.'});
   h+=`<div class="dep-fam"><div class="dep-fam-head"><span>Portes</span></div>`;
@@ -5050,6 +5118,7 @@ function collectParams(){
   px.depose_pan      = parseFloat(G('depose-pan')?.value)||21;
   px.depose_por_coul = parseFloat(G('depose-por-coul')?.value)||150;
   px.depose_por_piv  = parseFloat(G('depose-por-piv')?.value)||100;
+  px.depose_km_bareme = DEPOSE_KM_BAREME.map(r=>({max:(r.max==null||r.max==='')?null:(parseFloat(r.max)||0), sup:parseFloat(r.sup)||0}));
   // Journée simple
   px.journee_px = parseFloat(G('journee-px')?.value)||1125;
   px.pose_mode  = document.querySelector('input[name="pose-mode"]:checked')?.value||'budget';
@@ -5104,6 +5173,7 @@ function applyParams(px){
   if(G('depose-pan')      && px.depose_pan)      G('depose-pan').value      = px.depose_pan;
   if(G('depose-por-coul') && px.depose_por_coul) G('depose-por-coul').value = px.depose_por_coul;
   if(G('depose-por-piv')  && px.depose_por_piv)  G('depose-por-piv').value  = px.depose_por_piv;
+  if(Array.isArray(px.depose_km_bareme) && px.depose_km_bareme.length){ DEPOSE_KM_BAREME=px.depose_km_bareme.map(r=>({max:(r.max==null||r.max==='')?null:(parseFloat(r.max)||0), sup:parseFloat(r.sup)||0})); try{ renderDkb(); }catch(e){} }
   // Mode de pose + forfait journée = propres au devis : on mémorise les défauts globaux
   // et on ne les pose dans les champs que si aucun devis n'est chargé.
   if(px.journee_px!=null) POSE_DEF.px = px.journee_px;
