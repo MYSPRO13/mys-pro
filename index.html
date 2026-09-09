@@ -691,18 +691,51 @@ body {
 .trv-pu { width: 96px; text-align: right; }
 .trv-lt { width: 92px; text-align: right; font-weight: 600; color: var(--blue); font-size: 13px; font-family: 'DM Mono', monospace; white-space: nowrap; flex-shrink: 0; }
 .trv-empty { font-size: 12px; color: var(--text3); font-style: italic; padding: 10px 4px; text-align: center; }
-/* Dépose de l'existant : lignes par famille */
-.dep-fam { padding: .3rem .75rem .45rem; border-top: 1px solid var(--border2); }
-.dep-fam-head { display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 600; padding: .4rem 0 .2rem; }
-.dep-rate { color: var(--text3); font-weight: 400; font-size: 11px; }
-.dep-row { padding: 3px 0; }
-.dep-n { width: 16px; font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; text-align: right; flex-shrink: 0; }
-.dep-u { font-size: 11px; color: var(--text3); white-space: nowrap; }
-.dep-x { font-size: 12px; color: var(--text3); padding: 0 1px; }
-.dep-m2 { min-width: 76px; text-align: right; font-family: 'DM Mono', monospace; font-size: 12px; white-space: nowrap; }
-.dep-m2-inp.is-calc { color: var(--text2); background: var(--bg2); }
-.dep-sub { display: flex; justify-content: space-between; font-size: 12px; color: var(--text2); font-weight: 600; padding: .25rem 0 .1rem 24px; }
-.dep-door { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; }
+/* Dépose de l'existant : processus en étapes, tableaux à colonnes titrées */
+.dep-wrap { display: flex; flex-direction: column; gap: 12px; }
+.dep-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 0 2px; }
+.dep-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
+.dep-sub-title { font-size: 12px; color: var(--text3); margin-top: 3px; line-height: 1.4; }
+.dep-step { border: 1px solid var(--border2); border-radius: var(--radius); background: var(--surface); padding: .7rem .875rem .75rem; }
+.dep-step-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: .55rem; }
+.dep-step-n { flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; background: var(--blue); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; font-family: 'DM Mono', monospace; margin-top: 1px; }
+.dep-step-title { font-size: 13px; font-weight: 600; }
+.dep-step-hint { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.dep-step-total { margin-left: auto; font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 600; color: var(--blue); white-space: nowrap; padding-top: 3px; }
+.dep-km-row { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.dep-field { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--text3); }
+.dep-field-grow { flex: 1; min-width: 180px; }
+.dep-inline { display: flex; align-items: center; gap: 6px; }
+.dep-inline em { font-style: normal; font-size: 11px; color: var(--text3); }
+.dep-in { width: 96px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 8px; font-size: 13px; font-family: 'DM Sans', sans-serif; background: var(--surface); color: var(--text); text-align: right; }
+.dep-in:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(41,35,92,.08); }
+.dep-in-text { width: 100%; text-align: left; }
+.dep-in.dep-m2 { font-family: 'DM Mono', monospace; font-weight: 600; }
+.dep-in.dep-m2.is-calc { background: var(--bg2); color: var(--text2); border-style: dashed; }
+.dep-btn { font-size: 12px; font-weight: 500; font-family: 'DM Sans', sans-serif; color: #fff; background: var(--blue); border: 1px solid var(--blue); border-radius: var(--radius-sm); padding: 7px 12px; cursor: pointer; white-space: nowrap; }
+.dep-btn:hover { opacity: .92; }
+.dep-km-badge { font-size: 11.5px; padding: 7px 11px; border-radius: 999px; background: var(--bg2); color: var(--text3); white-space: nowrap; }
+.dep-km-badge.on { background: rgba(41,35,92,.08); color: var(--blue); font-weight: 600; }
+.dep-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.dep-table th { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); font-weight: 600; text-align: left; padding: 2px 6px 6px; border-bottom: 1px solid var(--border2); }
+.dep-table th em { font-style: normal; text-transform: none; letter-spacing: 0; font-weight: 400; margin-left: 3px; }
+.dep-table td { padding: 4px 6px; vertical-align: middle; }
+.dep-table .c-n { width: 22px; color: var(--text3); font-family: 'DM Mono', monospace; font-size: 11px; }
+.dep-table .c-op { width: 14px; text-align: center; color: var(--text3); padding: 0; }
+.dep-table .c-rate { color: var(--text3); white-space: nowrap; }
+.dep-table .c-eur { text-align: right; font-family: 'DM Mono', monospace; font-weight: 600; color: var(--blue); white-space: nowrap; width: 100px; }
+.dep-table .c-del { width: 30px; text-align: right; }
+.dep-table-doors td:first-child { font-weight: 500; }
+.dep-table-doors .dep-in { width: 72px; }
+.dep-empty td { color: var(--text3); font-style: italic; padding: 9px 6px; }
+.dep-add { margin-top: 8px; font-size: 12px; font-weight: 500; font-family: 'DM Sans', sans-serif; color: var(--blue); background: none; border: 1px dashed var(--border); border-radius: var(--radius-sm); padding: 7px 10px; cursor: pointer; width: 100%; text-align: left; }
+.dep-add:hover { border-color: var(--blue); background: rgba(41,35,92,.04); }
+.dep-legend { font-size: 11px; color: var(--text3); margin-top: 7px; font-style: italic; }
+.dep-recap { display: flex; align-items: center; gap: 22px; padding: .8rem 1rem; background: var(--bg2); border-radius: var(--radius); font-size: 12px; flex-wrap: wrap; }
+.dep-recap-item { display: flex; flex-direction: column; gap: 2px; color: var(--text3); }
+.dep-recap-item strong { font-family: 'DM Mono', monospace; color: var(--text); font-weight: 600; font-size: 13px; }
+.dep-recap-total { margin-left: auto; display: flex; align-items: baseline; gap: 12px; color: var(--text2); }
+.dep-recap-total strong { font-family: 'DM Mono', monospace; font-size: 18px; color: var(--blue); }
 /* ── Adresse de livraison structurée (fiches commande) ── */
 .cmd-inp { width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; font-family: 'DM Sans', sans-serif; background: var(--surface); color: var(--text); }
 .cmd-adr-grid { display: grid; grid-template-columns: 96px 1fr; gap: 8px; }
@@ -2286,21 +2319,23 @@ function onDeposeInput(fam,id,field,val){
 // Met à jour m² / € des lignes, sous-totaux et total SANS re-render (garde le focus pendant la saisie)
 function deposeRateTxt(dep){ return dep.kmSup>0 ? `tarif ${fmt(dep.rPan)} €/m² (${fmt(dep.rPanBase)} + ${fmt(dep.kmSup)} distance)` : `tarif ${fmt(dep.rPan)} €/m²`; }
 function deposeKmInfoTxt(dep){
-  if(!(dep.km>0)) return `vide = tarif de base ${fmt(dep.rPanBase)} €/m²`;
-  return `${DEPOSE.lieuTrouve?esc(DEPOSE.lieuTrouve)+' · ':''}+ ${fmt(dep.kmSup)} €/m² → tarif ${fmt(dep.rPan)} €/m²`;
+  if(!(dep.km>0)) return `Sans distance : tarif de base ${fmt(dep.rPanBase)} €/m²`;
+  return `${DEPOSE.lieuTrouve?esc(DEPOSE.lieuTrouve)+' · ':''}${fmt(dep.km)} km → +${fmt(dep.kmSup)} €/m² → ${fmt(dep.rPan)} €/m²`;
 }
+function depSubTxt(m2,rPan){ return m2>0 ? fmt(r2(m2))+' m² · '+fmt(r2(rPan*m2))+' €' : '—'; }
 function syncDeposeTotals(){
   const dep0=calcDepose(); const rPan=dep0.rPan;
-  const ki=G('dep-km-info'); if(ki) ki.innerHTML=deposeKmInfoTxt(dep0);
-  ['cloisons','plafonds'].forEach(fam=>{ const e=G('dep-rate-'+fam); if(e) e.textContent=deposeRateTxt(dep0); });
+  const ki=G('dep-km-info'); if(ki){ ki.innerHTML=deposeKmInfoTxt(dep0); ki.classList.toggle('on', dep0.km>0); }
   ['cloisons','plafonds'].forEach(fam=>{
+    const e=G('dep-rate-'+fam); if(e) e.textContent=deposeRateTxt(dep0);
     let m2=0;
     (DEPOSE[fam]||[]).forEach(l=>{ const sf=depLineM2(l); m2+=sf;
       const c=G('dep-c-'+l.id); if(c){ if(depDims(l)){ c.value=String(sf); c.classList.add('is-calc'); } else c.classList.remove('is-calc'); }
       const b=G('dep-eur-'+l.id); if(b) b.textContent=fmt(r2(rPan*sf))+' €'; });
-    const sub=G('dep-sub-'+fam); if(sub) sub.textContent=fmt(r2(m2))+' m² — '+fmt(r2(rPan*m2))+' €';
+    const sub=G('dep-sub-'+fam); if(sub) sub.textContent=depSubTxt(m2,rPan);
+    const rc=G('dep-rec-'+fam); if(rc) rc.textContent=fmt(r2(m2))+' m²';
   });
-  const tot=G('dep-total'); if(tot) tot.textContent=fmt(calcDepose().total)+' €';
+  const tot=G('dep-total'); if(tot) tot.textContent=fmt(dep0.total)+' €';
 }
 const DEPOSE_COUL=['PCIP','PCIN','PCS']; // portes coulissantes ; le reste (hors CHASSIS/RIDEAU) = pivotant
 function deposeAuto(){
@@ -2391,46 +2426,44 @@ function renderDeposeCfg(){
   const el=G('dep-config'); if(!el) return;
   const dep=calcDepose();
   const rPan=dep.rPan, rCoul=parseFloat(G('depose-por-coul')?.value)||0, rPiv=parseFloat(G('depose-por-piv')?.value)||0;
-  const inp=(id,fam,field,val,pos,w,cls)=>`<input class="trv-qty${cls?' '+cls:''}" id="dep-${pos}-${id}" type="number" min="0" step="any" value="${esc(val==null?'':val)}" oninput="onDeposeInput('${fam}','${id}','${field}',this.value)" onchange="refreshAll()" style="width:${w||72}px">`;
-  const famille=(key,titre,vide,addLab,dA,dB)=>{
+  const inp=(id,fam,field,val,pos,cls)=>`<input class="dep-in${cls?' '+cls:''}" id="dep-${pos}-${id}" type="number" min="0" step="any" value="${esc(val==null?'':val)}" oninput="onDeposeInput('${fam}','${id}','${field}',this.value)" onchange="refreshAll()">`;
+  const step=(n,titre,hint,total,body)=>`<section class="dep-step"><div class="dep-step-head"><span class="dep-step-n">${n}</span><div><div class="dep-step-title">${titre}</div>${hint}</div>${total}</div>${body}</section>`;
+  const famille=(n,key,titre,single,addLab,dA,dB,legend)=>{
     const lines=DEPOSE[key]||[]; let m2=0;
-    let h=`<div class="dep-fam"><div class="dep-fam-head"><span>${titre} <span class="dep-rate" id="dep-rate-${key}">${deposeRateTxt(dep)}</span></span><button class="btn-sec-add outline trv-add" onclick="deposeAddLine('${key}')">+ ${addLab}</button></div>`;
-    if(!lines.length) h+=`<div class="trv-empty">${vide} — clique sur « + ${addLab} », puis saisis ${dA.u==='ml'?'longueur × hauteur':'longueur × largeur'} ou directement la surface en m².</div>`;
-    lines.forEach((l,n)=>{
-      const sf=depLineM2(l); m2+=sf; const calc=depDims(l);
-      h+=`<div class="trv-row dep-row"><span class="dep-n">${n+1}</span>`
-        +`${inp(l.id,key,dA.f,l[dA.f],'a')}<span class="dep-u">${dA.u}</span><span class="dep-x">×</span>${inp(l.id,key,dB.f,l[dB.f],'b')}<span class="dep-u">${dB.u}</span><span class="dep-x">=</span>`
-        +`${inp(l.id,key,'m2',calc?sf:l.m2,'c',80,'dep-m2-inp'+(calc?' is-calc':''))}<span class="dep-u">m²</span>`
-        +`<span class="trv-lt" id="dep-eur-${l.id}">${fmt(r2(rPan*sf))} €</span><button class="item-del" title="Supprimer cette ligne" onclick="deposeDelLine('${key}','${l.id}')">×</button></div>`;
-    });
-    if(lines.length) h+=`<div class="dep-sub"><span>Sous-total ${titre.toLowerCase()}</span><span id="dep-sub-${key}">${fmt(r2(m2))} m² — ${fmt(r2(rPan*m2))} €</span></div>`;
-    return h+`</div>`;
+    let rows=lines.map((l,i)=>{ const sf=depLineM2(l); m2+=sf; const calc=depDims(l);
+      return `<tr><td class="c-n">${i+1}</td><td>${inp(l.id,key,dA.f,l[dA.f],'a')}</td><td class="c-op">×</td><td>${inp(l.id,key,dB.f,l[dB.f],'b')}</td><td class="c-op">=</td><td>${inp(l.id,key,'m2',calc?sf:l.m2,'c','dep-m2'+(calc?' is-calc':''))}</td><td class="c-eur" id="dep-eur-${l.id}">${fmt(r2(rPan*sf))} €</td><td class="c-del"><button class="item-del" title="Supprimer cette ligne" onclick="deposeDelLine('${key}','${l.id}')">×</button></td></tr>`; }).join('');
+    if(!lines.length) rows=`<tr class="dep-empty"><td colspan="8">Aucun${single==='cloison'?'e':''} ${single} pour l'instant.</td></tr>`;
+    const body=`<table class="dep-table"><thead><tr><th class="c-n">#</th><th>${dA.lab} <em>${dA.u}</em></th><th class="c-op"></th><th>${dB.lab} <em>${dB.u}</em></th><th class="c-op"></th><th>Surface <em>m²</em></th><th class="c-eur">Montant</th><th class="c-del"></th></tr></thead><tbody>${rows}</tbody></table>`
+      +`<button class="dep-add" onclick="deposeAddLine('${key}')">+ ${addLab}</button>`+(legend?`<div class="dep-legend">${legend}</div>`:'');
+    return step(n,titre,`<div class="dep-step-hint" id="dep-rate-${key}">${deposeRateTxt(dep)}</div>`,`<span class="dep-step-total" id="dep-sub-${key}">${depSubTxt(m2,rPan)}</span>`,body);
   };
-  const porte=(lab,k,val,rate)=>`<div class="dep-door"><span style="flex:1">${lab} <span class="dep-rate">tarif ${fmt(rate)} €/u</span></span>
-      <input type="number" min="0" step="1" value="${val>0?val:''}" onchange="deposeSet('${k}',this.value)" class="sr-input" style="width:64px;text-align:right">
-      <span class="dep-u" style="width:16px">u</span><span class="trv-lt">${val>0?fmt(r2(rate*val))+' €':'—'}</span></div>`;
-  let h=`<div class="items-section" style="margin-top:0">
-    <div class="items-section-title" style="display:flex;justify-content:space-between;align-items:center;text-transform:none;padding:.45rem .75rem">
-      <span style="text-transform:uppercase;letter-spacing:.07em">Dépose de l'existant</span>
-      <button class="btn-sec-add outline" onclick="deposePrefill()" title="Une ligne par panneau du devis, avec ses dimensions">↺ Pré-remplir depuis le devis</button>
-    </div>`;
-  // Distance du chantier (interne) → majoration silencieuse du tarif m²
-  h+=`<div class="dep-fam"><div class="dep-fam-head"><span>Distance du chantier <span class="dep-rate">interne — n'apparaît pas sur le devis</span></span></div>
-    <div class="trv-row dep-row" style="flex-wrap:wrap">
-      <span class="dep-u">Ville / CP</span><input id="dep-lieu" type="text" value="${esc(DEPOSE.lieu||'')}" oninput="DEPOSE.lieu=this.value" style="width:170px">
-      <button class="btn-sec-add outline trv-add" onclick="deposeEstimerKm()" title="Vol d'oiseau depuis Clapiers ; reprend l'adresse du client si la ville est vide">Calculer la distance</button>
-      <input class="trv-qty" id="dep-km" type="number" min="0" step="1" value="${esc(DEPOSE.km==null?'':DEPOSE.km)}" oninput="DEPOSE.km=this.value; syncDeposeTotals()" onchange="refreshAll()" style="width:72px"><span class="dep-u">km</span>
-      <span class="dep-rate" id="dep-km-info">${deposeKmInfoTxt(dep)}</span>
-    </div></div>`;
-  h+=famille('cloisons','Cloisons','Aucune cloison à déposer','Ajouter une cloison',{f:'ml',u:'ml'},{f:'h',u:'m haut.'});
-  h+=famille('plafonds','Plafonds','Aucun plafond à déposer','Ajouter un plafond',{f:'L',u:'m long.'},{f:'l',u:'m larg.'});
-  h+=`<div class="dep-fam"><div class="dep-fam-head"><span>Portes</span></div>`;
-  h+=porte('Porte coulissante','porCoul',dep.q.porCoul,rCoul);
-  h+=porte('Porte pivotante','porPiv',dep.q.porPiv,rPiv);
-  h+=`</div>`;
-  if(dep.total>0) h+=`<div class="total-row" style="padding-top:.5rem"><span class="total-label">Total dépose</span><span class="total-value" id="dep-total" style="font-size:16px">${fmt(dep.total)} €</span></div>`;
-  else h+=`<div class="trv-empty">Rien à déposer pour l'instant : ajoute des cloisons / plafonds ligne par ligne, ou « Pré-remplir depuis le devis ».</div>`;
-  h+=`</div>`;
+  let h=`<div class="dep-wrap">
+    <div class="dep-head"><div><div class="dep-title">Dépose de l'existant</div><div class="dep-sub-title">Une ligne par élément à déposer. La distance du chantier ajuste le tarif au m² sans apparaître sur le devis.</div></div>
+      <button class="btn-sec-add outline" onclick="deposePrefill()" title="Une ligne par panneau du devis, avec ses dimensions">↺ Pré-remplir depuis le devis</button></div>`;
+  // 1 · Distance du chantier (interne)
+  h+=step(1,'Distance du chantier',`<div class="dep-step-hint">Usage interne : n'apparaît jamais sur le devis.</div>`,'',
+    `<div class="dep-km-row">
+      <label class="dep-field dep-field-grow"><span>Ville ou code postal du chantier</span><input id="dep-lieu" type="text" value="${esc(DEPOSE.lieu||'')}" oninput="DEPOSE.lieu=this.value" class="dep-in dep-in-text"></label>
+      <button class="dep-btn" onclick="deposeEstimerKm()" title="Vol d'oiseau depuis Clapiers ; reprend l'adresse du client si la ville est vide">Calculer la distance</button>
+      <label class="dep-field"><span>Distance retenue</span><span class="dep-inline"><input class="dep-in" id="dep-km" type="number" min="0" step="1" value="${esc(DEPOSE.km==null?'':DEPOSE.km)}" oninput="DEPOSE.km=this.value; syncDeposeTotals()" onchange="refreshAll()"><em>km</em></span></label>
+      <div class="dep-km-badge${dep.km>0?' on':''}" id="dep-km-info">${deposeKmInfoTxt(dep)}</div>
+    </div>`);
+  // 2 · Cloisons  3 · Plafonds
+  h+=famille(2,'cloisons','Cloisons à déposer','cloison','Ajouter une cloison',{f:'ml',lab:'Longueur',u:'ml'},{f:'h',lab:'Hauteur',u:'m'},"La surface se calcule depuis les dimensions (case grisée). Tu peux aussi la taper directement : les dimensions s'effacent.");
+  h+=famille(3,'plafonds','Plafonds à déposer','plafond','Ajouter un plafond',{f:'L',lab:'Longueur',u:'m'},{f:'l',lab:'Largeur',u:'m'},'');
+  // 4 · Portes
+  const porte=(lab,k,val,rate)=>`<tr><td>${lab}</td><td><input class="dep-in" type="number" min="0" step="1" value="${val>0?val:''}" onchange="deposeSet('${k}',this.value)"></td><td class="c-rate">${fmt(rate)} €/u</td><td class="c-eur">${val>0?fmt(r2(rate*val))+' €':'—'}</td></tr>`;
+  const nbPortes=(dep.q.porCoul||0)+(dep.q.porPiv||0), totPortes=r2(dep.q.porCoul*rCoul+dep.q.porPiv*rPiv);
+  h+=step(4,'Portes à déposer',`<div class="dep-step-hint">Nombre par type, tarif unitaire (sans supplément distance).</div>`,`<span class="dep-step-total" id="dep-sub-portes">${nbPortes>0?nbPortes+' porte'+(nbPortes>1?'s':'')+' · '+fmt(totPortes)+' €':'—'}</span>`,
+    `<table class="dep-table dep-table-doors"><thead><tr><th>Type</th><th>Quantité</th><th>Tarif</th><th class="c-eur">Montant</th></tr></thead><tbody>${porte('Porte coulissante','porCoul',dep.q.porCoul,rCoul)}${porte('Porte pivotante','porPiv',dep.q.porPiv,rPiv)}</tbody></table>`);
+  // Récap
+  const t=deposeTotaux();
+  h+=`<div class="dep-recap">
+    <div class="dep-recap-item"><span>Cloisons</span><strong id="dep-rec-cloisons">${fmt(t.cloisonM2)} m²</strong></div>
+    <div class="dep-recap-item"><span>Plafonds</span><strong id="dep-rec-plafonds">${fmt(t.plafondM2)} m²</strong></div>
+    <div class="dep-recap-item"><span>Portes</span><strong>${nbPortes}</strong></div>
+    <div class="dep-recap-total"><span>Total dépose HT</span><strong id="dep-total">${fmt(dep.total)} €</strong></div>
+  </div></div>`;
   el.innerHTML=h;
 }
 
