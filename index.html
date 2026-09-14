@@ -5116,6 +5116,7 @@ function genPDF(){
   y+=7;
 
   const totX=MR-65, totW=65;
+  const yTop=y; // haut du bloc totaux : le bon pour accord s'aligne dessus, dans la colonne de gauche
 
   function totRow(label,val,dark){
     const rh=7;
@@ -5126,26 +5127,51 @@ function genPDF(){
     y+=rh;
   }
 
-  // Conditions à gauche
-  sf(false,7.5,GREY);
-  ['Validité du devis : 30 jours','Délai panneaux et portes : 3 à 6 semaines','Conditions : 40% à la commande, solde fin de chantier'].forEach((t,i)=>{
-    doc.text(t, ML, y+i*4.5);
-  });
-
   if(remisePdf.on){ totRow('Total HT avant remise', fn(remisePdf.totAvant)); totRow(remisePdf.label, '- '+fn(remisePdf.montant)); }
   totRow('Total HT', fn(totAvecTr));
   totRow('TVA 20 %', fn(tva));
   y+=1;
   totRow('TOTAL TTC', fn(ttc), true);
+  const yTotEnd=y;
 
-  // ── BON POUR ACCORD ──────────────────────────────────────
-  if(y>248){doc.addPage();y=15;}
-  y+=8;
+  // Paragraphe avec passages en gras (jsPDF n'a pas de gras inline) : placement mot à mot avec retour à la ligne
+  function drawRich(segs, x, y0, maxW, size, lh, color){
+    let cx=x, cy=y0;
+    doc.setFont('helvetica','normal'); doc.setFontSize(size); const space=doc.getTextWidth(' ');
+    segs.forEach(sg=>{
+      sg.t.split(/[ \t\r\n]+/).filter(Boolean).forEach(w=>{ // l'espace insécable (U+00A0) reste dans le mot
+        doc.setFont('helvetica', sg.b?'bold':'normal'); doc.setFontSize(size); doc.setTextColor(...color);
+        const ww=doc.getTextWidth(w);
+        if(cx>x && cx+ww>x+maxW){ cx=x; cy+=lh; }
+        doc.text(w, cx, cy); cx+=ww+space;
+      });
+    });
+    return cy;
+  }
+
+  // ── BON POUR ACCORD : colonne de gauche, à hauteur des totaux ──
+  const bpaX=ML, bpaW=totX-ML-8;
+  let yb=drawRich([{t:'Bon pour accord —', b:true},{t:'Le client reconnaît avoir pris connaissance des conditions ci-dessous et les accepte sans réserve. Date, tampon et signature :'}], bpaX, yTop+2, bpaW, 7.5, 3.6, DGREY);
+  yb+=3;
   const bpaH=22;
-  strokeR(ML, y, TW, bpaH, [221,219,215], 0.5);
-  sf(true,8,NAVY); doc.text('Pour le client', ML+4, y+6);
-  sf(false,7.5,GREY); doc.text('Mention : "Bon pour accord"  |  Tampon — Signature', ML+4, y+11);
-  y+=bpaH+8;
+  strokeR(bpaX, yb, bpaW, bpaH, [221,219,215], 0.5);
+  sf(false,7,GREY); doc.text('Pour le client', bpaX+4, yb+5);
+  yb+=bpaH;
+  y=Math.max(yTotEnd, yb);
+
+  // ── CONDITIONS DE VENTE (en attendant de vraies CGV) ─────
+  // Texte validé par Clément (14/09/2026). Point clé en gras : payables à réception de facture.
+  const CGV_SEGS=[
+    {t:"Validité du devis : 30 jours. Délai de commande des panneaux et portes : 3 à 6 semaines, indicatif. Acompte de 40 % à la commande ; situations mensuelles et solde en fin de chantier,"},
+    {t:"payables à réception de facture.", b:true},
+    {t:"Tout retard de paiement entraîne des pénalités au taux de trois fois l'intérêt légal et une indemnité forfaitaire de 40 € pour frais de recouvrement (art. L441-10 du Code de commerce). Les travaux non prévus au présent devis font l'objet d'un devis complémentaire. Les fournitures restent la propriété de MYS PRO jusqu'au complet paiement. Tout litige relève du tribunal de commerce de Montpellier."}
+  ];
+  y+=7;
+  if(y>236){doc.addPage();y=15;}
+  hline(y, [221,219,215], 0.5); y+=5;
+  sf(true,8,NAVY); doc.text('Conditions de vente', ML, y); y+=4.2;
+  y=drawRich(CGV_SEGS, ML, y, TW, 7, 3.4, GREY);
+  y+=8;
 
   // ── PIED DE PAGE toutes pages ─────────────────────────────
   const pc=doc.internal.getNumberOfPages();
