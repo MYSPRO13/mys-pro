@@ -2024,6 +2024,19 @@ function togglePwd(){
     </div>
   </div>
 
+  <!-- Remise commerciale PROPRE À CE DEVIS : total HT arrondi cible ou montant à déduire ; ligne dédiée sur le devis. -->
+  <button class="collapse-btn" onclick="togCollapse('remise')">Remise commerciale<span class="collapse-arrow" id="arr-remise">▼</span></button>
+  <div class="collapse-body" id="body-remise">
+    <div class="sr-row" style="padding-top:.5rem"><span class="sr-label">Mode</span>
+      <select class="sr-input" id="remise-mode" onchange="remiseInput()" style="width:150px;text-align:left">
+        <option value="arrondi">Total HT arrondi à</option>
+        <option value="montant">Montant à déduire</option>
+      </select></div>
+    <div class="sr-row"><span class="sr-label" id="remise-val-label">Total HT cible</span><span><input class="sr-input" id="remise-val" type="number" min="0" step="10" oninput="remiseInput()"><span class="sr-unit">€</span></span></div>
+    <div class="sr-row"><span class="sr-label">Libellé</span><input class="sr-input" id="remise-label" type="text" value="Remise commerciale" oninput="remiseInput()" style="width:150px;text-align:left"></div>
+    <div class="sr-row" style="font-size:11px;color:var(--text3);padding:2px 0 8px;line-height:1.4" id="remise-info">Vide = pas de remise.</div>
+  </div>
+
   <!-- Prix panneaux PIR PROPRES À CE DEVIS : override de la base globale (vide = tarif de base). -->
   <button class="collapse-btn" onclick="togCollapse('px')">Prix achat panneaux PIR — ce devis<span class="collapse-arrow" id="arr-px">▼</span></button>
   <div class="collapse-body" id="body-px">
@@ -2237,6 +2250,40 @@ const ISO_SOL = { achat:18.40, pose:6.00, couches:2, colisM2:3.75, plaquesParCol
 // Tarif = prix de vente direct (pas de coef). Quantités pré-remplies depuis le devis, modifiables.
 // Dépose de l'existant, par devis : lignes de cloisons (longueur × hauteur), lignes de plafonds (longueur × largeur),
 // portes en nombre. Une ligne {m2} = surface saisie directement (reprise d'un ancien devis).
+// Remise commerciale, propre au devis : mode 'arrondi' (total HT cible) ou 'montant' (somme déduite).
+// Appliquée après tous les postes (produits + annexes + travaux + dépose), avant TVA. Réduit la marge interne.
+let REMISE=remiseEmpty();
+function remiseEmpty(){ return {mode:'arrondi', val:'', label:'Remise commerciale'}; }
+function remiseLoad(r){ if(!r||typeof r!=='object') return remiseEmpty(); return {mode:(r.mode==='montant'?'montant':'arrondi'), val:(r.val==null?'':r.val), label:(r.label||'Remise commerciale')}; }
+function remisePayload(){ return {mode:REMISE.mode, val:REMISE.val, label:REMISE.label}; }
+function calcRemise(totAvant){
+  totAvant=+totAvant||0;
+  const label=(REMISE.label||'').trim()||'Remise commerciale';
+  const v=parseFloat(REMISE.val);
+  const base={on:false, montant:0, label, mode:REMISE.mode, totAvant:r2(totAvant), totNet:r2(totAvant), depasse:false};
+  if(isNaN(v)||v<0||!(totAvant>0)) return base;
+  let m=(REMISE.mode==='arrondi') ? totAvant-v : v;
+  if(m<=0){ base.depasse=(REMISE.mode==='arrondi'&&v>=totAvant); return base; }
+  if(m>totAvant) m=totAvant; // garde-fou : jamais plus que le total
+  m=r2(m);
+  return {on:true, montant:m, label, mode:REMISE.mode, totAvant:r2(totAvant), totNet:r2(totAvant-m), depasse:false};
+}
+function remiseInput(){ // saisie dans la barre latérale → modèle → recalcul
+  const md=G('remise-mode'), v=G('remise-val'), l=G('remise-label');
+  REMISE={mode:(md&&md.value==='montant')?'montant':'arrondi', val:v?v.value:'', label:l?l.value:'Remise commerciale'};
+  refreshAll();
+}
+function remiseApplyToUI(){ // modèle → champs (chargement, nouveau devis)
+  const md=G('remise-mode'), v=G('remise-val'), l=G('remise-label');
+  if(md) md.value=REMISE.mode; if(v) v.value=(REMISE.val==null?'':REMISE.val); if(l) l.value=REMISE.label||'Remise commerciale';
+}
+function remiseInfoUpdate(rem){ // textes d'aide (jamais les valeurs saisies)
+  const lab=G('remise-val-label'); if(lab) lab.textContent=(REMISE.mode==='arrondi')?'Total HT cible':'Montant';
+  const info=G('remise-info'); if(!info) return;
+  if(rem.on) info.innerHTML=`Remise : <b>${fmt(rem.montant)} €</b> → Total HT ${fmt(rem.totNet)} € (avant remise ${fmt(rem.totAvant)} €).`;
+  else if(rem.depasse) info.textContent='Cible supérieure ou égale au total actuel : aucune remise appliquée.';
+  else info.textContent='Vide = pas de remise. Elle apparaît sur le devis juste au-dessus du Total HT.';
+}
 let DEPOSE=deposeEmpty();
 // Barème distance → supplément €/m² sur la dépose cloisons/plafonds (interne : le devis ne montre que le tarif final).
 // Chaque ligne = « jusqu'à max km » ; la dernière (max null) = au-delà. Modifiable dans Paramètres › Divers, enregistré avec les prix.
@@ -2701,7 +2748,7 @@ function cpv(it,p){
 // ── Marge interne (jamais montrée au client) ──────────────────
 // Sépare la marge FERME (lignes au coût connu : achat + pose + acc) de la part
 // FLOUE (lignes dont le coût d'achat n'est pas renseigné → marge incalculable).
-function calcMarge(p){
+function calcMarge(p, remiseMontant){
   let vFerme=0, cFerme=0, vFlou=0; const flou=[];
   items.forEach(it=>{
     const v=cpv(it,p);
@@ -2740,7 +2787,7 @@ function calcMarge(p){
   if(trv>0){ vFlou+=trv; flou.push('Travaux spécifiques — '+fmt(trv)+' € (coût non renseigné)'); }
   const dep=calcDepose();
   if(dep.total>0){ vFerme+=dep.total; cFerme+=dep.costTotal; } // dépose : revenu = prix de vente, coût = part poseur (tarif ÷ coef)
-  const marge=vFerme-cFerme;
+  const marge=vFerme-cFerme-(+remiseMontant||0); // la remise commerciale vient en déduction de la marge
   const pct=vFerme>0?marge/vFerme*100:0;
   return {vFerme,cFerme,marge,pct,vFlou,flou};
 }
@@ -3709,8 +3756,11 @@ function refreshAll(){
   const manuClient = G('manu-client')?.checked;
   const trvHT      = travauxHT();
   const dep        = calcDepose();
-  const totAvecTr  = tot + tr.trNet + evac + manu + journeeForfait + trvHT + dep.total;
+  const totAvant   = tot + tr.trNet + evac + manu + journeeForfait + trvHT + dep.total;
+  const remise     = calcRemise(totAvant);
+  const totAvecTr  = remise.totNet; // total HT après remise commerciale
   const tva = totAvecTr * .2;
+  try{ remiseInfoUpdate(remise); }catch(e){}
   const surfTot=items.filter(i=>i.type==='pan').reduce((s,i)=>s+i.surf,0);
   const porTot=items.filter(i=>i.type==='por').length;
   ['stat-surf','stat-surf2'].forEach(id=>{const e=G(id);if(e)e.textContent=surfTot>0?fmt(surfTot)+' m²':'0 m²';});
@@ -3774,17 +3824,22 @@ function refreshAll(){
         else if(manu>0) h+=`<div style="display:flex;justify-content:space-between;padding:2px 0;color:var(--text2)"><span>Manutention & Déchargement</span><span style="color:var(--text)">${fmt(manu)} €</span></div>`;
         h+=`</div>`;
       }
+      if(!devisVide() && remise.on){
+        h+=`<div class="total-row" style="padding-top:.625rem"><span class="total-label" style="color:var(--text2)">Total HT avant remise</span><span class="total-value" style="font-size:14px;color:var(--text2)">${fmt(remise.totAvant)} €</span></div>`;
+        h+=`<div class="total-row"><span class="total-label" style="color:var(--red)">${esc(remise.label)}</span><span class="total-value" style="font-size:14px;color:var(--red)">− ${fmt(remise.montant)} €</span></div>`;
+      }
       if(!devisVide()) h+=`<div class="total-row" style="padding-top:.625rem"><span class="total-label" style="font-weight:600">Total HT</span><span class="total-value" id="tot-ht-val">${fmt(totAvecTr)} €</span></div>`;
       if(items.length) h+=`<div class="total-row" style="border-top:1px dashed var(--border);padding-top:.5rem;margin-top:.5rem"><span class="total-label" style="color:var(--text2)">Prix de pose global<span style="color:var(--text3);font-size:11px"> — main d'œuvre, indicatif</span></span><span class="total-value" id="pose-glob-val" style="font-size:15px;color:var(--text2)">${fmt(poseGlobale())} €</span></div>`;
       // ── Marge interne (uniquement dans l'app, jamais sur le devis/PDF client) ──
       if(!devisVide()){
-        const mg=calcMarge(p);
+        const mg=calcMarge(p, remise.montant);
         h+=`<div class="marge-box"><div class="marge-head sec-tog" onclick="togSec('edit_marge')"><span>${secFold.edit_marge?'▾':'▸'} 🔒 Marge interne</span><span class="marge-badge">non visible client</span></div>`;
         if(secFold.edit_marge){
           h+=`<div class="marge-body">`;
           h+=`<div class="marge-row big"><span>Marge ferme</span><span style="color:${mg.marge>=0?'var(--green)':'var(--red)'}">${fmt(mg.marge)} €${mg.vFerme>0?` <span style="font-size:12px;font-weight:500">(${mg.pct.toFixed(1).replace('.',',')} %)</span>`:''}</span></div>`;
           h+=`<div class="marge-row"><span>Vente ferme HT</span><span>${fmt(mg.vFerme)} €</span></div>`;
           h+=`<div class="marge-row"><span>Coût estimé (achat + pose + accessoires)</span><span>${fmt(mg.cFerme)} €</span></div>`;
+          if(remise.on) h+=`<div class="marge-row"><span>${esc(remise.label)} (déduite de la marge)</span><span style="color:var(--red)">− ${fmt(remise.montant)} €</span></div>`;
           if(mg.flou.length){
             h+=`<div class="marge-flou">⚠ Part floue : ${mg.flou.length} ligne${mg.flou.length>1?'s':''} au coût inconnu${mg.vFlou>0?` — CA ${fmt(mg.vFlou)} €`:''}</div>`;
             h+=mg.flou.map(f=>`<div class="marge-flou-line">· ${esc(f)}</div>`).join('');
@@ -3823,6 +3878,7 @@ function refreshAll(){
         </table>
         <div class="apercu-totaux">
           ${buildApercuAnnexes(tr, evac, manu, manuClient, items, p)}
+          ${remise.on?`<div class="ap-tot-row" style="padding-top:5px;border-top:1px solid var(--border2);margin-top:4px"><span>Total HT avant remise</span><span>${fmt(remise.totAvant)} €</span></div><div class="ap-tot-row" style="color:var(--red)"><span>${esc(remise.label)}</span><span>− ${fmt(remise.montant)} €</span></div>`:''}
           <div class="ap-tot-row" style="font-weight:500;padding-top:5px;border-top:1px solid var(--border2);margin-top:4px"><span>Total HT</span><span>${fmt(totAvecTr)} €</span></div>
           <div class="ap-tot-row"><span>TVA 20 %</span><span>${fmt(tva)} €</span></div>
           <div class="ap-tot-final"><span>Total TTC</span><span>${fmt(totAvecTr+tva)} €</span></div>
@@ -4014,7 +4070,7 @@ function syncTravauxTotals(){
   const journeeForfait=p.mode==='journee'?p.journeePx:0;
   const tr=calcTransport(p,items), evac=calcEvacuation(p), manu=calcManutention(p);
   const trvHT=travauxHT();
-  const totAvecTr=tot+tr.trNet+evac+manu+journeeForfait+trvHT+calcDepose().total;
+  const totAvecTr=calcRemise(tot+tr.trNet+evac+manu+journeeForfait+trvHT+calcDepose().total).totNet;
   const tva=totAvecTr*.2;
   travaux.forEach(l=>{const e=G('trv-lt-'+l.id);if(e)e.textContent=fmt((parseFloat(l.qty)||0)*(parseFloat(l.pu)||0))+' €';});
   const sumE=G('trv-sum'); if(sumE) sumE.textContent=fmt(trvHT)+' €';
@@ -5050,7 +5106,8 @@ function genPDF(){
   if(y>220){doc.addPage();y=15;}
   const tot=items.reduce((s,it)=>s+cpv(it,p),0);
   const trvHT=travauxHT();
-  const totAvecTr=tot+tr.trNet+evac+manu+journeeForfait+trvHT+depPdf.total;
+  const remisePdf=calcRemise(tot+tr.trNet+evac+manu+journeeForfait+trvHT+depPdf.total);
+  const totAvecTr=remisePdf.totNet;
   const tva=totAvecTr*0.20;
   const ttc=totAvecTr+tva;
 
@@ -5075,6 +5132,7 @@ function genPDF(){
     doc.text(t, ML, y+i*4.5);
   });
 
+  if(remisePdf.on){ totRow('Total HT avant remise', fn(remisePdf.totAvant)); totRow(remisePdf.label, '- '+fn(remisePdf.montant)); }
   totRow('Total HT', fn(totAvecTr));
   totRow('TVA 20 %', fn(tva));
   y+=1;
@@ -5413,7 +5471,7 @@ function saveDraft(){
   const num=G('devis-num')?.textContent||''; if(!num) return;
   const o=readDrafts();
   o[num]={ ts:Date.now(), num, projet:G('projet-nom')?.value||'', items:items, travaux:travaux, client:curClient,
-    pp:G('pp')?.value, pa:G('pa')?.value, pc:G('pc')?.value, pxOverride:PXOV, trManual:trManual, trTotal:G('tr-total')?.value,
+    pp:G('pp')?.value, pa:G('pa')?.value, pc:G('pc')?.value, pxOverride:PXOV, trManual:trManual, trTotal:G('tr-total')?.value, remise:remisePayload(),
     evBase:G('ev-base')?.value, manuBase:G('manu-base')?.value, manuClient:G('manu-client')?.checked,
     poseMode:document.querySelector('input[name="pose-mode"]:checked')?.value, journeePx:G('journee-px')?.value, depose:DEPOSE };
   const keys=Object.keys(o).sort((a,b)=>(o[b].ts||0)-(o[a].ts||0)); keys.slice(30).forEach(k=>delete o[k]); // garder les 30 plus récents
@@ -5446,6 +5504,7 @@ function restoreDraft(d){
   if(G('manu-client')) G('manu-client').checked=!!d.manuClient;
   if(d.poseMode){ const r=document.querySelector('input[name="pose-mode"][value="'+d.poseMode+'"]'); if(r) r.checked=true; }
   if(G('journee-px')&&d.journeePx!=null&&d.journeePx!=='') G('journee-px').value=d.journeePx;
+  REMISE=remiseLoad(d.remise); remiseApplyToUI();
   if(curClient) setClient(curClient); else clearClient();
   refreshAll(); renderAccList();
 }
@@ -5553,7 +5612,7 @@ async function sauvegarderDevis(opts){
   const deposeSave = calcDepose();
   const trvHT = travauxHT();                                   // travaux spécifiques
   const journeeForfait = p.mode==='journee' ? p.journeePx : 0; // forfait journée
-  const totAvecTr = tot + tr.trNet + evac + manu + journeeForfait + trvHT + deposeSave.total; // même formule que refreshAll/genPDF
+  const totAvecTr = calcRemise(tot + tr.trNet + evac + manu + journeeForfait + trvHT + deposeSave.total).totNet; // même formule que refreshAll/genPDF (après remise)
   let num = G('devis-num').textContent;
   const payload = {
     numero: num,
@@ -5561,7 +5620,7 @@ async function sauvegarderDevis(opts){
     client: curClient,
     projet_nom: G('projet-nom')?.value||'',
     items: items,
-    params: { pose: parseFloat(G('pp')?.value)||18, acc: parseFloat(G('pa')?.value)||6, coef: parseFloat(G('pc')?.value)||1.5, depose: deposePayload(), pxOverride: PXOV, evBase: valOr('ev-base',EVMANU_DEF.ev), manuBase: valOr('manu-base',EVMANU_DEF.manu), manuClient: G('manu-client')?.checked||false, poseMode: document.querySelector('input[name="pose-mode"]:checked')?.value||'budget', journeePx: valOr('journee-px',POSE_DEF.px), travaux: travaux },
+    params: { pose: parseFloat(G('pp')?.value)||18, acc: parseFloat(G('pa')?.value)||6, coef: parseFloat(G('pc')?.value)||1.5, depose: deposePayload(), pxOverride: PXOV, evBase: valOr('ev-base',EVMANU_DEF.ev), manuBase: valOr('manu-base',EVMANU_DEF.manu), manuClient: G('manu-client')?.checked||false, poseMode: document.querySelector('input[name="pose-mode"]:checked')?.value||'budget', journeePx: valOr('journee-px',POSE_DEF.px), travaux: travaux, remise: remisePayload() },
     transport: tr,
     evacuation: evac,
     manutention: { base: parseFloat(G('manu-base')?.value)||600, client: G('manu-client')?.checked||false, total: manu },
@@ -5787,7 +5846,7 @@ async function telechargerDevisPDF(id){
   if(!data||!data.length){ showToast('Devis introuvable', true); return; }
   const d=data[0];
   // On génère le PDF du devis sauvegardé sans écraser le devis en cours de travail
-  const bak={items:items, curClient:curClient, trManual:trManual, trTotal:G('tr-total')?G('tr-total').value:'', pxov:PXOV, dep:DEPOSE, trv:travaux,
+  const bak={items:items, curClient:curClient, trManual:trManual, trTotal:G('tr-total')?G('tr-total').value:'', pxov:PXOV, dep:DEPOSE, rem:REMISE, trv:travaux,
     projet:G('projet-nom')?G('projet-nom').value:'', num:G('devis-num')?G('devis-num').textContent:'',
     pp:G('pp')?G('pp').value:'', pa:G('pa')?G('pa').value:'', pc:G('pc')?G('pc').value:'',
     ev:G('ev-base')?G('ev-base').value:'', mn:G('manu-base')?G('manu-base').value:'', mc:G('manu-client')?G('manu-client').checked:false};
@@ -5799,6 +5858,7 @@ async function telechargerDevisPDF(id){
     trManual=!!(d.transport&&d.transport.trManual); if(trManual&&G('tr-total')) G('tr-total').value=d.transport.trNet;
     PXOV=(d.params&&d.params.pxOverride&&typeof d.params.pxOverride==='object')?Object.assign({},d.params.pxOverride):{};
     DEPOSE=deposeLoad(d.params&&d.params.depose); // la dépose du devis enregistré, pas celle du devis en cours
+    REMISE=remiseLoad(d.params&&d.params.remise);
     {const _p=d.params||{}; if(G('ev-base'))G('ev-base').value=(_p.evBase!=null)?_p.evBase:EVMANU_DEF.ev; if(G('manu-base'))G('manu-base').value=(_p.manuBase!=null)?_p.manuBase:EVMANU_DEF.manu; if(G('manu-client'))G('manu-client').checked=!!_p.manuClient;}
     if(G('pp'))G('pp').value=(d.params&&d.params.pose)||DEFAULT_PARAMS.pp; if(G('pa'))G('pa').value=(d.params&&d.params.acc)||DEFAULT_PARAMS.pa; if(G('pc'))G('pc').value=(d.params&&d.params.coef)||DEFAULT_PARAMS.pc;
     if(G('projet-nom'))G('projet-nom').value=d.projet_nom||'';
@@ -5809,7 +5869,7 @@ async function telechargerDevisPDF(id){
   finally{
     items=bak.items; travaux=bak.trv; curClient=bak.curClient; trManual=bak.trManual; PXOV=bak.pxov;
     if(G('tr-total')) G('tr-total').value=bak.trTotal;
-    DEPOSE=bak.dep;
+    DEPOSE=bak.dep; REMISE=bak.rem; remiseApplyToUI();
     if(G('ev-base'))G('ev-base').value=bak.ev; if(G('manu-base'))G('manu-base').value=bak.mn; if(G('manu-client'))G('manu-client').checked=bak.mc;
     if(G('projet-nom'))G('projet-nom').value=bak.projet;
     if(G('devis-num'))G('devis-num').textContent=bak.num;
@@ -5847,6 +5907,7 @@ async function chargerDevis(id){
     if(G('manu-client')) G('manu-client').checked = !!_prm.manuClient;
     { const pm=_prm.poseMode||POSE_DEF.mode; const r=document.querySelector('input[name="pose-mode"][value="'+pm+'"]'); if(r) r.checked=true; }
     if(G('journee-px')) G('journee-px').value = (_prm.journeePx!=null) ? _prm.journeePx : POSE_DEF.px;
+    REMISE=remiseLoad(_prm.remise); remiseApplyToUI();
     if(G('projet-nom')) G('projet-nom').value = d.projet_nom||'';
     // Numéro
     G('devis-num').textContent = d.numero;
@@ -5878,6 +5939,7 @@ async function nouveauDevis(force){
   if(G('manu-client')) G('manu-client').checked = false;
   { const r=document.querySelector('input[name="pose-mode"][value="'+POSE_DEF.mode+'"]'); if(r) r.checked=true; }
   if(G('journee-px')) G('journee-px').value = POSE_DEF.px;
+  REMISE=remiseEmpty(); remiseApplyToUI();
   curClient = null;
   if(G('projet-nom')) G('projet-nom').value = '';
   if(G('pp')) G('pp').value = DEFAULT_PARAMS.pp;
