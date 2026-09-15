@@ -736,6 +736,38 @@ body {
 .dep-recap-item strong { font-family: 'DM Mono', monospace; color: var(--text); font-weight: 600; font-size: 13px; }
 .dep-recap-total { margin-left: auto; display: flex; align-items: baseline; gap: 12px; color: var(--text2); }
 .dep-recap-total strong { font-family: 'DM Mono', monospace; font-size: 18px; color: var(--blue); }
+/* Commande accessoires : 3 étapes (métré → quantités par fournisseur → bons de commande) */
+.cmdacc-stats { display: flex; gap: 14px; font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; white-space: nowrap; }
+.cmdacc-warn { font-size: 12px; color: var(--orange); margin: -2px 0 8px; }
+.cmdacc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 10px 18px; margin-bottom: 12px; }
+.cmdacc-fld { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--text3); }
+.cmdacc-fld > span:first-child { font-weight: 600; text-transform: uppercase; letter-spacing: .05em; font-size: 10px; }
+.cmdacc-fld .dep-in { width: 88px; }
+.cmdacc-sub { font-size: 12px; font-weight: 600; margin: 10px 0 6px; }
+.cmdacc-fou { border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: .5rem .7rem .6rem; margin-top: 10px; background: var(--bg2); }
+.cmdacc-fou-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+.cmdacc-fou-name { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--blue); }
+.cmdacc-fou-count { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; }
+.cmdacc-table { background: var(--surface); border-radius: var(--radius-sm); }
+.cmdacc-table td, .cmdacc-table th { padding: 5px 8px; }
+.cmdacc-nom { font-weight: 500; }
+.cmdacc-calc { font-size: 11px; color: var(--text3); }
+.cmdacc-table .c-q { width: 100px; text-align: right; }
+.cmdacc-q { width: 76px; }
+.cmdacc-q.is-ov { border-color: var(--orange); background: rgba(245,158,11,.07); }
+.cmdacc-fixed { font-family: 'DM Mono', monospace; font-weight: 600; white-space: nowrap; }
+.cmdacc-cond { font-size: 11px; color: var(--text3); white-space: nowrap; }
+.cmdacc-src { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--blue); background: rgba(41,35,92,.08); border-radius: 999px; padding: 1px 6px; margin-left: 4px; vertical-align: middle; }
+.cmdacc-modes-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.cmdacc-chip { font-size: 11px; padding: 4px 11px; border-radius: 999px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text2); font-family: 'DM Sans', sans-serif; }
+.cmdacc-chip.on { border-color: var(--blue); background: rgba(41,35,92,.08); color: var(--blue); font-weight: 600; }
+.cmdacc-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.cmdacc-btns .btn { font-size: 12px; padding: 7px 12px; }
+.cmdacc-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; border-top: 1px solid var(--border2); padding-top: 10px; }
+.cmdacc-span { grid-column: 1 / -1; }
+.cmdacc-sel { width: 100%; text-align: left; }
+.cmdacc-ta { min-height: 46px; resize: vertical; font-family: 'DM Sans', sans-serif; }
+.cmdacc-single { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border2); }
 /* ── Adresse de livraison structurée (fiches commande) ── */
 .cmd-inp { width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; font-family: 'DM Sans', sans-serif; background: var(--surface); color: var(--text); }
 .cmd-adr-grid { display: grid; grid-template-columns: 96px 1fr; gap: 8px; }
@@ -1618,49 +1650,42 @@ function togglePwd(){
     </div>
   </div>
 
-  <!-- PAGE CMD ACC -->
+  <!-- PAGE CMD ACC : 1 métré → 2 quantités par fournisseur (métré + devis + bastaing) → 3 bons de commande -->
   <div id="page-cmdacc" class="page-content" style="display:none">
     <div class="card">
-      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;gap:12px">
         <div class="card-title">Commande accessoires</div>
-        <button class="btn btn-green" onclick="cmdAccGenererTout()" style="font-size:12px;padding:6px 14px">Générer PDF</button>
+        <div id="cmdacc-stats" class="cmdacc-stats"></div>
       </div>
       <div class="card-body">
-        <div id="cmd-acc-form" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem">
-          <div>
-            <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Fournisseur</label>
-            <select id="cmd-acc-fou" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text)">
-              <option value="">— Sélectionner —</option>
-            </select>
-          </div>
-          <div>
-            <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Type de document</label>
-            <select id="cmd-acc-type" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text)">
-              <option value="Demande de prix">Demande de prix</option>
-              <option value="Commande">Commande</option>
-              <option value="Devis">Devis</option>
-            </select>
-          </div>
-          <div style="grid-column:1/-1">
-            <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Adresse de livraison<a class="cmd-adr-link" onclick="cmdAdrFromClient('acc')">↓ reprendre l'adresse du client</a></label>
-            <div class="cmd-adr-grid">
-              <input type="text" class="cmd-inp full" id="cmd-acc-adr-bat" placeholder="Bâtiment / complément (facultatif)">
-              <input type="text" class="cmd-inp full" id="cmd-acc-adr-rue" placeholder="N° et rue">
-              <input type="text" class="cmd-inp" id="cmd-acc-adr-cp" placeholder="CP">
-              <input type="text" class="cmd-inp" id="cmd-acc-adr-ville" placeholder="Ville">
-            </div>
-          </div>
-          <div>
-            <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Date de livraison souhaitée</label>
-            <input type="date" id="cmd-acc-date" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text)">
-          </div>
-          <div style="grid-column:1/-1">
-            <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Observations</label>
-            <textarea id="cmd-acc-obs" rows="2" placeholder="Informations complémentaires pour le fournisseur..." style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text);resize:vertical"></textarea>
-          </div>
-        </div>
         <div id="metre-panel"></div>
-        <div id="cmd-acc-body"><div class="empty-state">Aucun accessoire configuré</div></div>
+        <section class="dep-step" id="cmdacc-step3">
+          <div class="dep-step-head"><span class="dep-step-n">3</span><div><div class="dep-step-title">Bons de commande</div><div class="dep-step-hint">Choisis le regroupement, complète la fiche commune, puis génère un PDF par fournisseur.</div></div></div>
+          <div id="cmdacc-modes"></div>
+          <div class="cmdacc-form">
+            <label class="cmdacc-fld"><span>Type de document</span>
+              <select id="cmd-acc-type" class="dep-in cmdacc-sel">
+                <option value="Demande de prix">Demande de prix</option>
+                <option value="Commande">Commande</option>
+                <option value="Devis">Devis</option>
+              </select></label>
+            <label class="cmdacc-fld"><span>Date de livraison souhaitée</span><input type="date" id="cmd-acc-date" class="dep-in cmdacc-sel"></label>
+            <div class="cmdacc-fld cmdacc-span"><span>Adresse de livraison <a class="cmd-adr-link" onclick="cmdAdrFromClient('acc')">↓ reprendre l'adresse du client</a></span>
+              <div class="cmd-adr-grid">
+                <input type="text" class="cmd-inp full" id="cmd-acc-adr-bat" placeholder="Bâtiment / complément (facultatif)">
+                <input type="text" class="cmd-inp full" id="cmd-acc-adr-rue" placeholder="N° et rue">
+                <input type="text" class="cmd-inp" id="cmd-acc-adr-cp" placeholder="CP">
+                <input type="text" class="cmd-inp" id="cmd-acc-adr-ville" placeholder="Ville">
+              </div>
+            </div>
+            <label class="cmdacc-fld cmdacc-span"><span>Observations pour le fournisseur</span><textarea id="cmd-acc-obs" rows="2" class="dep-in cmdacc-sel cmdacc-ta"></textarea></label>
+          </div>
+          <div class="cmdacc-single">
+            <span class="dep-rate">Fiche unique (tout : métré + devis) adressée à</span>
+            <select id="cmd-acc-fou" class="dep-in cmdacc-sel" style="width:190px"><option value="">— Sélectionner —</option></select>
+            <button class="btn" onclick="cmdAccGenererTout()" style="font-size:12px;padding:7px 12px">📄 Tout sur une fiche</button>
+          </div>
+        </section>
       </div>
     </div>
   </div>
@@ -3398,88 +3423,81 @@ function metreOverride(id,v){ if(v===''||v==null) delete METRE.overrides[id]; el
 function metreRenderPanel(){
   const el=G('metre-panel'); if(!el) return;
   const hasPan=items.some(i=>i.type==='pan');
-  const inp=(id,val,ph)=>`<input type="number" id="${id}" value="${val||''}" placeholder="${ph||'0'}" oninput="metreUpdate()" class="cmd-inp" style="width:80px;text-align:right">`;
-  let ch=METRE.chambres.map((c,i)=>`<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px">
-    <span style="font-size:11px;color:var(--text3);width:60px">Négative ${i+1}</span>
-    <input type="number" value="${c.l||''}" placeholder="Long. m" oninput="metreChambreInput(${i},'l',this.value)" class="cmd-inp" style="width:74px">
-    <input type="number" value="${c.w||''}" placeholder="Larg. m" oninput="metreChambreInput(${i},'w',this.value)" class="cmd-inp" style="width:74px">
-    <input type="number" value="${c.vol||''}" placeholder="Vol. m³" oninput="metreChambreInput(${i},'vol',this.value)" class="cmd-inp" style="width:74px">
-    <button class="dx-ic" title="Retirer" onclick="metreDelChambre(${i})">🗑️</button></div>`).join('');
-  el.innerHTML=`<div style="border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:1.25rem;background:var(--bg2)">
-    <div style="font-size:13px;font-weight:600;margin-bottom:2px">Métré chantier <span style="font-weight:400;color:var(--text3);font-size:11px">— saisi au passage en commande, sert au calcul auto des quantités</span></div>
-    ${!hasPan?'<div style="font-size:12px;color:var(--orange);margin-top:6px">Aucun panneau dans le devis — le calcul sera vide.</div>':''}
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,255px);gap:9px 36px;justify-content:start;margin-top:12px">
-      <label style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;color:var(--text2)">ML cloisons séparatrices ${inp('me-sepa',METRE.sepa)}</label>
-      <label style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;color:var(--text2)" title="Cornière 50×150 de finition, posée à l'horizontale sur la jonction haute cloison/plafond, à l'extérieur">ML cornière finition horiz. ${inp('me-cornfh',METRE.cornFinH)}</label>
-      <label style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;color:var(--text2)">Angles int. <b style="color:var(--blue)">positive</b> ${inp('me-aip',METRE.angIntPos)}</label>
-      <label style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;color:var(--text2)">Angles int. <b style="color:var(--text)">négative</b> ${inp('me-ain',METRE.angIntNeg)}</label>
-      <label style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;color:var(--text2)">Angles extérieurs ${inp('me-aex',METRE.angExt)}</label>
-      <label style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;color:var(--text2)">Espacement chevrons (cm) ${inp('me-esp',METRE.chevronEsp)}</label>
-      <label style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;color:var(--text2)">Marge % <span style="color:var(--text3);font-size:10px">(auto si vide)</span> ${inp('me-marge',METRE.margeOverride)}</label>
+  const fld=(id,lab,val,unit,title)=>`<label class="cmdacc-fld"${title?` title="${esc(title)}"`:''}><span>${lab}</span><span class="dep-inline"><input type="number" id="${id}" value="${(val===0||val===''||val==null)?'':val}" oninput="metreUpdate()" class="dep-in">${unit?`<em>${unit}</em>`:''}</span></label>`;
+  const ch=METRE.chambres.map((c,i)=>`<tr><td class="c-n">${i+1}</td><td><input type="number" class="dep-in" value="${c.l||''}" oninput="metreChambreInput(${i},'l',this.value)"></td><td><input type="number" class="dep-in" value="${c.w||''}" oninput="metreChambreInput(${i},'w',this.value)"></td><td><input type="number" class="dep-in" value="${c.vol||''}" oninput="metreChambreInput(${i},'vol',this.value)"></td><td class="c-del"><button class="item-del" title="Retirer cette chambre" onclick="metreDelChambre(${i})">×</button></td></tr>`).join('');
+  el.innerHTML=`<section class="dep-step">
+    <div class="dep-step-head"><span class="dep-step-n">1</span><div><div class="dep-step-title">Métré chantier</div><div class="dep-step-hint">Ce que le devis ne sait pas : saisi ici, il pilote le calcul des quantités. Vide = 0.</div></div></div>
+    ${!hasPan?'<div class="cmdacc-warn">Aucun panneau dans le devis : le calcul sera vide.</div>':''}
+    <div class="cmdacc-grid">
+      ${fld('me-sepa','Cloisons séparatrices',METRE.sepa,'ml')}
+      ${fld('me-cornfh','Cornière de finition haute',METRE.cornFinH,'ml',"Cornière 50×150 posée à l'horizontale sur la jonction haute cloison/plafond, à l'extérieur")}
+      ${fld('me-aip','Angles intérieurs — positive',METRE.angIntPos,'u')}
+      ${fld('me-ain','Angles intérieurs — négative',METRE.angIntNeg,'u')}
+      ${fld('me-aex','Angles extérieurs',METRE.angExt,'u')}
+      ${fld('me-esp','Espacement chevrons',METRE.chevronEsp,'cm')}
+      ${fld('me-marge','Marge de commande',METRE.margeOverride,'%','Vide = marge automatique selon la surface')}
     </div>
-    <div style="margin-top:12px">
-      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Chambres froides négatives <span style="text-transform:none;letter-spacing:0">(pour chevrons + soupapes)</span></div>
-      ${ch||'<div style="font-size:11px;color:var(--text3);font-style:italic;margin-bottom:5px">Aucune — ajoute une chambre si le projet a du sol négatif.</div>'}
-      <button class="btn-sec-add outline" onclick="metreAddChambre()" style="font-size:11px">+ Ajouter une chambre négative</button>
-    </div>
-    <div id="metre-results" style="margin-top:1rem"></div>
-  </div>`;
+    <div class="cmdacc-sub">Chambres froides négatives <span class="dep-rate">pour les chevrons et les soupapes</span></div>
+    <table class="dep-table"><thead><tr><th class="c-n">#</th><th>Longueur <em>m</em></th><th>Largeur <em>m</em></th><th>Volume <em>m³</em></th><th class="c-del"></th></tr></thead>
+      <tbody>${ch||'<tr class="dep-empty"><td colspan="5">Aucune chambre négative.</td></tr>'}</tbody></table>
+    <button class="dep-add" onclick="metreAddChambre()">+ Ajouter une chambre négative</button>
+  </section>
+  <div id="metre-results"></div>`;
   metreRenderResults();
 }
+function cmdAccQty(it){ return it.accId==='te_reprise'?((it.ml||0)+' ml'):it.accId==='sol_phen'?((it.nbU||0)+' plaque'+((it.nbU||0)>1?'s':'')):it.accId==='iso_sol'?((it.nbU||0)+' colis'):it.accId==='lisse'?((it.nbU||0)+' barre'+((it.nbU||0)>1?'s':'')+' 3m'):String(it.nbU||it.qty||1); }
 function metreRenderResults(){
   const el=G('metre-results'); if(!el) return;
-  const r=metreCalc();
-  const bd=bastCmdData();
-  if(!r.lines.length && !bd.has){ el.innerHTML='<div style="font-size:12px;color:var(--text3);font-style:italic;border-top:1px solid var(--border);padding-top:.75rem">Rien à calculer pour l\'instant.</div>'; return; }
-  const groups={}; r.lines.forEach(L=>{ (groups[L.fou]=groups[L.fou]||[]).push(L); });
-  let h=`<div style="border-top:1px solid var(--border);padding-top:.75rem;max-width:620px"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px"><span style="font-size:13px;font-weight:600">Quantités calculées</span><span style="font-size:11px;color:var(--text3)">marge ${(r.marge*100).toFixed(0)} % · surface ${r.data.surfTot.toFixed(0)} m²</span></div>`;
-  Object.keys(groups).sort().forEach(fou=>{
-    h+=`<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--blue);margin:10px 0 4px">${esc(fou)}</div>`;
-    h+=`<table style="width:100%;border-collapse:collapse;font-size:12px">`;
-    groups[fou].forEach(L=>{
-      h+=`<tr style="border-bottom:0.5px solid var(--border2)">
-        <td style="padding:4px 2px"><div>${esc(L.nom)}</div><div style="font-size:10px;color:var(--text3)">${esc(L.formule)}${L.noMarge?'':' · +marge'} → ${L.finale} ${esc(L.cond||L.u)}</div></td>
-        <td style="padding:4px 2px;text-align:right;white-space:nowrap"><input type="number" value="${L.affiche}" oninput="metreOverride('${L.id}',this.value);metreBadge('${L.id}',this)" style="width:56px;text-align:right;border:1px solid ${L.override?'var(--orange)':'var(--border)'};border-radius:4px;padding:2px 4px;font-size:12px;background:var(--surface);color:var(--text)"> <span style="font-size:10px;color:var(--text3)">${esc(L.cond||L.u)}</span></td>
-      </tr>`;
-    });
-    h+=`</table>`;
+  const r=metreCalc(), bd=bastCmdData();
+  const manual=items.filter(i=>i.type==='acc'&&i.accId!=='bastaing');
+  const st=G('cmdacc-stats'); if(st) st.innerHTML=`<span>${fmt(r.data.surfTot)} m² panneaux</span><span>${r.data.nbPortes} porte${r.data.nbPortes>1?'s':''}</span><span>marge métré ${Math.round(r.marge*100)} %</span>`;
+  // Regroupement par fournisseur : lignes calculées (modifiables) + compléments du devis (fixes)
+  const groups={};
+  r.lines.forEach(L=>{ (groups[L.fou]=groups[L.fou]||{metre:[],devis:[]}).metre.push(L); });
+  manual.forEach(it=>{ const def=accById(it.accId)||{}, fou=(it.accId==='iso_sol')?'Roofmart':(def.fou||'(non attribué)'); (groups[fou]=groups[fou]||{metre:[],devis:[]}).devis.push(it); });
+  const fous=Object.keys(groups).sort((a,b)=>a.localeCompare(b));
+  const nbLignes=r.lines.length+manual.length+(bd.has?4:0);
+  let h=`<section class="dep-step">
+    <div class="dep-step-head"><span class="dep-step-n">2</span><div><div class="dep-step-title">Quantités à commander</div><div class="dep-step-hint">Calculées depuis le devis et le métré, regroupées par fournisseur. Une quantité se corrige à la main (bord orange = corrigée).</div></div><span class="dep-step-total">${nbLignes} ligne${nbLignes>1?'s':''}</span></div>`;
+  if(!fous.length && !bd.has) h+=`<div class="trv-empty">Rien à commander pour l'instant : ajoute des panneaux ou des compléments au devis.</div>`;
+  const thead=`<thead><tr><th>Désignation</th><th>Calcul</th><th class="c-q">Quantité</th><th>Cond.</th></tr></thead>`;
+  fous.forEach(fou=>{
+    const g=groups[fou]; const n=g.metre.length+g.devis.length;
+    h+=`<div class="cmdacc-fou"><div class="cmdacc-fou-head"><span class="cmdacc-fou-name">${esc(fou)}</span><span class="cmdacc-fou-count">${n} ligne${n>1?'s':''}</span></div><table class="dep-table cmdacc-table">${thead}<tbody>`;
+    g.metre.forEach(L=>{ h+=`<tr><td class="cmdacc-nom">${esc(L.nom)}</td><td class="cmdacc-calc">${esc(L.formule)}${L.noMarge?'':' · +marge'} → ${L.finale}</td><td class="c-q"><input type="number" class="dep-in cmdacc-q${L.override?' is-ov':''}" value="${L.affiche}" oninput="metreOverride('${L.id}',this.value);metreBadge('${L.id}',this)"></td><td class="cmdacc-cond">${esc(L.cond||L.u)}</td></tr>`; });
+    g.devis.forEach(it=>{ h+=`<tr><td class="cmdacc-nom">${esc(it.label)} <span class="cmdacc-src">devis</span></td><td class="cmdacc-calc">${esc(it.cmdDetail||accDetail(it)||'')}</td><td class="c-q cmdacc-fixed">${esc(cmdAccQty(it))}</td><td></td></tr>`; });
+    h+=`</tbody></table></div>`;
   });
-  h+=`<div style="font-size:10px;color:var(--text3);font-style:italic;margin-top:10px;line-height:1.5">Ajout manuel non calculé : plat d'habillage, U d'habillage, cornière pliable, système Té (déjà dans le devis). Chiffres modifiables à la main (surbrillance orange).</div>`;
-  // ── Bastaing de protection : nomenclature dédiée (bois + supports + ancrages auto) ──
   if(bd.has){
-    h+=`<div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px;max-width:620px">
-      <div style="font-size:13px;font-weight:600;margin-bottom:4px">Bastaing de protection — nomenclature</div>
-      <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Linéaire ${fmt(bd.totMl)} ml${bd.mlDh?` (dont ${fmt(bd.mlDh)} en double hauteur)`:''} → ${bd.barres} bastaing${bd.barres>1?'s':''} 3 m. Supports pré-remplis (0,29 H/ml · 0,08 U/ml), ajustables ; ancrages = 4 × (H+U).</div>
-      <table style="width:100%;border-collapse:collapse;font-size:12px">
-        <tr style="border-bottom:.5px solid var(--border2)"><td style="padding:4px 2px">Bastaing bois 63×175 × 3 m</td><td style="padding:4px 2px;text-align:right;white-space:nowrap">${bd.barres} barre${bd.barres>1?'s':''}</td></tr>
-        <tr style="border-bottom:.5px solid var(--border2)"><td style="padding:4px 2px">Support H</td><td style="padding:4px 2px;text-align:right;white-space:nowrap"><input type="number" min="0" value="${bd.nbH}" oninput="bastCmdSet('nbH',this.value)" style="width:56px;text-align:right;border:1px solid var(--border);border-radius:4px;padding:2px 4px;font-size:12px;background:var(--surface);color:var(--text)"> u</td></tr>
-        <tr style="border-bottom:.5px solid var(--border2)"><td style="padding:4px 2px">Support U</td><td style="padding:4px 2px;text-align:right;white-space:nowrap"><input type="number" min="0" value="${bd.nbU}" oninput="bastCmdSet('nbU',this.value)" style="width:56px;text-align:right;border:1px solid var(--border);border-radius:4px;padding:2px 4px;font-size:12px;background:var(--surface);color:var(--text)"> u</td></tr>
-        <tr><td style="padding:4px 2px">Ancrage M12×110 <span style="font-size:10px;color:var(--text3)">(prix à confirmer)</span></td><td style="padding:4px 2px;text-align:right;white-space:nowrap"><span id="bast-ancrages">${bd.ancrages} u</span> <span style="font-size:10px;color:var(--text3)">auto</span></td></tr>
-      </table>
-      <button class="btn" onclick="bastCmdGenerer()" style="font-size:12px;padding:7px 12px;margin-top:8px">📄 Commande bastaing</button>
-    </div>`;
+    h+=`<div class="cmdacc-fou"><div class="cmdacc-fou-head"><span class="cmdacc-fou-name">Bastaing de protection</span><span class="cmdacc-fou-count">bois + supports + ancrages</span></div>
+      <div class="dep-step-hint" style="margin-bottom:6px">Linéaire ${fmt(bd.totMl)} ml${bd.mlDh?` (dont ${fmt(bd.mlDh)} en double hauteur)`:''} → ${bd.barres} bastaing${bd.barres>1?'s':''} 3 m. Supports pré-remplis (0,29 H/ml · 0,08 U/ml), ancrages = 4 × (H + U).</div>
+      <table class="dep-table cmdacc-table">${thead}<tbody>
+        <tr><td class="cmdacc-nom">Bastaing bois 63×175 × 3 m</td><td class="cmdacc-calc">${fmt(bd.totMl)} ml ÷ 3${bd.mlDh?' (double hauteur × 2)':''}</td><td class="c-q cmdacc-fixed">${bd.barres}</td><td class="cmdacc-cond">barre${bd.barres>1?'s':''}</td></tr>
+        <tr><td class="cmdacc-nom">Support H</td><td class="cmdacc-calc">0,29 × ${fmt(bd.totMl)} ml</td><td class="c-q"><input type="number" min="0" class="dep-in cmdacc-q" value="${bd.nbH}" oninput="bastCmdSet('nbH',this.value)"></td><td class="cmdacc-cond">u</td></tr>
+        <tr><td class="cmdacc-nom">Support U</td><td class="cmdacc-calc">0,08 × ${fmt(bd.totMl)} ml</td><td class="c-q"><input type="number" min="0" class="dep-in cmdacc-q" value="${bd.nbU}" oninput="bastCmdSet('nbU',this.value)"></td><td class="cmdacc-cond">u</td></tr>
+        <tr><td class="cmdacc-nom">Ancrage M12×110 <span class="dep-rate">prix à confirmer</span></td><td class="cmdacc-calc">4 × (H + U)</td><td class="c-q cmdacc-fixed" id="bast-ancrages">${bd.ancrages} u</td><td></td></tr>
+      </tbody></table></div>`;
   }
-  // ── Génération des commandes ──
-  const modeEff=cmdAccEffectiveMode();
-  const gN=cmdAccGroupes('normal');
-  window._cmdAccFouKeys=Object.keys(gN).sort();
-  const chip=(m,lab)=>`<button onclick="cmdAccSetMode('${m}')" style="font-size:11px;padding:4px 10px;border-radius:20px;cursor:pointer;border:1px solid ${modeEff===m?'var(--blue)':'var(--border)'};background:${modeEff===m?'var(--blue-light)':'var(--surface)'};color:${modeEff===m?'var(--blue)':'var(--text2)'};font-family:'DM Sans',sans-serif">${lab}</button>`;
-  h+=`<div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px">
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-      <span style="font-size:13px;font-weight:600">Générer les commandes</span>
-      <span style="margin-left:auto;display:flex;gap:5px">${chip('normal','Par fournisseur')}${chip('celtek','Tout chez Celtek')}</span>
-    </div>`;
-  if(CMDACC_MODE==='auto') h+=`<div style="font-size:11px;color:var(--text2);background:var(--bg2);border-radius:6px;padding:6px 10px;margin-bottom:8px">Mode auto : ${modeEff==='celtek'?`petit chantier (${r.data.surfTot.toFixed(0)} m² < 100) → <b>tout regroupé chez Celtek</b> (transport unique)`:'chantier assez grand → <b>réparti par fournisseur</b> (meilleurs prix)'} <a onclick="cmdAccSetMode('${modeEff}')" style="color:var(--blue);cursor:pointer">forcer</a></div>`;
-  h+=`<div style="display:flex;gap:6px;flex-wrap:wrap">`;
-  if(modeEff==='celtek'){
-    h+=`<button class="btn btn-green" onclick="cmdAccGenerer('Celtek')" style="font-size:12px;padding:7px 14px">📄 Commande Celtek — tout regroupé</button>`;
-  } else {
-    window._cmdAccFouKeys.forEach((f,i)=>{ h+=`<button class="btn" onclick="cmdAccGenererIdx(${i})" style="font-size:12px;padding:7px 12px">📄 ${esc(f)} <span style="color:var(--text3)">(${gN[f].length})</span></button>`; });
-  }
-  h+=`</div></div></div>`;
+  h+=`<div class="dep-legend">Non calculés, à ajouter à la main si besoin : plat d'habillage, U d'habillage, cornière pliable.</div></section>`;
   el.innerHTML=h;
+  // Étape 3 : regroupement + boutons de génération
+  const modes=G('cmdacc-modes');
+  if(modes){
+    const modeEff=cmdAccEffectiveMode(); const gN=cmdAccGroupes('normal'); window._cmdAccFouKeys=Object.keys(gN).sort();
+    const chip=(m,lab)=>`<button class="cmdacc-chip${CMDACC_MODE===m?' on':''}" onclick="cmdAccSetMode('${m}')">${lab}</button>`;
+    const expl=CMDACC_MODE==='auto'
+      ? (modeEff==='celtek'?`petit chantier (${r.data.surfTot.toFixed(0)} m² < 100) → tout regroupé chez Celtek, transport unique`:`chantier de ${r.data.surfTot.toFixed(0)} m² → une fiche par fournisseur`)
+      : (modeEff==='celtek'?'tout regroupé chez Celtek':'une fiche par fournisseur');
+    let m=`<div class="cmdacc-modes-row">${chip('auto','Auto')}${chip('normal','Par fournisseur')}${chip('celtek','Tout chez Celtek')}<span class="dep-rate">${expl}</span></div><div class="cmdacc-btns">`;
+    if(modeEff==='celtek') m+=`<button class="btn btn-green" onclick="cmdAccGenerer('Celtek')">📄 Commande Celtek — tout regroupé</button>`;
+    else window._cmdAccFouKeys.forEach((f,i)=>{ m+=`<button class="btn" onclick="cmdAccGenererIdx(${i})">📄 ${esc(f)} <span class="cmdacc-fou-count">${gN[f].length}</span></button>`; });
+    if(bd.has) m+=`<button class="btn" onclick="bastCmdGenerer()">📄 Bastaing de protection</button>`;
+    if(!window._cmdAccFouKeys.length && !bd.has) m+=`<span class="dep-rate">Aucune fiche à générer pour l'instant.</span>`;
+    m+=`</div>`;
+    modes.innerHTML=m;
+  }
 }
-function metreBadge(id,inp){ inp.style.borderColor = (inp.value!==''&&!isNaN(parseFloat(inp.value)))?'var(--orange)':'var(--border)'; }
+function metreBadge(id,inp){ inp.classList.toggle('is-ov', inp.value!==''&&!isNaN(parseFloat(inp.value))); }
 
 // ── Commande accessoires : regroupement par fournisseur + option « tout chez Celtek » ──
 // Petit chantier (< 100 m² de panneaux) → un seul envoi chez Celtek (qui a tout) :
@@ -3926,24 +3944,8 @@ function refreshAll(){
     }
   }
 
-  // CMD ACC
-  const cacc=G('cmd-acc-body');
-  if(cacc){
-    const acc=items.filter(i=>i.type==='acc');
-    if(acc.length){
-      cacc.innerHTML=`<table class="cmd-table">
-        <thead><tr><th>Désignation</th><th>Quantité</th><th>Détails</th></tr></thead>
-        <tbody>${acc.map(it=>`<tr>
-          <td><strong>${it.label}</strong></td>
-          <td>${it.nbU||it.qty||1}</td>
-          <td style="font-size:12px;color:var(--text2)">${accDetail(it)}</td>
-        </tr>`).join('')}</tbody>
-      </table>`;
-    } else {
-      cacc.innerHTML='<div class="empty-state">Aucun accessoire ajouté manuellement</div>';
-    }
-    if(G('metre-results')) try{ metreRenderResults(); }catch(e){}
-  }
+  // CMD ACC : quantités + bons de commande (étapes 2 et 3 rendues par metreRenderResults)
+  if(G('metre-results')) try{ metreRenderResults(); }catch(e){}
 
   // MISSION — Budget Pose
   const ms=G('mission-body');
