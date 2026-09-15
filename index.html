@@ -3336,6 +3336,13 @@ function metreDevisData(){
     nbPivot:pors.filter(p=>PIVOT.includes(p.subtype)).length
   };
 }
+// Chevrons PVC d'une chambre négative : périmètre + rangées intermédiaires tous les « esp » cm (dans le sens de la longueur)
+function chevronMlChambre(c,esp){
+  const A=Math.max(c.l||0,c.w||0), B=Math.min(c.l||0,c.w||0); if(A<=0||B<=0) return 0;
+  const e=(parseFloat(esp)||40)/100;
+  return 2*(A+B)+Math.max(0,Math.ceil(B/e)-1)*A;
+}
+function metreChevronsTot(){ return (METRE.chambres||[]).reduce((t,c)=>t+chevronMlChambre(c,METRE.chevronEsp),0); }
 function metreCalc(){
   const d=metreDevisData(), f=METRE, marge=metreMarge(d.surfTot,f.margeOverride);
   const hFac=Math.max(1,Math.ceil(d.hMax/3));
@@ -3385,8 +3392,8 @@ function metreCalc(){
   add('vis_autofor',6*bPlinthe+12*nbQR+4*d.nbPan,`6×${bPlinthe} plinthes + 12×${nbQR} 1/4rond + 4×${d.nbPan} pan.`,{cond:'boite',condSize:500});
   add('butyle_gris',bUsol/2+bPlinthe/2+nbQR/2,`(${bUsol} U sol + ${bPlinthe} plinthes + ${nbQR} 1/4rond) ÷ 2`,{cond:'cart'});
   // Chevrons (chambres négatives)
-  if(d.surfSol>0){ let ml=0; f.chambres.forEach(c=>{ const A=Math.max(c.l||0,c.w||0), B=Math.min(c.l||0,c.w||0); if(A<=0||B<=0) return; const esp=(f.chevronEsp||40)/100; ml+=2*(A+B)+Math.max(0,Math.ceil(B/esp)-1)*A; });
-    add('chevron_pvc',Math.ceil(ml/3),`${ml.toFixed(1)} ml (périmètre + rangées ${f.chevronEsp} cm) ÷ 3`,{cond:'barre'}); }
+  { const ml=f.chambres.reduce((t,c)=>t+chevronMlChambre(c,f.chevronEsp),0); // une chambre saisie suffit
+    if(ml>0) add('chevron_pvc',Math.ceil(ml/3),`${ml.toFixed(1)} ml (périmètre + rangées tous les ${f.chevronEsp||40} cm) ÷ 3`,{cond:'barre'}); }
   // Soupapes (par volume) + tampons
   let sInf=0,sSup=0; f.chambres.forEach(c=>{ const v=c.vol||0; if(v<=0) return; if(v<75) sInf++; else sSup++; });
   add('soupape_inf75',sInf,`${sInf} chambre(s) < 75 m³`,{noMarge:true});
@@ -3415,16 +3422,20 @@ function metreReadForm(){
   METRE.chevronEsp=parseFloat(g('me-esp'))||40;
   METRE.margeOverride=g('me-marge');
 }
-function metreUpdate(){ metreReadForm(); metreRenderResults(); }
+function metreUpdate(){ metreReadForm(); metreSyncChevrons(); metreRenderResults(); }
+function metreSyncChevrons(){ // met à jour les ml de chevrons par chambre + le total, sans re-render (garde le focus)
+  (METRE.chambres||[]).forEach((c,i)=>{ const e=G('me-chev-'+i); if(e){ const ml=chevronMlChambre(c,METRE.chevronEsp); e.textContent=ml>0?fmt(ml)+' ml':'—'; } });
+  const t=G('me-chev-tot'); if(t){ const ml=metreChevronsTot(); t.textContent=ml>0?`Chevrons PVC : ${fmt(ml)} ml au total → ${Math.ceil(ml/3)} barre${Math.ceil(ml/3)>1?'s':''} de 3 m avant marge (ligne « Chevron PVC » dans les quantités).`:'Saisis longueur × largeur : le linéaire de chevrons se calcule ici et alimente les quantités à commander.'; }
+}
 function metreAddChambre(){ metreReadForm(); METRE.chambres.push({l:0,w:0,vol:0}); metreRenderPanel(); }
 function metreDelChambre(i){ metreReadForm(); METRE.chambres.splice(i,1); metreRenderPanel(); }
-function metreChambreInput(i,k,v){ if(METRE.chambres[i]){ METRE.chambres[i][k]=parseFloat(v)||0; metreRenderResults(); } }
+function metreChambreInput(i,k,v){ if(METRE.chambres[i]){ METRE.chambres[i][k]=parseFloat(v)||0; metreSyncChevrons(); metreRenderResults(); } }
 function metreOverride(id,v){ if(v===''||v==null) delete METRE.overrides[id]; else METRE.overrides[id]=v; }
 function metreRenderPanel(){
   const el=G('metre-panel'); if(!el) return;
   const hasPan=items.some(i=>i.type==='pan');
   const fld=(id,lab,val,unit,title)=>`<label class="cmdacc-fld"${title?` title="${esc(title)}"`:''}><span>${lab}</span><span class="dep-inline"><input type="number" id="${id}" value="${(val===0||val===''||val==null)?'':val}" oninput="metreUpdate()" class="dep-in">${unit?`<em>${unit}</em>`:''}</span></label>`;
-  const ch=METRE.chambres.map((c,i)=>`<tr><td class="c-n">${i+1}</td><td><input type="number" class="dep-in" value="${c.l||''}" oninput="metreChambreInput(${i},'l',this.value)"></td><td><input type="number" class="dep-in" value="${c.w||''}" oninput="metreChambreInput(${i},'w',this.value)"></td><td><input type="number" class="dep-in" value="${c.vol||''}" oninput="metreChambreInput(${i},'vol',this.value)"></td><td class="c-del"><button class="item-del" title="Retirer cette chambre" onclick="metreDelChambre(${i})">×</button></td></tr>`).join('');
+  const ch=METRE.chambres.map((c,i)=>`<tr><td class="c-n">${i+1}</td><td><input type="number" class="dep-in" value="${c.l||''}" oninput="metreChambreInput(${i},'l',this.value)"></td><td><input type="number" class="dep-in" value="${c.w||''}" oninput="metreChambreInput(${i},'w',this.value)"></td><td><input type="number" class="dep-in" value="${c.vol||''}" oninput="metreChambreInput(${i},'vol',this.value)"></td><td class="cmdacc-fixed" id="me-chev-${i}">${chevronMlChambre(c,METRE.chevronEsp)>0?fmt(chevronMlChambre(c,METRE.chevronEsp))+' ml':'—'}</td><td class="c-del"><button class="item-del" title="Retirer cette chambre" onclick="metreDelChambre(${i})">×</button></td></tr>`).join('');
   el.innerHTML=`<section class="dep-step">
     <div class="dep-step-head"><span class="dep-step-n">1</span><div><div class="dep-step-title">Métré chantier</div><div class="dep-step-hint">Ce que le devis ne sait pas : saisi ici, il pilote le calcul des quantités. Vide = 0.</div></div></div>
     ${!hasPan?'<div class="cmdacc-warn">Aucun panneau dans le devis : le calcul sera vide.</div>':''}
@@ -3438,11 +3449,13 @@ function metreRenderPanel(){
       ${fld('me-marge','Marge de commande',METRE.margeOverride,'%','Vide = marge automatique selon la surface')}
     </div>
     <div class="cmdacc-sub">Chambres froides négatives <span class="dep-rate">pour les chevrons et les soupapes</span></div>
-    <table class="dep-table"><thead><tr><th class="c-n">#</th><th>Longueur <em>m</em></th><th>Largeur <em>m</em></th><th>Volume <em>m³</em></th><th class="c-del"></th></tr></thead>
-      <tbody>${ch||'<tr class="dep-empty"><td colspan="5">Aucune chambre négative.</td></tr>'}</tbody></table>
+    <table class="dep-table"><thead><tr><th class="c-n">#</th><th>Longueur <em>m</em></th><th>Largeur <em>m</em></th><th>Volume <em>m³</em></th><th>Chevrons <em>calculés</em></th><th class="c-del"></th></tr></thead>
+      <tbody>${ch||'<tr class="dep-empty"><td colspan="6">Aucune chambre négative.</td></tr>'}</tbody></table>
+    <div class="dep-legend" id="me-chev-tot"></div>
     <button class="dep-add" onclick="metreAddChambre()">+ Ajouter une chambre négative</button>
   </section>
   <div id="metre-results"></div>`;
+  metreSyncChevrons();
   metreRenderResults();
 }
 function cmdAccQty(it){ return it.accId==='te_reprise'?((it.ml||0)+' ml'):it.accId==='sol_phen'?((it.nbU||0)+' plaque'+((it.nbU||0)>1?'s':'')):it.accId==='iso_sol'?((it.nbU||0)+' colis'):it.accId==='lisse'?((it.nbU||0)+' barre'+((it.nbU||0)>1?'s':'')+' 3m'):String(it.nbU||it.qty||1); }
