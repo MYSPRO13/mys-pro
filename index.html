@@ -2211,6 +2211,7 @@ let trManual=false; // transport : résultat forcé à la main (override)
 function travauxHT(){return travaux.reduce((s,l)=>s+((parseFloat(l.qty)||0)*(parseFloat(l.pu)||0)),0);}
 // Prix de pose global (main d'œuvre) — même logique que la page Ordre de mission
 function poseGlobale(){
+  const pm=P(); if(pm.mode==='journee') return pm.journeePx; // journée : le forfait remplace les montants de pose
   const posePx=parseFloat(G('pp')?.value)||18;
   let total=0;
   items.forEach(it=>{
@@ -4154,6 +4155,11 @@ function refreshAll(){
       const accs=items.filter(i=>i.type==='acc');
       let total=0;
       let rows='';
+      const pJ=P(); const journee=(pJ.mode==='journee');
+      if(journee){ // mode journée : le poseur est payé au forfait, pas aux montants de pose par produit
+        total=pJ.journeePx;
+        rows=`<tr><td>Forfait main d'œuvre & déplacement — journée simple</td><td style="text-align:right">1 forfait</td><td style="text-align:right">${fmt(pJ.journeePx)} €</td><td style="text-align:right;font-weight:600">${fmt(pJ.journeePx)} €</td></tr>`;
+      } else {
 
       // Panneaux regroupés : Cloisons / Plafonds (pose au m², même taux)
       {
@@ -4188,11 +4194,12 @@ function refreshAll(){
         rows+=`<tr><td>${L.label}</td><td style="text-align:right">${String(L.qty).replace('.',',')} ${L.unit}</td><td style="text-align:right">${fmt(L.puCost)} €/${L.unit}</td><td style="text-align:right;font-weight:600">${fmt(L.costMontant)} €</td></tr>`;
       });
 
+      }
       ms.innerHTML=`
         <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.625rem">Montant de la mission</div>
         <table class="cmd-table">
           <thead><tr><th>Désignation</th><th style="text-align:right">Quantité</th><th style="text-align:right">Prix unitaire</th><th style="text-align:right">Montant HT</th></tr></thead>
-          <tbody>${rows}</tbody>
+          <tbody>${rows}${journee?`<tr><td colspan="4" style="font-size:11px;color:var(--text3);font-style:italic">Mode journée : le forfait couvre la pose des panneaux, portes, accessoires et la dépose. Il se règle dans « Mode de pose » (barre latérale).</td></tr>`:''}</tbody>
           <tfoot><tr style="background:var(--navy,#2E3192);color:white">
             <td colspan="3" style="padding:8px 10px;font-weight:700;font-size:13px">TOTAL MISSION HT</td>
             <td style="padding:8px 10px;text-align:right;font-weight:700;font-size:14px">${fmt(total)} €</td>
@@ -6771,6 +6778,12 @@ function genMissionPDF(){
     y+=rh; rowIdx++;
   }
 
+  const pJ=P(); const journee=(pJ.mode==='journee');
+  if(journee){ // mode journée : une seule ligne, le forfait établi sur le devis
+    total=pJ.journeePx;
+    drawMRow("Forfait main d'œuvre & déplacement — journée simple",'1 forfait',fn(pJ.journeePx),fn(pJ.journeePx));
+    sf(false,7,GREY); doc.text('Le forfait couvre la pose des panneaux, portes, accessoires et la dépose.',ML+3,y+4.5); y+=7;
+  } else {
   {
     const posePx=parseFloat(G('pp')?.value)||18, cats={};
     pans.forEach(it=>{ const cat=it.paroi==='Plafond'?'Plafonds':(it.paroi==='Sol négatif'?'Sol de congélation':'Cloisons'); cats[cat]=(cats[cat]||0)+(it.surf||0); });
@@ -6793,6 +6806,7 @@ function genMissionPDF(){
   // Dépose de l'existant (main d'œuvre poseur, au coût = tarif ÷ coef)
   const depMP=calcDepose();
   if(depMP.on) depMP.lines.forEach(L=>{ total+=L.costMontant; drawMRow(L.label, String(L.qty).replace('.',',')+' '+L.unit, fn(L.puCost)+'/'+L.unit, fn(L.costMontant)); });
+  } // fin mode budget
 
   // Total
   y+=1;
