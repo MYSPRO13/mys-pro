@@ -1955,6 +1955,12 @@ function togglePwd(){
             <label style="display:flex;gap:6px;align-items:center">Accessoires <input id="def-pa" type="number" value="6" step="0.5" style="width:72px" oninput="divDefInput()"> €/m²</label>
             <label style="display:flex;gap:6px;align-items:center">Coefficient <input id="def-pc" type="number" value="1.5" step="0.05" style="width:72px" oninput="divDefInput()"> ×</label>
           </div>
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Sol phénolique — chevrons PVC de calage (comptés dans le prix du sol)</div>
+          <div style="display:flex;gap:18px;flex-wrap:wrap;font-size:12.5px;margin-bottom:6px;align-items:center">
+            <label style="display:flex;gap:6px;align-items:center">Chevrons <input id="sol-chev-ml" type="number" value="3" step="0.1" min="0" style="width:72px" oninput="solChevInput()"> ml par m² de sol</label>
+            <label style="display:flex;gap:6px;align-items:center">Pose des chevrons <input id="sol-chev-pose" type="number" value="3" step="0.5" min="0" style="width:72px" oninput="solChevInput()"> €/m²</label>
+          </div>
+          <div id="sol-chev-info" style="font-size:11.5px;color:var(--text3);margin-bottom:16px;line-height:1.5"></div>
           <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Transport — taux de référence</div>
           <div style="display:grid;grid-template-columns:1fr auto auto;gap:7px 10px;max-width:360px;font-size:12.5px;align-items:center">
             <span>Franco panneaux si ≥</span><input id="tr-pan-franco" type="number" value="500" step="10" style="width:82px" oninput="refreshAll()"><span style="color:var(--text3)">m²</span>
@@ -2205,6 +2211,16 @@ let items=[], curClient=null, curView='edit', sortAZ=true, modType='client', sec
 let PXOV={}; // override prix panneaux PIR propre au devis courant (clé CL_{ep} / PL_{ep})
 let EVMANU_DEF={ev:660, manu:600}; // défauts globaux évac/manut (chargés de Supabase), base des nouveaux devis
 let POSE_DEF={mode:'budget', px:1125}; // défauts globaux mode de pose / forfait journée (base des nouveaux devis)
+// Sol phénolique : les chevrons PVC de calage posés sous les panneaux de sol sont comptés
+// DANS le prix du sol (paramètre de base global, Paramètres › Divers) : ratio ml de chevron par m²
+// de sol (périmètre + rangées tous les 40 cm ≈ 3 ml/m²) et pose des chevrons en €/m².
+// L'achat du chevron vient de la ligne « Chevron PVC 40 × 60 » des accessoires (€ / barre de 3 m).
+let SOL_CHEV={ml:3, pose:3};
+function solPhenPx(){
+  const sol=getAccPx('sol_phen'), chevBarre=accPxNum('a','chevron_pvc');
+  const chevAchat=r2(SOL_CHEV.ml*chevBarre/3), chevPose=SOL_CHEV.pose||0;
+  return {achat:sol.achat, chevAchat, chevBarre, pose:sol.pose, chevPose, achatTot:r2(sol.achat+chevAchat), poseTot:r2(sol.pose+chevPose)};
+}
 // Lit un champ numérique en RESPECTANT 0 (vide/NaN → défaut). Évite le piège « 0 || défaut ».
 function valOr(id,def){ const r=G(id)?.value; return (r===''||r==null||isNaN(parseFloat(r)))?def:parseFloat(r); }
 let travaux=[], travauxSeq=0; // lignes libres « Travaux spécifiques »
@@ -2221,6 +2237,7 @@ function poseGlobale(){
     else if(it.type==='acc'){
       if(it.accId==='bastaing'){ total+=(it.poseUnit!=null?it.poseUnit:(BASTAING[it.mode]||BASTAING.sh).pose)*(it.qty||0); }
       else if(it.accId==='iso_sol'){ total+=ISO_SOL.pose*(it.qty||0); }
+      else if(it.accId==='sol_phen'){ total+=solPhenPx().poseTot*(it.qty||0); } // pose du sol + pose des chevrons
       else { const pose=getAccPx(it.accId||it._accId||it.id||'').pose;if(pose>0)total+=pose*(it.qty||1); }
     }
   });
@@ -2614,14 +2631,14 @@ const ACC_DEFAULTS = [
   {id:'plinthe_embout_g', cat:'plinthe', fou:'Plastiques des Neiges', u:'unité',     nom:'Embout gauche de plinthe'},
   {id:'plinthe_embout_d', cat:'plinthe', fou:'Plastiques des Neiges', u:'unité',     nom:'Embout droit de plinthe'},
   {id:'corn_pliable_pvc', cat:'plinthe', fou:'Plastiques des Neiges', u:'unité',     nom:'Cornière pliable PVC 60 × 60 cm'},
-  {id:'chevron_pvc',      cat:'plinthe', fou:'Plastiques des Neiges', u:'barre 3 m', nom:'Chevron PVC 40 × 60 × 3000 mm'},
+  {id:'chevron_pvc',      cat:'plinthe', fou:'Plastiques des Neiges', u:'barre 3 m', nom:'Chevron PVC 40 × 60 × 3000 mm (calage du sol phénolique — compté dans le prix du sol)', refA:10.77},
   // ── Sols & plaques ──
   {id:'solp_2000', cat:'sol', fou:'Celtek', u:'panneau', nom:'Panneau de sol ép. 100 mm — 2000 × 1200 mm — résine phénolique'},
   {id:'solp_2400', cat:'sol', fou:'Celtek', u:'panneau', nom:'Panneau de sol ép. 100 mm — 2400 × 1200 mm — résine phénolique'},
   {id:'solp_2600', cat:'sol', fou:'Celtek', u:'panneau', nom:'Panneau de sol ép. 100 mm — 2600 × 1200 mm — résine phénolique'},
   {id:'solp_2800', cat:'sol', fou:'Celtek', u:'panneau', nom:'Panneau de sol ép. 100 mm — 2800 × 1200 mm — résine phénolique'},
   {id:'solp_3000', cat:'sol', fou:'Celtek', u:'panneau', nom:'Panneau de sol ép. 100 mm — 3000 × 1200 mm — résine phénolique'},
-  {id:'solp_m2',   cat:'sol', fou:'Celtek', u:'m²',      nom:'Panneau de sol ép. 100 mm résine phénolique — au m²'},
+  {id:'sol_phen',  cat:'sol', fou:'Celtek', u:'m² (achat panneau seul, hors transport — chevrons PVC ajoutés automatiquement, cf. Divers)', nom:'Sol phénolique 100 mm — au m²'},
   {id:'brio_plaque', cat:'sol', fou:'Plastiques des Neiges', u:'plaque', nom:'Plaque BRIO RAL 9010 3000 × 1220 mm'},
   {id:'tole_larmee', cat:'sol', fou:'FIC', u:'m²',     nom:'Tôle larmée 4 mm'},
   // ── Plafond & suspension ──
@@ -2656,7 +2673,6 @@ const ACC_DEFAULTS = [
   {id:'mousse',   cat:'legacy', u:'cart.', nom:'Mousse PU 750ml (ancien)'},
   {id:'soupape',  cat:'legacy', fou:'Celtek', u:'unité', nom:'Soupape équilibrage (ancien)'},
   {id:'trappe',   cat:'legacy', fou:'Celtek', u:'unité', nom:'Trappe de visite (ancien)'},
-  {id:'sol_phen', cat:'legacy', fou:'Celtek', u:'m²',    nom:'Sol phénolique (ancien)'},
   {id:'tole',     cat:'legacy', fou:'FIC', u:'m²',    nom:'Tôle larmée 4mm (ancien)'},
   {id:'u_sol',    cat:'legacy', fou:'Plastiques des Neiges', u:'barre', nom:'U de sol PVC (ancien)'},
 ];
@@ -2781,6 +2797,7 @@ function cpv(it,p){
     }
     if(it.accId==='bastaing'){ const v=(it.pxUnit!=null?it.pxUnit:(BASTAING[it.mode]||BASTAING.sh).vente); return r2(v*(it.qty||0)); }
     if(it.accId==='iso_sol'){ return r2(r2((ISO_SOL.achat+ISO_SOL.pose)*p.coef)*(it.qty||0)); }
+    if(it.accId==='sol_phen'){ const sp=solPhenPx(); return r2(r2((sp.achatTot+sp.poseTot)*p.coef)*(it.qty||0)); } // chevrons PVC inclus
     const px = getAccPx(it.accId||it._accId||it.id||'');
     return r2(r2((px.achat+px.pose)*p.coef)*(it.qty||1));
   }
@@ -2817,6 +2834,10 @@ function calcMarge(p, remiseMontant){
         vFerme+=v; cFerme+=(mat+pose)*(it.qty||0);
       } else if(it.accId==='iso_sol'){
         vFerme+=v; cFerme+=(ISO_SOL.achat+ISO_SOL.pose)*(it.qty||0);
+      } else if(it.accId==='sol_phen'){
+        const sp=solPhenPx();
+        if(sp.achat>0){ vFerme+=v; cFerme+=(sp.achatTot+sp.poseTot)*(it.qty||0); }
+        else { vFlou+=v; flou.push('Sol phénolique (achat non renseigné)'); }
       } else {
         const px=getAccPx(it.accId||it._accId||it.id||'');
         if(px.achat>0){ vFerme+=v; cFerme+=(px.achat+px.pose)*(it.qty||1); }
@@ -3204,13 +3225,13 @@ function solResult(){
     if(surf<=0) return null;
     const nb=Math.ceil(surf/(SOL_W*3.0));
     const boughtM2=Math.ceil(nb*SOL_W*3.0*100)/100;
-    return {mode,nb,qty:boughtM2,meta:`≈ ${nb} plaque${nb>1?'s':''} de 3 m × 1,2 m — ${boughtM2} m² (estimation, sans calepinage)`,cmdDetail:`≈ ${nb} plaque${nb>1?'s':''} 3 m × 1,2 m (surface saisie ${String(surf).replace('.',',')} m²)`,res:null};
+    return {mode,nb,qty:boughtM2,meta:`≈ ${nb} plaque${nb>1?'s':''} de 3 m × 1,2 m — ${boughtM2} m² (estimation, sans calepinage) · chevrons PVC de calage inclus`,cmdDetail:`≈ ${nb} plaque${nb>1?'s':''} 3 m × 1,2 m (surface saisie ${String(surf).replace('.',',')} m²)`,res:null};
   }
   const L=parseFloat(G('af-sol-L')?.value)||0, l=parseFloat(G('af-sol-w')?.value)||0;
   if(L<=0||l<=0) return null;
   const res=solSimulate(L,l);
   return {mode,nb:res.nb,qty:res.boughtM2,L,l,res,
-    meta:`${res.nb} plaque${res.nb>1?'s':''} : ${solFmtMix(res.plaques)} — acheté ${res.boughtM2} m² · chute ${res.chute} m²`,
+    meta:`${res.nb} plaque${res.nb>1?'s':''} : ${solFmtMix(res.plaques)} — acheté ${res.boughtM2} m² · chute ${res.chute} m² · chevrons PVC de calage inclus`,
     cmdDetail:`${solFmtMix(res.plaques)} — plaques ×1,2 m (sol ${String(L).replace('.',',')}×${String(l).replace('.',',')} m)`};
 }
 function calcSolPhen(){
@@ -3219,7 +3240,7 @@ function calcSolPhen(){
   const r=G('af-res-sol'), sch=G('af-sol-schema');
   const mode=(G('af-sol-mode')?.value)||'dim';
   if(!out){ if(r) r.innerHTML=mode==='surf'?'Saisir la surface':'Saisir la longueur et la largeur'; if(sch) sch.innerHTML=''; return; }
-  if(r) r.innerHTML=out.meta;
+  if(r){ const sp=solPhenPx(), pu=r2((sp.achatTot+sp.poseTot)*((P().coef)||1.5)); r.innerHTML=`${out.meta} | ${fmt(pu)} €/m² (panneau + chevrons PVC + pose) → <b>${fmt(r2(pu*out.qty))} € HT</b>`; }
   if(sch) sch.innerHTML=(out.mode==='dim'&&out.res)?solSchemaSVG(out.L,out.l,out.res):'';
 }
 function calcBrio(){const ml=parseFloat(G('af-brio-ml')?.value)||0;const ep=G('af-brio-ep')?.value;const h=parseInt(G('af-brio-h')?.value)||2600;const nb=Math.ceil(Math.round(ml/1.22*1e10)/1e10);const r=G('af-res-brio');if(r)r.innerHTML=`${nb} panneau${nb>1?'x':''} BRIO ${ep}mm × ${(h/1000).toFixed(2)}m × 1.22m`;}
@@ -3831,6 +3852,16 @@ function initSidebarCards(){
 function syncP(){refreshAll();}
 // Divers › Défauts nouveau devis : les champs def-* pilotent DEFAULT_PARAMS (valeurs de départ d'un nouveau devis).
 function divDefInput(){ const n=(id,d)=>{const v=parseFloat(G(id)?.value); return isNaN(v)?d:v;}; DEFAULT_PARAMS.pp=n('def-pp',DEFAULT_PARAMS.pp); DEFAULT_PARAMS.pa=n('def-pa',DEFAULT_PARAMS.pa); DEFAULT_PARAMS.pc=n('def-pc',DEFAULT_PARAMS.pc); refreshAll(); }
+// Chevrons PVC de calage sous le sol phénolique (paramètre de base, global — sauvegardé avec les prix)
+function solChevInput(){ const n=(id,d)=>{const v=parseFloat(G(id)?.value); return isNaN(v)?d:v;}; SOL_CHEV.ml=n('sol-chev-ml',SOL_CHEV.ml); SOL_CHEV.pose=n('sol-chev-pose',SOL_CHEV.pose); refreshAll(); }
+function solChevInfo(){
+  const el=G('sol-chev-info'); if(!el) return;
+  const sp=solPhenPx(), coef=DEFAULT_PARAMS.pc||1.5;
+  const vente=r2((sp.achatTot+sp.poseTot)*coef);
+  el.innerHTML=`Achat du chevron : <b>${fmt(sp.chevBarre)} €</b> la barre de 3 m (ligne « Chevron PVC 40 × 60 » des accessoires) × ${fmt(SOL_CHEV.ml)} ml/m² ÷ 3 = <b>+${fmt(sp.chevAchat)} €/m²</b> d'achat.<br>`
+    +`Sol phénolique au m² : achat ${fmt(sp.achat)} + chevrons ${fmt(sp.chevAchat)} + pose ${fmt(sp.pose)} + pose chevrons ${fmt(sp.chevPose)} = ${fmt(sp.achatTot+sp.poseTot)} → vente <b>${fmt(vente)} €/m²</b> au coefficient ${fmt(coef)}. `
+    +`Sur l'ordre de mission, le sol est payé au poseur <b>${fmt(sp.poseTot)} €/m²</b> (pose des panneaux + chevrons).`;
+}
 
 // ══ TOGGLE SECONDAIRE ══════════════════════════════════════
 function toggleSec(){
@@ -3954,6 +3985,7 @@ function renderCfgItems(p){
 function refreshAll(){
   renumberPortes();
   try{ refreshNav(); }catch(e){}
+  try{ solChevInfo(); }catch(e){}
   try{ updateSidebarPir(); }catch(e){}
   try{ saveDraft(); }catch(e){}
   const p=P();
@@ -4185,6 +4217,12 @@ function refreshAll(){
 
       // Accessoires (uniquement ceux avec prix de pose > 0)
       accs.forEach(it=>{
+        if(it.accId==='sol_phen'){ // sol phénolique : pose au m² = pose du sol + pose des chevrons PVC de calage
+          const sp=solPhenPx(); if(sp.poseTot<=0) return;
+          const qtyS=it.qty||0, montantS=r2(sp.poseTot*qtyS); total+=montantS;
+          rows+=`<tr><td>Sol phénolique 100 mm — pose des panneaux + chevrons PVC de calage</td><td style="text-align:right">${fmt(qtyS)} m²</td><td style="text-align:right">${fmt(sp.poseTot)} €/m²</td><td style="text-align:right;font-weight:600">${fmt(montantS)} €</td></tr>`;
+          return;
+        }
         const pose=getAccPx(it.accId||it._accId||it.id||'').pose;
         if(pose<=0) return;
         const qty=it.qty||1;
@@ -5432,6 +5470,9 @@ function collectParams(){
   px.pp = DEFAULT_PARAMS.pp;
   px.pa = DEFAULT_PARAMS.pa;
   px.pc = DEFAULT_PARAMS.pc;
+  // Sol phénolique : chevrons PVC de calage (ml par m² de sol, pose €/m²)
+  px.sol_chev_ml   = SOL_CHEV.ml;
+  px.sol_chev_pose = SOL_CHEV.pose;
   // Transport
   px.tr_pan_franco  = parseFloat(G('tr-pan-franco')?.value)||500;
   px.tr_pan_forfait = parseFloat(G('tr-pan-forfait')?.value)||200;
@@ -5486,6 +5527,10 @@ function applyParams(px){
   if(G('def-pp') && px.pp) G('def-pp').value = px.pp;
   if(G('def-pa') && px.pa) G('def-pa').value = px.pa;
   if(G('def-pc') && px.pc) G('def-pc').value = px.pc;
+  if(px.sol_chev_ml!=null)   SOL_CHEV.ml   = parseFloat(px.sol_chev_ml)||0;
+  if(px.sol_chev_pose!=null) SOL_CHEV.pose = parseFloat(px.sol_chev_pose)||0;
+  if(G('sol-chev-ml'))   G('sol-chev-ml').value   = SOL_CHEV.ml;
+  if(G('sol-chev-pose')) G('sol-chev-pose').value = SOL_CHEV.pose;
   if(G('tr-pan-franco')  && px.tr_pan_franco)  G('tr-pan-franco').value  = px.tr_pan_franco;
   if(G('tr-pan-forfait') && px.tr_pan_forfait) G('tr-pan-forfait').value = px.tr_pan_forfait;
   if(G('tr-por-taux')     && px.tr_por_pct)     G('tr-por-taux').value     = px.tr_por_pct;
@@ -5517,6 +5562,7 @@ function applyParams(px){
   ACC_DEFAULTS.forEach(a=>{
     if(px['acc_a_'+a.id]!==undefined) accPxWrite('a',a.id,px['acc_a_'+a.id]);
     if(px['acc_p_'+a.id]!==undefined) accPxWrite('p',a.id,px['acc_p_'+a.id]);
+    if(a.refA!=null && !(accPxNum('a',a.id)>0)) accPxWrite('a',a.id,a.refA); // prix de référence tant que la ligne n'a jamais été saisie
   });
   try{ initAccPrices(); }catch(e){} // ré-affiche le tableau avec les prix chargés
   if(px.matrix_overrides) applyMatrixOverrides(px.matrix_overrides);
@@ -6872,6 +6918,12 @@ function genMissionPDF(){
   Object.values(porGP).forEach(g=>{ const mnt=g.pose*g.n; total+=mnt; drawMRow(g.desig,g.n+' u',fn(g.pose)+'/u',fn(mnt)); });
 
   accs.forEach(it=>{
+    if(it.accId==='sol_phen'){ // sol phénolique : pose au m² = pose du sol + pose des chevrons PVC de calage
+      const sp=solPhenPx(); if(sp.poseTot<=0) return;
+      const qtyS=it.qty||0, mntS=r2(sp.poseTot*qtyS); total+=mntS;
+      drawMRow('Sol phénolique 100 mm — pose des panneaux + chevrons PVC de calage', fn(qtyS).replace(' €','')+'m²', fn(sp.poseTot)+'/m²', fn(mntS));
+      return;
+    }
     const pose=getAccPx(it.accId||it._accId||it.id||'').pose;
     if(pose<=0) return;
     const qty=it.qty||1;
