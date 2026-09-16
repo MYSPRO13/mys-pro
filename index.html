@@ -749,6 +749,7 @@ body {
 .cmdacc-fou-name { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--blue); }
 .cmdacc-fou-count { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; }
 .cmdacc-warn-fou { font-size: 10px; color: var(--orange); margin-left: 8px; font-weight: 500; text-transform: none; letter-spacing: 0; }
+.me-missing td { font-size: 12px; color: var(--text2); background: rgba(245,158,11,.06); }
 .cmdacc-table { background: var(--surface); border-radius: var(--radius-sm); }
 .cmdacc-table td, .cmdacc-table th { padding: 5px 8px; }
 .cmdacc-nom { font-weight: 500; }
@@ -3348,7 +3349,7 @@ function accAdd(){
   if(pid==='soupape'){qty=parseInt(G('af-qty')?.value)||1;vol=parseFloat(G('af-soup-vol')?.value)||0;meta=`${qty} unité${qty>1?'s':''}`;}
   else if(['trappe','silicone','ecrou_pom'].includes(pid)){qty=parseInt(G('af-qty')?.value)||1;meta=`${qty} unité${qty>1?'s':''}`;}
   else if(pid==='lisse'){const ml=parseFloat(G('af-ml')?.value)||0;const niv=parseInt(G('af-niv')?.value)||1;const totMl=ml*niv;const barres=Math.ceil(totMl/3);qty=totMl;unit='ml';nbU=barres;meta=`${fmt(totMl)} ml${niv>1?` (${ml} × ${niv} niv.)`:''} — ${barres} barre${barres>1?'s':''} 3m`;}
-  else if(pid==='sol_phen'){const out=solResult();if(!out){alert((G('af-sol-mode')?.value)==='surf'?'Saisir la surface.':'Saisir la longueur et la largeur.');return;}qty=out.qty;nbU=out.nb;unit='m²';meta=out.meta;cmdDetail=out.cmdDetail;extra.solMix=(out.mode==='dim'&&out.res)?Object.assign({},out.res.plaques):{3:out.nb};}
+  else if(pid==='sol_phen'){const out=solResult();if(!out){alert((G('af-sol-mode')?.value)==='surf'?'Saisir la surface.':'Saisir la longueur et la largeur.');return;}qty=out.qty;nbU=out.nb;unit='m²';meta=out.meta;cmdDetail=out.cmdDetail;extra.solMix=(out.mode==='dim'&&out.res)?Object.assign({},out.res.plaques):{3:out.nb};extra.solMode=out.mode;extra.solL=out.L||0;extra.solW=out.l||0;}
   else if(pid==='brio'){const ml=parseFloat(G('af-brio-ml')?.value)||0;const ep=G('af-brio-ep')?.value;const h=G('af-brio-h')?.value;qty=Math.ceil(Math.round(ml/1.22*1e10)/1e10);meta=`${qty} panneaux BRIO ${ep}mm × ${(parseInt(h)/1000).toFixed(2)}m`;}
   else if(pid==='tole'){const out=toleResult();if(!out){alert((G('af-tole-mode')?.value)==='surf'?'Saisir la surface.':'Saisir la longueur et la largeur.');return;}qty=out.qty;nbU=out.nb;unit='m²';meta=out.meta;cmdDetail=out.cmdDetail;extra.toleFmt=out.fmt.k;}
   else if(pid==='te_systeme'){const ml=parseFloat(G('af-te-ml')?.value)||0;const cable=parseFloat(G('af-te-cable')?.value)||2;const nb=Math.ceil(ml/4);const mlFact=nb*4;const clRep=Math.ceil(ml);const clCont=nb;const tot=clRep+clCont;qty=mlFact;nbU=nb;unit='ML';meta=`${nb} barres Té 4m (${mlFact} ML) | ${clRep} cl.rep. | ${clCont} cl.cont. | ${tot} zip+oeillet | ~${Math.ceil(tot*cable)}m câble`;}
@@ -3386,7 +3387,24 @@ function accQtyChange(i,d){if(items[i]){items[i].qty=Math.max(1,(items[i].qty||1
 // Déduit les quantités de consommables/finitions du contenu du devis + quelques
 // mesures de chantier saisies au passage en commande. Sert UNIQUEMENT à la
 // commande (jamais facturé — le coût est dans le paramètre « Accessoires €/m² »).
-let METRE={ sepa:0, cornFinH:0, angIntPos:0, angIntNeg:0, angExt:0, margeOverride:'', chevronEsp:40, chambres:[], overrides:{} };
+let METRE={ sepa:0, cornFinH:0, angIntPos:0, angIntNeg:0, angExt:0, margeOverride:'', chevronEsp:40, chambres:[], overrides:{}, volDevis:{} };
+// Chambres froides négatives déduites du devis : une ligne « Sol phénolique » = une chambre.
+// Dimensions reprises si la ligne a été saisie en L × l ; saisie en surface → chambre « dimensions manquantes ».
+// Volume (soupapes) = L × l × hauteur max des cloisons, corrigeable (METRE.volDevis[idx]).
+function metreChambresDevis(){
+  const h=metreDevisData().hMax; METRE.volDevis=METRE.volDevis||{}; let k=0;
+  const out=[];
+  items.forEach((it,itemIdx)=>{
+    if(it.type!=='acc'||it.accId!=='sol_phen') return;
+    const fv=it.formVals||{}; const mode=it.solMode||fv['af-sol-mode']||'dim';
+    const L=parseFloat(it.solL!=null?it.solL:fv['af-sol-L'])||0, w=parseFloat(it.solW!=null?it.solW:fv['af-sol-w'])||0;
+    const ok=mode!=='surf'&&L>0&&w>0; const idx=k++; const ov=METRE.volDevis[idx];
+    out.push({src:'devis', idx, itemIdx, label:it.label||'Sol phénolique', l:ok?L:0, w:ok?w:0, vol:(ov!=null&&ov!=='')?(parseFloat(ov)||0):(ok?r2(L*w*h):0), missing:!ok, surf:ok?0:(parseFloat(it.qty)||0)});
+  });
+  return out;
+}
+function metreAllChambres(){ return metreChambresDevis().concat(METRE.chambres||[]); }
+function metreVolDevisInput(idx,v){ METRE.volDevis=METRE.volDevis||{}; METRE.volDevis[idx]=v; metreRenderResults(); }
 function accById(id){ id=ACC_PX_MAP[id]||id; return ACC_DEFAULTS.find(a=>a.id===id); }
 function metreMarge(surfTot, ov){
   if(ov!==''&&ov!=null&&!isNaN(parseFloat(ov))) return parseFloat(ov)/100;
@@ -3416,7 +3434,7 @@ function chevronMlChambre(c,esp){
   const e=(parseFloat(esp)||40)/100;
   return 2*(A+B)+Math.max(0,Math.ceil(B/e)-1)*A;
 }
-function metreChevronsTot(){ return (METRE.chambres||[]).reduce((t,c)=>t+chevronMlChambre(c,METRE.chevronEsp),0); }
+function metreChevronsTot(){ return metreAllChambres().reduce((t,c)=>t+chevronMlChambre(c,METRE.chevronEsp),0); }
 function metreCalc(){
   const d=metreDevisData(), f=METRE, marge=metreMarge(d.surfTot,f.margeOverride);
   const hFac=Math.max(1,Math.ceil(d.hMax/3));
@@ -3466,10 +3484,10 @@ function metreCalc(){
   add('vis_autofor',6*bPlinthe+12*nbQR+4*d.nbPan,`6×${bPlinthe} plinthes + 12×${nbQR} 1/4rond + 4×${d.nbPan} pan.`,{cond:'boite',condSize:500});
   add('butyle_gris',bUsol/2+bPlinthe/2+nbQR/2,`(${bUsol} U sol + ${bPlinthe} plinthes + ${nbQR} 1/4rond) ÷ 2`,{cond:'cart'});
   // Chevrons (chambres négatives)
-  { const ml=f.chambres.reduce((t,c)=>t+chevronMlChambre(c,f.chevronEsp),0); // une chambre saisie suffit
+  { const ml=metreAllChambres().reduce((t,c)=>t+chevronMlChambre(c,f.chevronEsp),0); // chambres du devis + chambres saisies
     if(ml>0) add('chevron_pvc',Math.ceil(ml/3),`${ml.toFixed(1)} ml (périmètre + rangées tous les ${f.chevronEsp||40} cm) ÷ 3`,{cond:'barre'}); }
   // Soupapes (par volume) + tampons
-  let sInf=0,sSup=0; f.chambres.forEach(c=>{ const v=c.vol||0; if(v<=0) return; if(v<75) sInf++; else sSup++; });
+  let sInf=0,sSup=0; metreAllChambres().forEach(c=>{ const v=c.vol||0; if(v<=0) return; if(v<75) sInf++; else sSup++; });
   add('soupape_inf75',sInf,`${sInf} chambre(s) < 75 m³`,{noMarge:true});
   add('soupape_sup75',sSup,`${sSup} chambre(s) ≥ 75 m³`,{noMarge:true});
   if(d.nbPortes>10) add('tampon_porte',d.nbPivot,`${d.nbPivot} portes pivotantes (projet > 10 portes)`,{noMarge:true});
@@ -3498,8 +3516,9 @@ function metreReadForm(){
 }
 function metreUpdate(){ metreReadForm(); metreSyncChevrons(); metreRenderResults(); }
 function metreSyncChevrons(){ // met à jour les ml de chevrons par chambre + le total, sans re-render (garde le focus)
+  metreChambresDevis().forEach(c=>{ const e=G('me-chev-d'+c.idx); if(e){ const ml=chevronMlChambre(c,METRE.chevronEsp); e.textContent=ml>0?fmt(ml)+' ml':'—'; } });
   (METRE.chambres||[]).forEach((c,i)=>{ const e=G('me-chev-'+i); if(e){ const ml=chevronMlChambre(c,METRE.chevronEsp); e.textContent=ml>0?fmt(ml)+' ml':'—'; } });
-  const t=G('me-chev-tot'); if(t){ const ml=metreChevronsTot(); t.textContent=ml>0?`Chevrons PVC : ${fmt(ml)} ml au total → ${Math.ceil(ml/3)} barre${Math.ceil(ml/3)>1?'s':''} de 3 m avant marge (ligne « Chevron PVC » dans les quantités).`:'Saisis longueur × largeur : le linéaire de chevrons se calcule ici et alimente les quantités à commander.'; }
+  const t=G('me-chev-tot'); if(t){ const ml=metreChevronsTot(); t.textContent=ml>0?`Chevrons PVC : ${fmt(ml)} ml au total → ${Math.ceil(ml/3)} barre${Math.ceil(ml/3)>1?'s':''} de 3 m avant marge (ligne « Chevron PVC » dans les quantités).`:'Le linéaire de chevrons se calcule à partir des dimensions des chambres et alimente les quantités à commander.'; }
 }
 function metreAddChambre(){ metreReadForm(); METRE.chambres.push({l:0,w:0,vol:0}); metreRenderPanel(); }
 function metreDelChambre(i){ metreReadForm(); METRE.chambres.splice(i,1); metreRenderPanel(); }
@@ -3509,7 +3528,13 @@ function metreRenderPanel(){
   const el=G('metre-panel'); if(!el) return;
   const hasPan=items.some(i=>i.type==='pan');
   const fld=(id,lab,val,unit,title)=>`<label class="cmdacc-fld"${title?` title="${esc(title)}"`:''}><span>${lab}</span><span class="dep-inline"><input type="number" id="${id}" value="${(val===0||val===''||val==null)?'':val}" oninput="metreUpdate()" class="dep-in">${unit?`<em>${unit}</em>`:''}</span></label>`;
-  const ch=METRE.chambres.map((c,i)=>`<tr><td class="c-n">${i+1}</td><td><input type="number" class="dep-in" value="${c.l||''}" oninput="metreChambreInput(${i},'l',this.value)"></td><td><input type="number" class="dep-in" value="${c.w||''}" oninput="metreChambreInput(${i},'w',this.value)"></td><td><input type="number" class="dep-in" value="${c.vol||''}" oninput="metreChambreInput(${i},'vol',this.value)"></td><td class="cmdacc-fixed" id="me-chev-${i}">${chevronMlChambre(c,METRE.chevronEsp)>0?fmt(chevronMlChambre(c,METRE.chevronEsp))+' ml':'—'}</td><td class="c-del"><button class="item-del" title="Retirer cette chambre" onclick="metreDelChambre(${i})">×</button></td></tr>`).join('');
+  const dev=metreChambresDevis(); let n=0;
+  const chevTxt=c=>{ const ml=chevronMlChambre(c,METRE.chevronEsp); return ml>0?fmt(ml)+' ml':'—'; };
+  let ch=dev.map(c=>{ n++;
+    if(c.missing) return `<tr class="me-missing"><td class="c-n">${n}</td><td colspan="4"><span class="cmdacc-warn-fou" style="margin-left:0">⚠ Dimensions manquantes</span> ${esc(c.label)} saisi en surface${c.surf?` (${fmt(c.surf)} m²)`:''} : reprends la ligne dans le configurateur en mode « Dimensions L × l » pour calculer les chevrons.</td><td class="c-del"><button class="item-del" title="Ouvrir cette ligne dans le configurateur" onclick="editAccItem(${c.itemIdx})">✎</button></td></tr>`;
+    return `<tr><td class="c-n">${n}</td><td class="cmdacc-fixed">${fmt(c.l)} <span class="cmdacc-src">devis</span></td><td class="cmdacc-fixed">${fmt(c.w)}</td><td><input type="number" class="dep-in" value="${c.vol||''}" oninput="metreVolDevisInput(${c.idx},this.value)" title="Volume proposé = L × l × hauteur des cloisons"></td><td class="cmdacc-fixed" id="me-chev-d${c.idx}">${chevTxt(c)}</td><td class="c-del"></td></tr>`;
+  }).join('');
+  ch+=METRE.chambres.map((c,i)=>{ n++; return `<tr><td class="c-n">${n}</td><td><input type="number" class="dep-in" value="${c.l||''}" oninput="metreChambreInput(${i},'l',this.value)"></td><td><input type="number" class="dep-in" value="${c.w||''}" oninput="metreChambreInput(${i},'w',this.value)"></td><td><input type="number" class="dep-in" value="${c.vol||''}" oninput="metreChambreInput(${i},'vol',this.value)"></td><td class="cmdacc-fixed" id="me-chev-${i}">${chevTxt(c)}</td><td class="c-del"><button class="item-del" title="Retirer cette chambre" onclick="metreDelChambre(${i})">×</button></td></tr>`; }).join('');
   el.innerHTML=`<section class="dep-step">
     <div class="dep-step-head"><span class="dep-step-n">1</span><div><div class="dep-step-title">Métré chantier</div><div class="dep-step-hint">Ce que le devis ne sait pas : saisi ici, il pilote le calcul des quantités. Vide = 0.</div></div></div>
     ${!hasPan?'<div class="cmdacc-warn">Aucun panneau dans le devis : le calcul sera vide.</div>':''}
@@ -3522,9 +3547,9 @@ function metreRenderPanel(){
       ${fld('me-esp','Espacement chevrons',METRE.chevronEsp,'cm')}
       ${fld('me-marge','Marge de commande',METRE.margeOverride,'%','Vide = marge automatique selon la surface')}
     </div>
-    <div class="cmdacc-sub">Chambres froides négatives <span class="dep-rate">pour les chevrons et les soupapes</span></div>
+    <div class="cmdacc-sub">Chambres froides négatives <span class="dep-rate">reprises des lignes « Sol phénolique » du devis (une ligne = une chambre) ; pour les chevrons et les soupapes</span></div>
     <table class="dep-table"><thead><tr><th class="c-n">#</th><th>Longueur <em>m</em></th><th>Largeur <em>m</em></th><th>Volume <em>m³</em></th><th>Chevrons <em>calculés</em></th><th class="c-del"></th></tr></thead>
-      <tbody>${ch||'<tr class="dep-empty"><td colspan="6">Aucune chambre négative.</td></tr>'}</tbody></table>
+      <tbody>${ch||'<tr class="dep-empty"><td colspan="6">Aucune chambre négative : ajoute un sol phénolique au devis, ou une chambre à la main.</td></tr>'}</tbody></table>
     <div class="dep-legend" id="me-chev-tot"></div>
     <button class="dep-add" onclick="metreAddChambre()">+ Ajouter une chambre négative</button>
   </section>
@@ -3552,16 +3577,16 @@ function accCmdLines(it){
   }
   if(id==='sol_phen'){
     const mix=(it.solMix&&Object.keys(it.solMix).length)?it.solMix:null;
-    if(mix) return Object.keys(mix).map(Number).sort((a,b)=>b-a).map(k=>['Panneau de sol phénolique 100 mm — '+String(k).replace('.',',')+' × 1,2 m', mix[k]+' plaque'+(mix[k]>1?'s':''), it.cmdDetail||'']);
+    if(mix) return Object.keys(mix).map(Number).sort((a,b)=>b-a).map(k=>['Sol phénolique Ep 100mm - '+Math.round(k*1000)+' x 1200 mm', mix[k]+' unité'+(mix[k]>1?'s':''), it.cmdDetail||'']);
     return [[it.label, cmdAccQty(it), it.cmdDetail||accDetail(it)||'']];
   }
   if(id==='tole'){
     const f=it.toleFmt?toleFormat(it.toleFmt):null;
-    return [[f?('Tôle larmée 4 mm — '+f.lab):it.label, (it.nbU||0)+' tôle'+((it.nbU||0)>1?'s':''), it.cmdDetail||accDetail(it)||'']];
+    return [[f?('Tôle larmée 4mm - '+Math.round(f.L*1000)+' x '+Math.round(f.l*1000)+' mm'):it.label, (it.nbU||0)+' unité'+((it.nbU||0)>1?'s':''), it.cmdDetail||accDetail(it)||'']];
   }
   return [[it.label, cmdAccQty(it), (it.cmdDetail||accDetail(it)||'')]];
 }
-function cmdAccQty(it){ return it.accId==='te_reprise'?((it.ml||0)+' ml'):it.accId==='sol_phen'?((it.nbU||0)+' plaque'+((it.nbU||0)>1?'s':'')):it.accId==='iso_sol'?((it.nbU||0)+' colis'):it.accId==='lisse'?((it.nbU||0)+' barre'+((it.nbU||0)>1?'s':'')+' 3m'):String(it.nbU||it.qty||1); }
+function cmdAccQty(it){ return it.accId==='te_reprise'?((it.ml||0)+' ml'):it.accId==='sol_phen'?((it.nbU||0)+' unité'+((it.nbU||0)>1?'s':'')):it.accId==='iso_sol'?((it.nbU||0)+' colis'):it.accId==='lisse'?((it.nbU||0)+' barre'+((it.nbU||0)>1?'s':'')+' 3m'):String(it.nbU||it.qty||1); }
 function metreRenderResults(){
   const el=G('metre-results'); if(!el) return;
   const r=metreCalc(), bd=bastCmdData();
