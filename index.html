@@ -748,6 +748,7 @@ body {
 .cmdacc-fou-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
 .cmdacc-fou-name { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--blue); }
 .cmdacc-fou-count { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; }
+.cmdacc-warn-fou { font-size: 10px; color: var(--orange); margin-left: 8px; font-weight: 500; text-transform: none; letter-spacing: 0; }
 .cmdacc-table { background: var(--surface); border-radius: var(--radius-sm); }
 .cmdacc-table td, .cmdacc-table th { padding: 5px 8px; }
 .cmdacc-nom { font-weight: 500; }
@@ -2631,18 +2632,18 @@ const ACC_DEFAULTS = [
   {id:'ter_eclisse',  cat:'te', fou:'Fixone', u:'unité',     nom:'Éclisse pour Té alu — ø10 mm'},
   {id:'ter_pose',     cat:'te', fou:'Fixone', u:'ml',        nom:'POSE du Té — €/ml (colonne Achat)'},
   // ── Anciennes lignes : conservées pour que les devis déjà enregistrés gardent leur prix ──
-  {id:'te',       cat:'legacy', u:'ml',    nom:'Té alu système (ancien — €/ML)'},
+  {id:'te',       cat:'legacy', fou:'Fixone', u:'ml',    nom:'Té alu système (ancien — €/ML)'},
   {id:'corn_ext', cat:'legacy', u:'barre', nom:'Cornière ext. 50×150 (ancien)'},
   {id:'corn_int', cat:'legacy', u:'barre', nom:'Cornière int. 50×50 (ancien)'},
-  {id:'plinthe',  cat:'legacy', u:'barre', nom:'Plinthe PVC 80mm (ancien)'},
-  {id:'lisse',    cat:'legacy', u:'ml',    nom:'Lisse de protection PVC'},
+  {id:'plinthe',  cat:'legacy', fou:'Plastiques des Neiges', u:'barre', nom:'Plinthe PVC 80mm (ancien)'},
+  {id:'lisse',    cat:'legacy', fou:'Plastiques des Neiges', u:'ml',    nom:'Lisse de protection PVC'},
   {id:'silicone', cat:'legacy', u:'cart.', nom:'Silicone 300ml (ancien)'},
   {id:'mousse',   cat:'legacy', u:'cart.', nom:'Mousse PU 750ml (ancien)'},
-  {id:'soupape',  cat:'legacy', u:'unité', nom:'Soupape équilibrage (ancien)'},
-  {id:'trappe',   cat:'legacy', u:'unité', nom:'Trappe de visite (ancien)'},
-  {id:'sol_phen', cat:'legacy', u:'m²',    nom:'Sol phénolique (ancien)'},
-  {id:'tole',     cat:'legacy', u:'m²',    nom:'Tôle larmée 4mm (ancien)'},
-  {id:'u_sol',    cat:'legacy', u:'barre', nom:'U de sol PVC (ancien)'},
+  {id:'soupape',  cat:'legacy', fou:'Celtek', u:'unité', nom:'Soupape équilibrage (ancien)'},
+  {id:'trappe',   cat:'legacy', fou:'Celtek', u:'unité', nom:'Trappe de visite (ancien)'},
+  {id:'sol_phen', cat:'legacy', fou:'Celtek', u:'m²',    nom:'Sol phénolique (ancien)'},
+  {id:'tole',     cat:'legacy', fou:'FIC', u:'m²',    nom:'Tôle larmée 4mm (ancien)'},
+  {id:'u_sol',    cat:'legacy', fou:'Plastiques des Neiges', u:'barre', nom:'U de sol PVC (ancien)'},
 ];
 
 // Correspondance produits du configurateur accessoires → lignes de prix « Accessoires Divers »
@@ -2956,6 +2957,9 @@ function editAccItem(i){
   // Anciennes lignes sans formVals : on reconstruit ce qu'on peut
   let vals=it.formVals;
   if(!vals && pid==='te_reprise') vals={'af-ter-ml':it.ml,'af-ter-h':it.hauteur};
+  if(vals && pid==='tole' && !('af-tole-mode' in vals)){ // ancienne ligne tôle : surface seule + ancien code de format (2 / 3.125 / 4.5)
+    const f=toleFormat(vals['af-tole-fmt']); vals=Object.assign({},vals,{'af-tole-mode':'surf','af-tole-fmt':f?f.k:'auto'});
+  }
   accApplyFormVals(vals);
   const pill=G('acc-edit-pill'), lab=G('acc-edit-label'), btn=G('acc-add-btn');
   if(lab) lab.textContent=it.label||'';
@@ -3023,9 +3027,22 @@ function renderAccForm(pid){
       <div class="acc-field"><label>Hauteur</label><select id="af-brio-h"><option value="2600">2.60m</option><option value="3000">3.00m</option></select></div>
       <div class="acc-field"><label>Longueur (ML)</label><input type="number" id="af-brio-ml" value="0" min="0" step="0.1" oninput="calcBrio()"><span class="acc-unit">m</span></div>
       <div class="acc-result" id="af-res-brio">Saisir les ML</div>`,
-    tole:`<div class="acc-field"><label>Surface à couvrir</label><input type="number" id="af-tole-surf" value="0" min="0" step="0.1" oninput="calcTole()"><span class="acc-unit">m²</span></div>
-      <div class="acc-field"><label>Format de tôle</label><select id="af-tole-fmt" onchange="calcTole()"><option value="2">1×2m (2m²)</option><option value="3.125">1.25×2.5m (3.125m²)</option><option value="4.5">1.5×3m (4.5m²)</option></select></div>
-      <div class="acc-result" id="af-res-tole">Saisir la surface</div>`,
+    tole:`<div class="acc-field"><label>Mode de saisie</label>
+      <div style="display:flex;gap:6px">
+        <button type="button" id="af-tole-btn-dim" onclick="toleSetMode('dim')" style="font-size:12px;padding:5px 11px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif">Dimensions L × l</button>
+        <button type="button" id="af-tole-btn-surf" onclick="toleSetMode('surf')" style="font-size:12px;padding:5px 11px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif">Surface m²</button>
+      </div></div>
+      <input type="hidden" id="af-tole-mode" value="dim">
+      <div id="af-tole-dimfields">
+        <div class="acc-field"><label>Longueur (L)</label><input type="number" id="af-tole-L" value="0" min="0" step="0.05" oninput="calcTole()"><span class="acc-unit">m</span></div>
+        <div class="acc-field"><label>Largeur (l)</label><input type="number" id="af-tole-w" value="0" min="0" step="0.05" oninput="calcTole()"><span class="acc-unit">m</span></div>
+      </div>
+      <div id="af-tole-surffields" style="display:none">
+        <div class="acc-field"><label>Surface à couvrir</label><input type="number" id="af-tole-surf" value="0" min="0" step="0.1" oninput="calcTole()"><span class="acc-unit">m²</span></div>
+      </div>
+      <div class="acc-field"><label>Format de tôle</label><select id="af-tole-fmt" onchange="calcTole()"><option value="auto">Auto — moins de chute</option><option value="2x1">2 × 1 m</option><option value="2.5x1.25">2,5 × 1,25 m</option><option value="3x1.5">3 × 1,5 m</option></select></div>
+      <div class="acc-result" id="af-res-tole">Saisir les dimensions</div>
+      <div id="af-tole-schema" style="margin-top:8px;overflow-x:auto"></div>`,
     te_reprise:`<div class="acc-field"><label>Longueur totale (ML)</label><input type="number" id="af-ter-ml" value="0" min="0" step="0.5" oninput="calcTeReprise()"><span class="acc-unit">m</span></div>
       <div class="acc-field"><label>Hauteur de reprise (câble)</label><input type="number" id="af-ter-h" value="2" min="0" step="0.5" oninput="calcTeReprise()"><span class="acc-unit">m</span></div>
       <div class="acc-result" id="af-res-ter">Saisir les ML</div>`,
@@ -3050,7 +3067,7 @@ function renderAccForm(pid){
       ${[mlCl40,mlCl60,mlCl80,mlClNeg].every(m=>m===0)?'<div class="acc-note">Aucune cloison dans le devis</div>':''}`
   };
   el.innerHTML=forms[pid]||`<div class="acc-field"><label>Quantité</label><input type="number" id="af-qty" value="1" min="1" step="1"><span class="acc-unit">unité(s)</span></div>`;
-  if(pid==='lisse')calcLisse();if(pid==='corn_int')calcCornInt();if(pid==='plinthe')calcPlinthe();if(pid==='mousse_pu')calcPU();if(pid==='te_reprise')calcTeReprise();if(pid==='sol_phen')calcSolPhen();if(pid==='bastaing')calcBastaing();if(pid==='iso_sol')isoSetMode('surf');
+  if(pid==='lisse')calcLisse();if(pid==='corn_int')calcCornInt();if(pid==='plinthe')calcPlinthe();if(pid==='mousse_pu')calcPU();if(pid==='te_reprise')calcTeReprise();if(pid==='tole')calcTole();if(pid==='sol_phen')calcSolPhen();if(pid==='bastaing')calcBastaing();if(pid==='iso_sol')isoSetMode('surf');
 }
 function calcBastaing(){
   const mode=G('af-bast-mode')?.value||'sh';
@@ -3191,7 +3208,63 @@ function calcSolPhen(){
   if(sch) sch.innerHTML=(out.mode==='dim'&&out.res)?solSchemaSVG(out.L,out.l,out.res):'';
 }
 function calcBrio(){const ml=parseFloat(G('af-brio-ml')?.value)||0;const ep=G('af-brio-ep')?.value;const h=parseInt(G('af-brio-h')?.value)||2600;const nb=Math.ceil(Math.round(ml/1.22*1e10)/1e10);const r=G('af-res-brio');if(r)r.innerHTML=`${nb} panneau${nb>1?'x':''} BRIO ${ep}mm × ${(h/1000).toFixed(2)}m × 1.22m`;}
-function calcTole(){const surf=parseFloat(G('af-tole-surf')?.value)||0;const fmt=parseFloat(G('af-tole-fmt')?.value)||2;const nb=surf>0?Math.ceil(surf/fmt):0;const r=G('af-res-tole');if(r)r.innerHTML=`${nb} tôle${nb>1?'s':''} — ${(nb*fmt).toFixed(2)}m² couverts`;}
+// ── Tôle larmée 4 mm : calepinage par format (2 × 1, 2,5 × 1,25, 3 × 1,5 m) — même logique que le sol phénolique ──
+const TOLE_FORMATS=[{k:'2x1',L:2,l:1,lab:'2 × 1 m'},{k:'2.5x1.25',L:2.5,l:1.25,lab:'2,5 × 1,25 m'},{k:'3x1.5',L:3,l:1.5,lab:'3 × 1,5 m'}];
+function toleFormat(k){ const old={'2':'2x1','3.125':'2.5x1.25','4.5':'3x1.5'}; k=old[k]||k; return TOLE_FORMATS.find(f=>f.k===k)||null; }
+function toleSimulateFmt(L,l,f){ // rangées dans la largeur, tôles dans la longueur ; les 2 sens sont testés
+  let best=null;
+  for(const [w,rowLen,sens] of [[l,L,'L'],[L,l,'l']]){
+    const nrows=Math.ceil(Math.round(w/f.l*1e6)/1e6), perRow=Math.ceil(Math.round(rowLen/f.L*1e6)/1e6);
+    const nb=nrows*perRow, boughtM2=+(nb*f.L*f.l).toFixed(2);
+    const res={fmt:f,sens,w,rowLen,nrows,perRow,nb,boughtM2,chute:+(boughtM2-L*l).toFixed(2)};
+    if(!best||res.boughtM2<best.boughtM2||(res.boughtM2===best.boughtM2&&res.nb<best.nb)) best=res;
+  }
+  return best;
+}
+function toleResult(){
+  let mode=(G('af-tole-mode')?.value)||'dim';
+  const fk=(G('af-tole-fmt')?.value)||'auto';
+  const cands=fk==='auto'?TOLE_FORMATS:[toleFormat(fk)||TOLE_FORMATS[0]];
+  const L=parseFloat(G('af-tole-L')?.value)||0, l=parseFloat(G('af-tole-w')?.value)||0, surf=parseFloat(G('af-tole-surf')?.value)||0;
+  if(mode==='dim'&&(L<=0||l<=0)&&surf>0) mode='surf'; // anciennes lignes : seule la surface était saisie
+  const better=(r,b)=>!b||r.boughtM2<b.boughtM2||(r.boughtM2===b.boughtM2&&r.nb<b.nb);
+  if(mode==='surf'){
+    if(surf<=0) return null;
+    let best=null; cands.forEach(f=>{ const area=f.L*f.l, nb=Math.ceil(surf/area), m2=+(nb*area).toFixed(2); const r={fmt:f,nb,boughtM2:m2,chute:+(m2-surf).toFixed(2)}; if(better(r,best)) best=r; });
+    return {mode,fmt:best.fmt,nb:best.nb,qty:best.boughtM2,res:null,
+      meta:`≈ ${best.nb} tôle${best.nb>1?'s':''} ${best.fmt.lab} — ${best.boughtM2} m² (estimation, sans calepinage)`,
+      cmdDetail:`≈ ${best.nb} tôle${best.nb>1?'s':''} ${best.fmt.lab} (surface saisie ${String(surf).replace('.',',')} m²)`};
+  }
+  if(L<=0||l<=0) return null;
+  let best=null; cands.forEach(f=>{ const r=toleSimulateFmt(L,l,f); if(better(r,best)) best=r; });
+  return {mode,fmt:best.fmt,nb:best.nb,qty:best.boughtM2,L,l,res:best,
+    meta:`${best.nb} tôle${best.nb>1?'s':''} ${best.fmt.lab} (${best.nrows} rangée${best.nrows>1?'s':''} × ${best.perRow}) — acheté ${best.boughtM2} m² · chute ${best.chute} m²`,
+    cmdDetail:`${best.nb} × ${best.fmt.lab} — ${best.nrows} rangée${best.nrows>1?'s':''} de ${best.perRow} (sol ${String(L).replace('.',',')}×${String(l).replace('.',',')} m)`};
+}
+function toleSyncMode(){
+  const m=(G('af-tole-mode')?.value)||'dim'; const d=G('af-tole-dimfields'), sf=G('af-tole-surffields');
+  if(d) d.style.display=m==='dim'?'':'none'; if(sf) sf.style.display=m==='surf'?'':'none';
+  ['dim','surf'].forEach(k=>{ const b=G('af-tole-btn-'+k); if(b){ b.style.borderColor=m===k?'var(--blue)':'var(--border)'; b.style.color=m===k?'var(--blue)':'var(--text2)'; b.style.fontWeight=m===k?'600':'400'; } });
+}
+function toleSetMode(m){ const h=G('af-tole-mode'); if(h) h.value=m; toleSyncMode(); calcTole(); }
+function toleSchemaSVG(L,l,res){
+  const w=res.w, rl=res.rowLen, f=res.fmt; const PX=Math.max(18,Math.min(60,300/Math.max(w,rl))); const mx=30,my=18; const Wpx=w*PX, Hpx=rl*PX;
+  let sv=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${(Wpx+2*mx).toFixed(0)} ${(Hpx+2*my+14).toFixed(0)}" style="max-width:100%;height:auto;font-family:'DM Sans',sans-serif">`;
+  for(let r=0;r<res.nrows;r++){ for(let c=0;c<res.perRow;c++){ const x=mx+r*f.l*PX, y=my+c*f.L*PX;
+    sv+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(f.l*PX).toFixed(1)}" height="${(f.L*PX).toFixed(1)}" fill="#cfd8e3" stroke="#6e7278" stroke-width="0.8"/>`; } }
+  sv+=`<rect x="${(mx+Wpx).toFixed(1)}" y="${my}" width="${(Math.max(0,res.nrows*f.l-w)*PX).toFixed(1)}" height="${(res.perRow*f.L*PX).toFixed(1)}" fill="#ffffff" fill-opacity="0.6"/>`;
+  sv+=`<rect x="${mx}" y="${(my+Hpx).toFixed(1)}" width="${(res.nrows*f.l*PX).toFixed(1)}" height="${(Math.max(0,res.perRow*f.L-rl)*PX).toFixed(1)}" fill="#ffffff" fill-opacity="0.6"/>`;
+  sv+=`<rect x="${mx}" y="${my}" width="${Wpx.toFixed(1)}" height="${Hpx.toFixed(1)}" fill="none" stroke="#1a1917" stroke-width="1.2"/>`;
+  sv+=`<text x="${(mx+Wpx/2).toFixed(1)}" y="${(my-6).toFixed(1)}" font-size="10" text-anchor="middle" fill="#6e7278">${String(w).replace('.',',')} m</text><text x="${(mx-6).toFixed(1)}" y="${(my+Hpx/2).toFixed(1)}" font-size="10" text-anchor="end" fill="#6e7278">${String(rl).replace('.',',')} m</text>`;
+  sv+=`<text x="${mx}" y="${(my+Math.max(Hpx,res.perRow*f.L*PX)+12).toFixed(1)}" font-size="10" fill="#6e7278">${res.nb} tôles ${f.lab} · chute ${res.chute} m²</text></svg>`;
+  return sv;
+}
+function calcTole(){
+  toleSyncMode();
+  const out=toleResult(); const r=G('af-res-tole'), sch=G('af-tole-schema'); const mode=(G('af-tole-mode')?.value)||'dim';
+  if(!out){ if(r) r.innerHTML=mode==='surf'?'Saisir la surface':'Saisir la longueur et la largeur'; if(sch) sch.innerHTML=''; return; }
+  if(r) r.innerHTML=out.meta; if(sch) sch.innerHTML=(out.mode==='dim'&&out.res)?toleSchemaSVG(out.L,out.l,out.res):'';
+}
 function calcTe(){const ml=parseFloat(G('af-te-ml')?.value)||0;const cable=parseFloat(G('af-te-cable')?.value)||2;const nb=Math.ceil(ml/4);const clRep=Math.ceil(ml);const clCont=nb;const tot=clRep+clCont;const r=G('af-res-te');if(r)r.innerHTML=`${nb} barres Té 4m = ${nb*4} ML facturés | ${clRep} cl.reprise | ${clCont} cl.cont. | ${tot} zip+oeillet | ~${Math.ceil(tot*cable)}m câble`;}
 // ── Té de reprise : kit complet (barres 4m + coulisses/m + œillets + clips + câble + éclisses) ──
 function teRepriseQtes(ml,h){
@@ -3238,6 +3311,7 @@ function accAdd(){
   const prodDef=ACC_PRODS[accCat]?.find(x=>x.id===pid);if(!prodDef)return;
   let label=prodDef.n,meta='',qty=1,vol=0,nbU=0,unit='',cmdDetail='';
   const formVals=accFormVals(); // mémorisé pour pouvoir rouvrir la ligne en modification
+  const extra={}; // détail propre au produit pour la commande (longueurs de plaques, format de tôle…)
   if(pid==='te_reprise'){
     const ml=parseFloat(G('af-ter-ml')?.value)||0;
     const h=parseFloat(G('af-ter-h')?.value)||0;
@@ -3274,9 +3348,9 @@ function accAdd(){
   if(pid==='soupape'){qty=parseInt(G('af-qty')?.value)||1;vol=parseFloat(G('af-soup-vol')?.value)||0;meta=`${qty} unité${qty>1?'s':''}`;}
   else if(['trappe','silicone','ecrou_pom'].includes(pid)){qty=parseInt(G('af-qty')?.value)||1;meta=`${qty} unité${qty>1?'s':''}`;}
   else if(pid==='lisse'){const ml=parseFloat(G('af-ml')?.value)||0;const niv=parseInt(G('af-niv')?.value)||1;const totMl=ml*niv;const barres=Math.ceil(totMl/3);qty=totMl;unit='ml';nbU=barres;meta=`${fmt(totMl)} ml${niv>1?` (${ml} × ${niv} niv.)`:''} — ${barres} barre${barres>1?'s':''} 3m`;}
-  else if(pid==='sol_phen'){const out=solResult();if(!out){alert((G('af-sol-mode')?.value)==='surf'?'Saisir la surface.':'Saisir la longueur et la largeur.');return;}qty=out.qty;nbU=out.nb;unit='m²';meta=out.meta;cmdDetail=out.cmdDetail;}
+  else if(pid==='sol_phen'){const out=solResult();if(!out){alert((G('af-sol-mode')?.value)==='surf'?'Saisir la surface.':'Saisir la longueur et la largeur.');return;}qty=out.qty;nbU=out.nb;unit='m²';meta=out.meta;cmdDetail=out.cmdDetail;extra.solMix=(out.mode==='dim'&&out.res)?Object.assign({},out.res.plaques):{3:out.nb};}
   else if(pid==='brio'){const ml=parseFloat(G('af-brio-ml')?.value)||0;const ep=G('af-brio-ep')?.value;const h=G('af-brio-h')?.value;qty=Math.ceil(Math.round(ml/1.22*1e10)/1e10);meta=`${qty} panneaux BRIO ${ep}mm × ${(parseInt(h)/1000).toFixed(2)}m`;}
-  else if(pid==='tole'){const surf=parseFloat(G('af-tole-surf')?.value)||0;const fmt=parseFloat(G('af-tole-fmt')?.value)||2;const nb=Math.ceil(surf/fmt);const m2=Math.ceil(nb*fmt*100)/100;qty=m2;nbU=nb;unit='m²';meta=`${nb} tôles — ${m2} m²`;}
+  else if(pid==='tole'){const out=toleResult();if(!out){alert((G('af-tole-mode')?.value)==='surf'?'Saisir la surface.':'Saisir la longueur et la largeur.');return;}qty=out.qty;nbU=out.nb;unit='m²';meta=out.meta;cmdDetail=out.cmdDetail;extra.toleFmt=out.fmt.k;}
   else if(pid==='te_systeme'){const ml=parseFloat(G('af-te-ml')?.value)||0;const cable=parseFloat(G('af-te-cable')?.value)||2;const nb=Math.ceil(ml/4);const mlFact=nb*4;const clRep=Math.ceil(ml);const clCont=nb;const tot=clRep+clCont;qty=mlFact;nbU=nb;unit='ML';meta=`${nb} barres Té 4m (${mlFact} ML) | ${clRep} cl.rep. | ${clCont} cl.cont. | ${tot} zip+oeillet | ~${Math.ceil(tot*cable)}m câble`;}
   else if(pid==='corn_ext'){const ml=parseFloat(G('af-ce-ml')?.value)||0;qty=Math.ceil(ml/3);meta=`${qty} barres 3m — ${ml}ML`;}
   else if(pid==='corn_int'){const p2=parseFloat(G('af-ci-perim')?.value)||0;const a=parseInt(G('af-ci-angles')?.value)||0;qty=Math.ceil((p2+a)/3);meta=`${qty} barres 3m — périm.${p2}m + ${a} angles`;}
@@ -3284,7 +3358,7 @@ function accAdd(){
   else if(pid==='mousse_pu'){const p2=parseInt(G('af-pu-portes')?.value)||0;const s=parseInt(G('af-pu-sup')?.value)||0;qty=p2+s;meta=`${qty} unité${qty>1?'s':''}`;}
   else if(pid==='usol'){const eps=['40','60','80','100'];const usols=eps.map(ep=>({ep,nb:parseInt(G('af-usol-'+ep)?.value)||0})).filter(u=>u.nb>0);qty=usols.reduce((s,u)=>s+u.nb,0);meta=usols.map(u=>`${u.nb} barres ${u.ep}mm`).join(' + ');}
   const px=getAccPx(pid).achat; // prix d'achat canonique (le calcul réel passe de toute façon par cpv → getAccPx)
-  accPush({type:'acc',label,meta,qty,vol,nbU,unit,px,achat:px,pose:0,rauto:0,surf:0,ep:'',piece:'',accId:pid,cmdDetail,formVals});
+  accPush(Object.assign({type:'acc',label,meta,qty,vol,nbU,unit,px,achat:px,pose:0,rauto:0,surf:0,ep:'',piece:'',accId:pid,cmdDetail,formVals},extra));
   renderAccList();refreshAll();accReset();
 }
 function renderAccList(){
@@ -3458,6 +3532,35 @@ function metreRenderPanel(){
   metreSyncChevrons();
   metreRenderResults();
 }
+// Fournisseur d'un complément du devis (Té de reprise = kit Fixone, isolant de sol = Roofmart, sinon catalogue)
+function accCmdFou(it){ const id=it.accId; if(id==='te_reprise') return 'Fixone'; if(id==='iso_sol') return 'Roofmart'; const def=accById(id)||{}; return def.fou||'(non attribué)'; }
+// Lignes de commande d'un complément : [désignation, quantité, détail]. Plusieurs lignes quand il faut détailler :
+// Té de reprise pièce par pièce, panneaux de sol par longueur, tôle larmée avec son format.
+function accCmdLines(it){
+  const id=it.accId;
+  if(id==='te_reprise'){
+    const q=teRepriseQtes(it.ml||0, it.hauteur||0); const n=k=>(accById(k)||{}).nom||k;
+    const pour=`pour ${fmt(q.ml)} ml de Té${it.hauteur?` — h ${String(it.hauteur).replace('.',',')} m`:''}`;
+    return [
+      [n('ter_barre'), q.barres+' barre'+(q.barres>1?'s':'')+' 4 m', pour],
+      [n('ter_coulisse'), q.coulisses+' u', '1,25 par ml'],
+      [n('ter_oeillet'), q.oeillets+' u', '1 par coulisse'],
+      [n('ter_clip'), q.clips+' u', '1 par coulisse'],
+      [n('ter_cable'), q.bobines+' bobine'+(q.bobines>1?'s':'')+' 100 m', '≈ '+Math.ceil(q.cableMl)+' m de câble'],
+      [n('ter_eclisse'), q.eclisses+' u', '1 par barre']
+    ];
+  }
+  if(id==='sol_phen'){
+    const mix=(it.solMix&&Object.keys(it.solMix).length)?it.solMix:null;
+    if(mix) return Object.keys(mix).map(Number).sort((a,b)=>b-a).map(k=>['Panneau de sol phénolique 100 mm — '+String(k).replace('.',',')+' × 1,2 m', mix[k]+' plaque'+(mix[k]>1?'s':''), it.cmdDetail||'']);
+    return [[it.label, cmdAccQty(it), it.cmdDetail||accDetail(it)||'']];
+  }
+  if(id==='tole'){
+    const f=it.toleFmt?toleFormat(it.toleFmt):null;
+    return [[f?('Tôle larmée 4 mm — '+f.lab):it.label, (it.nbU||0)+' tôle'+((it.nbU||0)>1?'s':''), it.cmdDetail||accDetail(it)||'']];
+  }
+  return [[it.label, cmdAccQty(it), (it.cmdDetail||accDetail(it)||'')]];
+}
 function cmdAccQty(it){ return it.accId==='te_reprise'?((it.ml||0)+' ml'):it.accId==='sol_phen'?((it.nbU||0)+' plaque'+((it.nbU||0)>1?'s':'')):it.accId==='iso_sol'?((it.nbU||0)+' colis'):it.accId==='lisse'?((it.nbU||0)+' barre'+((it.nbU||0)>1?'s':'')+' 3m'):String(it.nbU||it.qty||1); }
 function metreRenderResults(){
   const el=G('metre-results'); if(!el) return;
@@ -3467,18 +3570,20 @@ function metreRenderResults(){
   // Regroupement par fournisseur : lignes calculées (modifiables) + compléments du devis (fixes)
   const groups={};
   r.lines.forEach(L=>{ (groups[L.fou]=groups[L.fou]||{metre:[],devis:[]}).metre.push(L); });
-  manual.forEach(it=>{ const def=accById(it.accId)||{}, fou=(it.accId==='iso_sol')?'Roofmart':(def.fou||'(non attribué)'); (groups[fou]=groups[fou]||{metre:[],devis:[]}).devis.push(it); });
+  manual.forEach(it=>{ const fou=accCmdFou(it); (groups[fou]=groups[fou]||{metre:[],devis:[]}).devis.push(it); });
   const fous=Object.keys(groups).sort((a,b)=>a.localeCompare(b));
-  const nbLignes=r.lines.length+manual.length+(bd.has?4:0);
+  const nbLignes=r.lines.length+manual.reduce((t,it)=>t+accCmdLines(it).length,0)+(bd.has?4:0);
+  const fouConnu=f=>f==='(non attribué)'||((typeof FOU!=='undefined')&&FOU.some(x=>(x.nom||'').trim().toLowerCase()===f.trim().toLowerCase()));
   let h=`<section class="dep-step">
     <div class="dep-step-head"><span class="dep-step-n">2</span><div><div class="dep-step-title">Quantités à commander</div><div class="dep-step-hint">Calculées depuis le devis et le métré, regroupées par fournisseur. Une quantité se corrige à la main (bord orange = corrigée).</div></div><span class="dep-step-total">${nbLignes} ligne${nbLignes>1?'s':''}</span></div>`;
   if(!fous.length && !bd.has) h+=`<div class="trv-empty">Rien à commander pour l'instant : ajoute des panneaux ou des compléments au devis.</div>`;
   const thead=`<thead><tr><th>Désignation</th><th>Calcul</th><th class="c-q">Quantité</th><th>Cond.</th></tr></thead>`;
   fous.forEach(fou=>{
-    const g=groups[fou]; const n=g.metre.length+g.devis.length;
-    h+=`<div class="cmdacc-fou"><div class="cmdacc-fou-head"><span class="cmdacc-fou-name">${esc(fou)}</span><span class="cmdacc-fou-count">${n} ligne${n>1?'s':''}</span></div><table class="dep-table cmdacc-table">${thead}<tbody>`;
+    const g=groups[fou]; const n=g.metre.length+g.devis.reduce((t,it)=>t+accCmdLines(it).length,0);
+    const alerte=fouConnu(fou)?'':`<span class="cmdacc-warn-fou" title="Ce nom n'existe pas dans Fournisseurs : ajoute-le avec cette orthographe pour que son adresse sorte sur la fiche">⚠ absent de Fournisseurs</span>`;
+    h+=`<div class="cmdacc-fou"><div class="cmdacc-fou-head"><span class="cmdacc-fou-name">${esc(fou)}${alerte}</span><span class="cmdacc-fou-count">${n} ligne${n>1?'s':''}</span></div><table class="dep-table cmdacc-table">${thead}<tbody>`;
     g.metre.forEach(L=>{ h+=`<tr><td class="cmdacc-nom">${esc(L.nom)}</td><td class="cmdacc-calc">${esc(L.formule)}${L.noMarge?'':' · +marge'} → ${L.finale}</td><td class="c-q"><input type="number" class="dep-in cmdacc-q${L.override?' is-ov':''}" value="${L.affiche}" oninput="metreOverride('${L.id}',this.value);metreBadge('${L.id}',this)"></td><td class="cmdacc-cond">${esc(L.cond||L.u)}</td></tr>`; });
-    g.devis.forEach(it=>{ h+=`<tr><td class="cmdacc-nom">${esc(it.label)} <span class="cmdacc-src">devis</span></td><td class="cmdacc-calc">${esc(it.cmdDetail||accDetail(it)||'')}</td><td class="c-q cmdacc-fixed">${esc(cmdAccQty(it))}</td><td></td></tr>`; });
+    g.devis.forEach(it=>{ accCmdLines(it).forEach((c,ci)=>{ h+=`<tr><td class="cmdacc-nom">${esc(c[0])}${ci===0?' <span class="cmdacc-src">devis</span>':''}</td><td class="cmdacc-calc">${esc(c[2])}</td><td class="c-q cmdacc-fixed">${esc(c[1])}</td><td></td></tr>`; }); });
     h+=`</tbody></table></div>`;
   });
   if(bd.has){
@@ -3522,10 +3627,8 @@ function cmdAccGroupes(mode){
   const push=(fou,cells)=>{ (rows[fou]=rows[fou]||[]).push(cells); };
   r.lines.forEach(L=>{ let u=L.cond||L.u; if(u==='unité'&&(+L.affiche)>1) u='unités'; push(L.fou, [L.nom, L.affiche+' '+u, '']); });
   items.filter(i=>i.type==='acc').forEach(it=>{
-    if(it.accId==='bastaing') return; // bastaing = nomenclature bois/supports dédiée (bloc séparé), hors regroupement fournisseurs PVC
-    const def=accById(it.accId)||{}, fou=(it.accId==='iso_sol')?'Roofmart':(def.fou||'(non attribué)');
-    const q=it.accId==='te_reprise'?((it.ml||0)+' ml'):it.accId==='sol_phen'?((it.nbU||0)+' plaque'+((it.nbU||0)>1?'s':'')):it.accId==='iso_sol'?((it.nbU||0)+' colis'):it.accId==='lisse'?((it.nbU||0)+' barre'+((it.nbU||0)>1?'s':'')+' 3m'):String(it.nbU||it.qty||1);
-    push(fou, [it.label, q, (it.cmdDetail||accDetail(it)||'')]);
+    if(it.accId==='bastaing') return; // bastaing = nomenclature bois/supports dédiée (bloc séparé)
+    const fou=accCmdFou(it); accCmdLines(it).forEach(c=>push(fou,c));
   });
   if(mode==='celtek'){ const all=[]; Object.keys(rows).forEach(f=>rows[f].forEach(c=>all.push(c))); return {'Celtek':all}; }
   return rows;
