@@ -3502,8 +3502,12 @@ function metreCalc(){
     add(ceId, f.angExt*hFac, angDesc, {cond:'barre'});
     add('corn_ext_50x150', bFinH, `${f.cornFinH} ml finition horizontale ÷ 3`, {cond:'barre'});
   }
-  const nbCI=f.angIntNeg*hFac;
-  add('corn_int_50x50',nbCI,`${f.angIntNeg} angles int. négatif${hFac>1?` × ${hFac}`:''}`,{cond:'barre'});
+  // Cornière int. 50×50 : angles verticaux des chambres négatives + périphérie négative en haut (cloison/plafond)
+  // ET en bas (cloison/sol) → 2 × linéaire des cloisons ≥ 100 mm, en barres de 3 m. (Positif : congé + plinthe.)
+  const bJoncNeg=Math.ceil(2*d.mlNeg/3);
+  const nbCI=f.angIntNeg*hFac+bJoncNeg;
+  const ciParts=[]; if(f.angIntNeg>0) ciParts.push(`${f.angIntNeg} angles int. négatif${hFac>1?` × ${hFac}`:''}`); if(bJoncNeg>0) ciParts.push(`2 × ${d.mlNeg.toFixed(1)} ml de périphérie négative (plafond + sol) ÷ 3 = ${bJoncNeg}`);
+  add('corn_int_50x50',nbCI,ciParts.join(' + ')||'—',{cond:'barre'});
   add('vis_autofor_blanche',12*nbCI,`12 × ${nbCI} cornières int.`,{cond:'boite',condSize:500});
   // Congé 1/4 de rond = liaison plafond/cloison AU LINÉAIRE (comme la plinthe au sol) :
   // pourtour positif + séparatrices (2 côtés), ÷ 3 → barres, + une pièce par angle.
