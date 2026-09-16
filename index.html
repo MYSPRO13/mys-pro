@@ -3501,7 +3501,7 @@ function metreCalc(){
   // Soupapes (par volume) + tampons
   const vInf=[], vSup=[]; metreAllChambres().forEach((c,i)=>{ const v=c.vol||0; if(v<=0) return; (v<75?vInf:vSup).push(`chambre ${i+1} : ${fmt(v)} m³`); });
   add('soupape_inf75',vInf.length,`${vInf.join(' · ')} (< 75 m³, 1 soupape par chambre)`,{noMarge:true});
-  add('soupape_sup75',vSup.length,`${vSup.join(' · ')} (≥ 75 m³, 1 soupape par chambre)`,{noMarge:true});
+  add('soupape_sup75',vSup.length,`${vSup.join(' · ')} (75 m³ et plus, 1 soupape par chambre)`,{noMarge:true});
   if(d.nbPortes>10) add('tampon_porte',d.nbPivot,`${d.nbPivot} portes pivotantes (projet > 10 portes)`,{noMarge:true});
   // Arrondi + marge
   const lines=L.map(x=>{ let q=x.noMarge?x.theo:x.theo*(1+marge), finale, cl='';
@@ -3587,13 +3587,14 @@ function accCmdLines(it){
   if(id==='te_reprise'){
     const q=teRepriseQtes(it.ml||0, it.hauteur||0); const n=k=>(accById(k)||{}).nom||k;
     const pour=`pour ${fmt(q.ml)} ml de Té${it.hauteur?` — h ${String(it.hauteur).replace('.',',')} m`:''}`;
+    const un=x=>x+' unité'+(x>1?'s':'');
     return [
-      [n('ter_barre'), q.barres+' barre'+(q.barres>1?'s':'')+' 4 m', pour],
-      [n('ter_coulisse'), q.coulisses+' u', '1,25 par ml'],
-      [n('ter_oeillet'), q.oeillets+' u', '1 par coulisse'],
-      [n('ter_clip'), q.clips+' u', '1 par coulisse'],
-      [n('ter_cable'), q.bobines+' bobine'+(q.bobines>1?'s':'')+' 100 m', '≈ '+Math.ceil(q.cableMl)+' m de câble'],
-      [n('ter_eclisse'), q.eclisses+' u', '1 par barre']
+      [n('ter_barre'), q.barres+' barre'+(q.barres>1?'s':''), pour],
+      [n('ter_coulisse'), un(q.coulisses), '1,25 par ml'],
+      [n('ter_oeillet'), un(q.oeillets), '1 par coulisse'],
+      [n('ter_clip'), un(q.clips), '1 par coulisse'],
+      [n('ter_cable'), q.bobines+' bobine'+(q.bobines>1?'s':''), 'env. '+Math.ceil(q.cableMl)+' m de câble'],
+      [n('ter_eclisse'), un(q.eclisses), '1 par barre']
     ];
   }
   if(id==='sol_phen'){
@@ -3671,7 +3672,16 @@ window._cmdAccFouKeys=[];
 function cmdAccGroupes(mode){
   const r=metreCalc(), rows={};
   const push=(fou,cells)=>{ (rows[fou]=rows[fou]||[]).push(cells); };
-  r.lines.forEach(L=>{ let u=L.cond||L.u; if(u==='unité'&&(+L.affiche)>1) u='unités'; push(L.fou, [L.nom, L.affiche+' '+u, /^soupape/.test(L.id)?L.formule:'']); });
+  const chambres=metreAllChambres();
+  r.lines.forEach(L=>{
+    if(/^soupape/.test(L.id) && !L.override){ // une soupape par chambre, avec le volume de la pièce
+      const sup=L.id==='soupape_sup75';
+      chambres.forEach(c=>{ const v=c.vol||0; if(v<=0) return; if((v>=75)!==sup) return; push(L.fou, [L.nom+' — chambre de '+fmt(v)+' m³', '1 unité', '']); });
+      return;
+    }
+    let u=L.cond||L.u; if(u==='unité'&&(+L.affiche)>1) u='unités';
+    push(L.fou, [L.nom, L.affiche+' '+u, '']);
+  });
   items.filter(i=>i.type==='acc').forEach(it=>{
     if(it.accId==='bastaing') return; // bastaing = nomenclature bois/supports dédiée (bloc séparé)
     const fou=accCmdFou(it); accCmdLines(it).forEach(c=>push(fou,c));
@@ -6380,16 +6390,17 @@ function genCmdPDF(type, ov){
     headers=['Réf.','Type','Dimensions','Ferrage','Ép. cadre','Qté','Détails'];
     colWidths=[15,50,25,19,22,11,40]; // Réf. élargie (P001-R tient sur une ligne), total 182 inchangé
   } else {
-    headers=['Désignation','Quantité','Détails'];
-    colWidths=[85,25,72];
+    headers=['Désignation','Quantité']; // plus de colonne Détails (demande Clément 16/09/2026)
+    colWidths=[137,45];
   }
+  const rightFrom = type==='acc' ? 1 : 2; // colonnes alignées à droite à partir de cet index
 
   // Header tableau
   fillR(ML,y,TW,7,NAVY);
   let cx=ML;
   headers.forEach((h,i)=>{
     sf(true,7.5,WHITE);
-    if(i>=2) doc.text(h,cx+colWidths[i]-2,y+4.8,{align:'right'});
+    if(i>=rightFrom) doc.text(h,cx+colWidths[i]-2,y+4.8,{align:'right'});
     else doc.text(h,cx+2,y+4.8);
     cx+=colWidths[i];
   });
@@ -6402,7 +6413,7 @@ function genCmdPDF(type, ov){
 
   filtered.forEach((it,idx)=>{
     let cells=[];
-    if(ov.rows){ cells=it; }
+    if(ov.rows){ cells = type==='acc' ? it.slice(0,2) : it; } // accessoires : le détail n'est plus imprimé
     else if(type==='pan'){
       const isBrio=it.mousse==='BRIO';
       const desig=isBrio?`BRIO ${it.ep}mm`:`${it.paroi} ${it.ep}mm — ${it.mousse}${it.surface?' — '+it.surface:''}${it.piece?' — '+it.piece:''}`;
@@ -6410,7 +6421,7 @@ function genCmdPDF(type, ov){
     } else if(type==='por'){
       cells=it; // déjà des cellules (porCmdRows)
     } else {
-      cells=[it.label||'', it.accId==='te_reprise'?((it.ml||0)+' ml'):String(it.nbU||it.qty||1), accDetail(it)];
+      cells=[it.label||'', it.accId==='te_reprise'?((it.ml||0)+' ml'):String(it.nbU||it.qty||1)];
     }
     // Retour à la ligne par cellule → hauteur de ligne dynamique
     const wrapped=cells.map((c,i)=>doc.splitTextToSize(String(c==null?'':c), colWidths[i]-4));
@@ -6421,7 +6432,7 @@ function genCmdPDF(type, ov){
     cx=ML;
     wrapped.forEach((lines,i)=>{
       sf(false,7,i===0?GREY:DGREY);
-      if(i>=2) doc.text(lines,cx+colWidths[i]-2,y+4.3,{align:'right'});
+      if(i>=rightFrom) doc.text(lines,cx+colWidths[i]-2,y+4.3,{align:'right'});
       else doc.text(lines,cx+2,y+4.3);
       cx+=colWidths[i];
     });
