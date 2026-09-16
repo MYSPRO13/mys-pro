@@ -3558,6 +3558,14 @@ function metreRenderPanel(){
   metreRenderResults();
 }
 // Fournisseur d'un complément du devis (Té de reprise = kit Fixone, isolant de sol = Roofmart, sinon catalogue)
+// Nom de fournisseur normalisé (minuscules, sans accents, espaces ni ponctuation) : « Fix One » = « FIXONE » = « Fixone »
+function fouNorm(n){ return String(n||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,''); }
+// Fiche Fournisseurs correspondant à un nom du catalogue : égalité normalisée, sinon l'un commence par l'autre (« FIC » ↔ « FIC Sud »)
+function fouFind(nom){
+  if(typeof FOU==='undefined'||!Array.isArray(FOU)) return null;
+  const k=fouNorm(nom); if(!k) return null;
+  return FOU.find(f=>fouNorm(f.nom)===k) || FOU.find(f=>{ const m=fouNorm(f.nom); return m.length>=3&&k.length>=3&&(m.startsWith(k)||k.startsWith(m)); }) || null;
+}
 function accCmdFou(it){ const id=it.accId; if(id==='te_reprise') return 'Fixone'; if(id==='iso_sol') return 'Roofmart'; const def=accById(id)||{}; return def.fou||'(non attribué)'; }
 // Lignes de commande d'un complément : [désignation, quantité, détail]. Plusieurs lignes quand il faut détailler :
 // Té de reprise pièce par pièce, panneaux de sol par longueur, tôle larmée avec son format.
@@ -3598,7 +3606,7 @@ function metreRenderResults(){
   manual.forEach(it=>{ const fou=accCmdFou(it); (groups[fou]=groups[fou]||{metre:[],devis:[]}).devis.push(it); });
   const fous=Object.keys(groups).sort((a,b)=>a.localeCompare(b));
   const nbLignes=r.lines.length+manual.reduce((t,it)=>t+accCmdLines(it).length,0)+(bd.has?4:0);
-  const fouConnu=f=>f==='(non attribué)'||((typeof FOU!=='undefined')&&FOU.some(x=>(x.nom||'').trim().toLowerCase()===f.trim().toLowerCase()));
+  const fouConnu=f=>f==='(non attribué)'||!!fouFind(f);
   let h=`<section class="dep-step">
     <div class="dep-step-head"><span class="dep-step-n">2</span><div><div class="dep-step-title">Quantités à commander</div><div class="dep-step-hint">Calculées depuis le devis et le métré, regroupées par fournisseur. Une quantité se corrige à la main (bord orange = corrigée).</div></div><span class="dep-step-total">${nbLignes} ligne${nbLignes>1?'s':''}</span></div>`;
   if(!fous.length && !bd.has) h+=`<div class="trv-empty">Rien à commander pour l'instant : ajoute des panneaux ou des compléments au devis.</div>`;
@@ -6252,7 +6260,7 @@ function genCmdPDF(type, ov){
   const devisNum = G('devis-num')?.textContent||'';
 
   // Trouver les infos fournisseur
-  const fouObj = FOU.find(f=>f.nom===fouNom)||{nom:fouNom,det:'',note:''};
+  const fouObj = fouFind(fouNom)||FOU.find(f=>f.nom===fouNom)||{nom:fouNom,det:'',note:''}; // fiche Fournisseurs (correspondance tolérante sur le nom)
 
   function sf(bold,size,color){doc.setFont('helvetica',bold?'bold':'normal');doc.setFontSize(size);doc.setTextColor(...(color||BLACK));}
   function hline(y,col,lw){doc.setDrawColor(...(col||LGREY));doc.setLineWidth(lw||0.3);doc.line(ML,y,MR,y);}
@@ -6295,7 +6303,7 @@ function genCmdPDF(type, ov){
   ['9 Avenue de l\'Europe — Module 6','34830 Clapiers','Tél. : 06 26 31 92 37','Siret : 977 511 237 00017'].forEach((l,i)=>doc.text(l,ML+4.5,y+16.5+i*3.6));
 
   card(rx); capLabel(rx,'DESTINATAIRE');
-  sf(true,9.5,INK); doc.text(fouNom||'—',rx+4.5,y+11.5);
+  sf(true,9.5,INK); doc.text((fouObj&&fouObj.nom)||fouNom||'—',rx+4.5,y+11.5); // nom tel que saisi dans la fiche Fournisseurs
   if(fouObj.det){
     sf(false,7.5,GREY);
     const detParts=fouObj.det.split(' — ');
