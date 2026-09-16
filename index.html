@@ -3487,9 +3487,9 @@ function metreCalc(){
   { const ml=metreAllChambres().reduce((t,c)=>t+chevronMlChambre(c,f.chevronEsp),0); // chambres du devis + chambres saisies
     if(ml>0) add('chevron_pvc',Math.ceil(ml/3),`${ml.toFixed(1)} ml (périmètre + rangées tous les ${f.chevronEsp||40} cm) ÷ 3`,{cond:'barre'}); }
   // Soupapes (par volume) + tampons
-  let sInf=0,sSup=0; metreAllChambres().forEach(c=>{ const v=c.vol||0; if(v<=0) return; if(v<75) sInf++; else sSup++; });
-  add('soupape_inf75',sInf,`${sInf} chambre(s) < 75 m³`,{noMarge:true});
-  add('soupape_sup75',sSup,`${sSup} chambre(s) ≥ 75 m³`,{noMarge:true});
+  const vInf=[], vSup=[]; metreAllChambres().forEach((c,i)=>{ const v=c.vol||0; if(v<=0) return; (v<75?vInf:vSup).push(`chambre ${i+1} : ${fmt(v)} m³`); });
+  add('soupape_inf75',vInf.length,`${vInf.join(' · ')} (< 75 m³, 1 soupape par chambre)`,{noMarge:true});
+  add('soupape_sup75',vSup.length,`${vSup.join(' · ')} (≥ 75 m³, 1 soupape par chambre)`,{noMarge:true});
   if(d.nbPortes>10) add('tampon_porte',d.nbPivot,`${d.nbPivot} portes pivotantes (projet > 10 portes)`,{noMarge:true});
   // Arrondi + marge
   const lines=L.map(x=>{ let q=x.noMarge?x.theo:x.theo*(1+marge), finale, cl='';
@@ -3528,11 +3528,11 @@ function metreRenderPanel(){
   const el=G('metre-panel'); if(!el) return;
   const hasPan=items.some(i=>i.type==='pan');
   const fld=(id,lab,val,unit,title)=>`<label class="cmdacc-fld"${title?` title="${esc(title)}"`:''}><span>${lab}</span><span class="dep-inline"><input type="number" id="${id}" value="${(val===0||val===''||val==null)?'':val}" oninput="metreUpdate()" class="dep-in">${unit?`<em>${unit}</em>`:''}</span></label>`;
-  const dev=metreChambresDevis(); let n=0;
+  const dev=metreChambresDevis(); let n=0; const hCl=metreDevisData().hMax;
   const chevTxt=c=>{ const ml=chevronMlChambre(c,METRE.chevronEsp); return ml>0?fmt(ml)+' ml':'—'; };
   let ch=dev.map(c=>{ n++;
     if(c.missing) return `<tr class="me-missing"><td class="c-n">${n}</td><td colspan="4"><span class="cmdacc-warn-fou" style="margin-left:0">⚠ Dimensions manquantes</span> ${esc(c.label)} saisi en surface${c.surf?` (${fmt(c.surf)} m²)`:''} : reprends la ligne dans le configurateur en mode « Dimensions L × l » pour calculer les chevrons.</td><td class="c-del"><button class="item-del" title="Ouvrir cette ligne dans le configurateur" onclick="editAccItem(${c.itemIdx})">✎</button></td></tr>`;
-    return `<tr><td class="c-n">${n}</td><td class="cmdacc-fixed">${fmt(c.l)} <span class="cmdacc-src">devis</span></td><td class="cmdacc-fixed">${fmt(c.w)}</td><td><input type="number" class="dep-in" value="${c.vol||''}" oninput="metreVolDevisInput(${c.idx},this.value)" title="Volume proposé = L × l × hauteur des cloisons"></td><td class="cmdacc-fixed" id="me-chev-d${c.idx}">${chevTxt(c)}</td><td class="c-del"></td></tr>`;
+    return `<tr><td class="c-n">${n}</td><td class="cmdacc-fixed">${fmt(c.l)} <span class="cmdacc-src">devis</span></td><td class="cmdacc-fixed">${fmt(c.w)}</td><td><input type="number" class="dep-in" value="${c.vol||''}" oninput="metreVolDevisInput(${c.idx},this.value)" title="Volume proposé = ${fmt(c.l)} × ${fmt(c.w)} × ${fmt(hCl)} m (hauteur max des cloisons du devis) — modifiable"></td><td class="cmdacc-fixed" id="me-chev-d${c.idx}">${chevTxt(c)}</td><td class="c-del"></td></tr>`;
   }).join('');
   ch+=METRE.chambres.map((c,i)=>{ n++; return `<tr><td class="c-n">${n}</td><td><input type="number" class="dep-in" value="${c.l||''}" oninput="metreChambreInput(${i},'l',this.value)"></td><td><input type="number" class="dep-in" value="${c.w||''}" oninput="metreChambreInput(${i},'w',this.value)"></td><td><input type="number" class="dep-in" value="${c.vol||''}" oninput="metreChambreInput(${i},'vol',this.value)"></td><td class="cmdacc-fixed" id="me-chev-${i}">${chevTxt(c)}</td><td class="c-del"><button class="item-del" title="Retirer cette chambre" onclick="metreDelChambre(${i})">×</button></td></tr>`; }).join('');
   el.innerHTML=`<section class="dep-step">
@@ -3550,6 +3550,7 @@ function metreRenderPanel(){
     <div class="cmdacc-sub">Chambres froides négatives <span class="dep-rate">reprises des lignes « Sol phénolique » du devis (une ligne = une chambre) ; pour les chevrons et les soupapes</span></div>
     <table class="dep-table"><thead><tr><th class="c-n">#</th><th>Longueur <em>m</em></th><th>Largeur <em>m</em></th><th>Volume <em>m³</em></th><th>Chevrons <em>calculés</em></th><th class="c-del"></th></tr></thead>
       <tbody>${ch||'<tr class="dep-empty"><td colspan="6">Aucune chambre négative : ajoute un sol phénolique au devis, ou une chambre à la main.</td></tr>'}</tbody></table>
+    <div class="dep-legend">Volume des chambres « devis » = longueur × largeur × hauteur des cloisons du devis (${fmt(hCl)} m), à corriger si la chambre a une autre hauteur. Il sert aux soupapes : 1 par chambre, modèle selon &lt; ou ≥ 75 m³.</div>
     <div class="dep-legend" id="me-chev-tot"></div>
     <button class="dep-add" onclick="metreAddChambre()">+ Ajouter une chambre négative</button>
   </section>
@@ -3658,7 +3659,7 @@ window._cmdAccFouKeys=[];
 function cmdAccGroupes(mode){
   const r=metreCalc(), rows={};
   const push=(fou,cells)=>{ (rows[fou]=rows[fou]||[]).push(cells); };
-  r.lines.forEach(L=>{ let u=L.cond||L.u; if(u==='unité'&&(+L.affiche)>1) u='unités'; push(L.fou, [L.nom, L.affiche+' '+u, '']); });
+  r.lines.forEach(L=>{ let u=L.cond||L.u; if(u==='unité'&&(+L.affiche)>1) u='unités'; push(L.fou, [L.nom, L.affiche+' '+u, /^soupape/.test(L.id)?L.formule:'']); });
   items.filter(i=>i.type==='acc').forEach(it=>{
     if(it.accId==='bastaing') return; // bastaing = nomenclature bois/supports dédiée (bloc séparé)
     const fou=accCmdFou(it); accCmdLines(it).forEach(c=>push(fou,c));
