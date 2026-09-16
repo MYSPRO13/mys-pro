@@ -1785,6 +1785,17 @@ function togglePwd(){
       #page-devis-existant .dx-act{white-space:nowrap;text-align:right;}
       #page-devis-existant .dx-ic{background:none;border:none;cursor:pointer;font-size:14px;padding:4px 6px;border-radius:6px;line-height:1;opacity:.7;}
       #page-devis-existant .dx-ic:hover{background:var(--bg2);opacity:1;}
+      #page-devis-existant .dx-br{margin:0 0 14px;border:1px dashed var(--border);border-radius:var(--radius-sm);background:var(--bg2);}
+      #page-devis-existant .dx-br-head{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:none;border:none;cursor:pointer;padding:8px 12px;font-size:12px;font-weight:600;color:var(--text2);font-family:'DM Sans',sans-serif;}
+      #page-devis-existant .dx-br-n{font-family:'DM Mono',monospace;background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:0 7px;font-size:11px;}
+      #page-devis-existant .dx-br-hint{font-weight:400;color:var(--text3);font-size:11px;margin-left:auto;}
+      #page-devis-existant .dx-br-table{font-size:12px;}
+      #page-devis-existant .dx-br-table th,#page-devis-existant .dx-br-table td{padding:6px 12px;}
+      #page-devis-existant .dx-br-table tbody tr{cursor:default;}
+      #page-devis-existant .dx-br-table tbody tr:hover{background:none;}
+      #page-devis-existant .dx-br-num{font-family:'DM Mono',monospace;font-weight:600;}
+      #page-devis-existant .dx-br-act{text-align:right;white-space:nowrap;}
+      #page-devis-existant .dx-br-act .btn{font-size:11px;padding:4px 10px;margin-right:6px;}
     </style>
     <div class="dx-head">Devis existant</div>
     <div class="dx-sub">Retrouve un devis déjà réalisé — recherche par numéro, projet ou client.</div>
@@ -1793,6 +1804,7 @@ function togglePwd(){
       <input id="dx-search" type="text" placeholder="Rechercher : N°, projet, client…" oninput="filterDevisExistant()">
     </div>
     <div class="dx-chips" id="dx-chips"></div>
+    <div id="dx-brouillons"></div>
     <div class="dx-card">
       <table>
         <thead><tr>
@@ -3725,7 +3737,7 @@ function showPage(name, el){
   G('page-title').textContent=PAGE_TITLES[name]||name;
   const shell=document.querySelector('.shell'); if(shell) shell.classList.toggle('no-right', name==='contacts'||name==='catalogue');
   if(name==='catalogue') try{ initAccPrices(); }catch(e){}
-  if(name==='devis-existant') loadDevisExistant();
+  if(name==='devis-existant'){ loadDevisExistant(); try{ renderBrouillonsLocaux(); }catch(e){} }
   if(name==='cmdacc') try{ metreRenderPanel(); }catch(e){ console.error('metre:',e); }
   refreshAll();
 }
@@ -5687,21 +5699,40 @@ function restoreDraft(d){
   refreshAll(); renderAccList();
 }
 function maybeRestoreDraft(){
-  if(!devisVide()) return; // du travail est déjà en cours
-  const drafts=listeDrafts(); if(!drafts.length) return;
-  const d=drafts[0]; // le plus récent
-  const nbA=(d.items||[]).length, nbT=(d.travaux||[]).length;
-  const when=d.ts?new Date(d.ts).toLocaleString('fr-FR'):'';
-  const extra=drafts.length>1?`\n\n(${drafts.length-1} autre brouillon(s) non enregistré(s) sont récupérables.)`:'';
-  if(!confirm(`Un devis non enregistré a été retrouvé${d.num?' (N° '+d.num+')':''} — ${nbA} article${nbA>1?'s':''}${nbT?' + '+nbT+' ligne(s) de travaux':''}${when?', du '+when:''}.\nReprendre ce devis ?${extra}`)){
-    return; // décliné → on GARDE les brouillons (ne rien effacer)
+  // Plus de proposition automatique au démarrage (demande Clément 16/09/2026) : les brouillons locaux restent
+  // récupérables à la demande dans « Devis existant » › Brouillons locaux. Ici on ne fait que purger les vieux.
+  try{
+    const o=readDrafts(); const now=Date.now(); let changed=false;
+    Object.keys(o).forEach(k=>{ const d=o[k]; if(!d||!d.ts||now-d.ts>14*86400000){ delete o[k]; changed=true; } });
+    const keys=Object.keys(o).sort((a,b)=>(o[b].ts||0)-(o[a].ts||0)); keys.slice(10).forEach(k=>{ delete o[k]; changed=true; });
+    if(changed) writeDrafts(o);
+  }catch(e){}
+}
+// ── Brouillons locaux (filet de sécurité) : liste à la demande dans « Devis existant » ──
+function renderBrouillonsLocaux(){
+  const el=G('dx-brouillons'); if(!el) return;
+  const drafts=listeDrafts();
+  if(!drafts.length){ el.innerHTML=''; return; }
+  const open=!!window._dxBrOpen;
+  let h=`<div class="dx-br"><button class="dx-br-head" onclick="window._dxBrOpen=!window._dxBrOpen;renderBrouillonsLocaux()">${open?'▾':'▸'} Brouillons locaux non enregistrés <span class="dx-br-n">${drafts.length}</span><span class="dx-br-hint">modifications gardées sur ce poste, à reprendre ou à effacer</span></button>`;
+  if(open){
+    h+=`<table class="dx-br-table"><thead><tr><th>N°</th><th>Projet</th><th>Enregistré le</th><th>Contenu</th><th></th></tr></thead><tbody>`;
+    drafts.forEach(d=>{ const nbA=(d.items||[]).length, nbT=(d.travaux||[]).length; const when=d.ts?new Date(d.ts).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+      h+=`<tr><td class="dx-br-num">${esc(d.num||'')}</td><td>${esc(d.projet||'—')}</td><td>${when}</td><td>${nbA} article${nbA>1?'s':''}${nbT?' + '+nbT+' travaux':''}</td><td class="dx-br-act"><button class="btn" onclick="reprendreBrouillon('${esc(d.num||'')}')">Reprendre</button><button class="item-del" title="Effacer ce brouillon" onclick="supprimerBrouillon('${esc(d.num||'')}')">×</button></td></tr>`; });
+    h+=`</tbody></table>`;
   }
+  h+=`</div>`;
+  el.innerHTML=h;
+}
+async function reprendreBrouillon(num){
+  const d=readDrafts()[num]; if(!d){ showToast('Brouillon introuvable', true); renderBrouillonsLocaux(); return; }
+  if(!devisVide()){ try{ await sauvegarderDevis({silent:true}); }catch(e){} } // le devis en cours est mis en base avant de changer
   window._draftRestored=true;
   restoreDraft(d);
-  const hs=document.getElementById('home-screen'); if(hs) hs.style.display='none';
   showPage('config', document.querySelector('.nav-item'));
-  showToast('Devis repris — pense à l\'enregistrer');
+  showToast('Brouillon '+(d.num||'')+' repris — pense à l\'enregistrer');
 }
+function supprimerBrouillon(num){ clearDraft(num); renderBrouillonsLocaux(); showToast('Brouillon effacé'); }
 
 // ══ SUPABASE ══════════════════════════════════════════════
 const SB_URL = 'https://sttnctrzmjirsigidxwx.supabase.co';
