@@ -3676,7 +3676,7 @@ function cmdAccGroupes(mode){
   r.lines.forEach(L=>{
     if(/^soupape/.test(L.id) && !L.override){ // une soupape par chambre, avec le volume de la pièce
       const sup=L.id==='soupape_sup75';
-      chambres.forEach(c=>{ const v=c.vol||0; if(v<=0) return; if((v>=75)!==sup) return; push(L.fou, [L.nom+' — chambre de '+fmt(v)+' m³', '1 unité', '']); });
+      chambres.forEach(c=>{ const v=c.vol||0; if(v<=0) return; if((v>=75)!==sup) return; push(L.fou, [L.nom.replace(/\s*\([^)]*m³\)\s*/,'')+' — chambre de '+fmt(v)+' m³', '1 unité', '']); }); // sans la tranche « (< / > 75 m³) » : le volume exact suffit
       return;
     }
     let u=L.cond||L.u; if(u==='unité'&&(+L.affiche)>1) u='unités';
