@@ -3400,6 +3400,31 @@ function accQtyChange(i,d){if(items[i]){items[i].qty=Math.max(1,(items[i].qty||1
 // mesures de chantier saisies au passage en commande. Sert UNIQUEMENT à la
 // commande (jamais facturé — le coût est dans le paramètre « Accessoires €/m² »).
 let METRE={ sepa:0, cornFinH:0, angIntPos:0, angIntNeg:0, angExt:0, margeOverride:'', chevronEsp:40, chambres:[], overrides:{}, volDevis:{} };
+// Le métré chantier (+ regroupement des commandes + supports bastaing) est PROPRE AU DEVIS : enregistré dans params.metre,
+// rechargé avec le devis, remis à zéro sur un nouveau devis, mémorisé dans le brouillon local.
+function metreDefaults(){ return { sepa:0, cornFinH:0, angIntPos:0, angIntNeg:0, angExt:0, margeOverride:'', chevronEsp:40, chambres:[], overrides:{}, volDevis:{} }; }
+function metrePayload(){
+  return { sepa:METRE.sepa, cornFinH:METRE.cornFinH, angIntPos:METRE.angIntPos, angIntNeg:METRE.angIntNeg, angExt:METRE.angExt,
+    margeOverride:METRE.margeOverride, chevronEsp:METRE.chevronEsp, chambres:METRE.chambres||[], overrides:METRE.overrides||{}, volDevis:METRE.volDevis||{},
+    bast:{nbH:(typeof BAST_CMD!=='undefined')?BAST_CMD.nbH:'', nbU:(typeof BAST_CMD!=='undefined')?BAST_CMD.nbU:''}, cmdMode:(typeof CMDACC_MODE!=='undefined')?CMDACC_MODE:'auto' };
+}
+function metreLoad(m){
+  const d=metreDefaults();
+  if(m&&typeof m==='object'){
+    ['sepa','cornFinH','angIntPos','angIntNeg','angExt','chevronEsp'].forEach(k=>{ if(m[k]!=null&&m[k]!=='') d[k]=parseFloat(m[k])||0; });
+    if(d.chevronEsp<=0) d.chevronEsp=40;
+    d.margeOverride=(m.margeOverride==null)?'':m.margeOverride;
+    d.chambres=Array.isArray(m.chambres)?m.chambres.map(c=>({l:parseFloat(c.l)||0,w:parseFloat(c.w)||0,vol:parseFloat(c.vol)||0})):[];
+    d.overrides=(m.overrides&&typeof m.overrides==='object')?Object.assign({},m.overrides):{};
+    d.volDevis=(m.volDevis&&typeof m.volDevis==='object')?Object.assign({},m.volDevis):{};
+  }
+  METRE=d;
+  if(typeof BAST_CMD!=='undefined'){ BAST_CMD.nbH=(m&&m.bast&&m.bast.nbH!=null)?m.bast.nbH:''; BAST_CMD.nbU=(m&&m.bast&&m.bast.nbU!=null)?m.bast.nbU:''; }
+  if(typeof CMDACC_MODE!=='undefined') CMDACC_MODE=(m&&m.cmdMode)?m.cmdMode:'auto';
+  const pg=G('page-cmdacc'); if(pg&&pg.style.display!=='none'){ try{ metreRenderPanel(); }catch(e){} }
+}
+// Toute modification du métré = modification du devis → brouillon local + auto-save Supabase
+function metreTouched(){ try{ saveDraft(); }catch(e){} }
 // Chambres froides négatives déduites du devis : une ligne « Sol phénolique » = une chambre.
 // Dimensions reprises si la ligne a été saisie en L × l ; saisie en surface → chambre « dimensions manquantes ».
 // Volume (soupapes) = L × l × hauteur max des cloisons, corrigeable (METRE.volDevis[idx]).
@@ -3416,7 +3441,7 @@ function metreChambresDevis(){
   return out;
 }
 function metreAllChambres(){ return metreChambresDevis().concat(METRE.chambres||[]); }
-function metreVolDevisInput(idx,v){ METRE.volDevis=METRE.volDevis||{}; METRE.volDevis[idx]=v; metreRenderResults(); }
+function metreVolDevisInput(idx,v){ METRE.volDevis=METRE.volDevis||{}; METRE.volDevis[idx]=v; metreRenderResults(); metreTouched(); }
 function accById(id){ id=ACC_PX_MAP[id]||id; return ACC_DEFAULTS.find(a=>a.id===id); }
 function metreMarge(surfTot, ov){
   if(ov!==''&&ov!=null&&!isNaN(parseFloat(ov))) return parseFloat(ov)/100;
@@ -3526,16 +3551,16 @@ function metreReadForm(){
   METRE.chevronEsp=parseFloat(g('me-esp'))||40;
   METRE.margeOverride=g('me-marge');
 }
-function metreUpdate(){ metreReadForm(); metreSyncChevrons(); metreRenderResults(); }
+function metreUpdate(){ metreReadForm(); metreSyncChevrons(); metreRenderResults(); metreTouched(); }
 function metreSyncChevrons(){ // met à jour les ml de chevrons par chambre + le total, sans re-render (garde le focus)
   metreChambresDevis().forEach(c=>{ const e=G('me-chev-d'+c.idx); if(e){ const ml=chevronMlChambre(c,METRE.chevronEsp); e.textContent=ml>0?fmt(ml)+' ml':'—'; } });
   (METRE.chambres||[]).forEach((c,i)=>{ const e=G('me-chev-'+i); if(e){ const ml=chevronMlChambre(c,METRE.chevronEsp); e.textContent=ml>0?fmt(ml)+' ml':'—'; } });
   const t=G('me-chev-tot'); if(t){ const ml=metreChevronsTot(); t.textContent=ml>0?`Chevrons PVC : ${fmt(ml)} ml au total → ${Math.ceil(ml/3)} barre${Math.ceil(ml/3)>1?'s':''} de 3 m avant marge (ligne « Chevron PVC » dans les quantités).`:'Le linéaire de chevrons se calcule à partir des dimensions des chambres et alimente les quantités à commander.'; }
 }
-function metreAddChambre(){ metreReadForm(); METRE.chambres.push({l:0,w:0,vol:0}); metreRenderPanel(); }
-function metreDelChambre(i){ metreReadForm(); METRE.chambres.splice(i,1); metreRenderPanel(); }
-function metreChambreInput(i,k,v){ if(METRE.chambres[i]){ METRE.chambres[i][k]=parseFloat(v)||0; metreSyncChevrons(); metreRenderResults(); } }
-function metreOverride(id,v){ if(v===''||v==null) delete METRE.overrides[id]; else METRE.overrides[id]=v; }
+function metreAddChambre(){ metreReadForm(); METRE.chambres.push({l:0,w:0,vol:0}); metreRenderPanel(); metreTouched(); }
+function metreDelChambre(i){ metreReadForm(); METRE.chambres.splice(i,1); metreRenderPanel(); metreTouched(); }
+function metreChambreInput(i,k,v){ if(METRE.chambres[i]){ METRE.chambres[i][k]=parseFloat(v)||0; metreSyncChevrons(); metreRenderResults(); metreTouched(); } }
+function metreOverride(id,v){ if(v===''||v==null) delete METRE.overrides[id]; else METRE.overrides[id]=v; metreTouched(); }
 function metreRenderPanel(){
   const el=G('metre-panel'); if(!el) return;
   const hasPan=items.some(i=>i.type==='pan');
@@ -3707,7 +3732,7 @@ function bastCmdData(){
   const ancrages=4*(nbH+nbU);
   return {mlSh,mlDh,totMl,barres,nbH,nbU,ancrages,has:b.length>0};
 }
-function bastCmdSet(k,v){ BAST_CMD[k]=v; const d=bastCmdData(); const a=G('bast-ancrages'); if(a) a.textContent=d.ancrages+' u'; }
+function bastCmdSet(k,v){ BAST_CMD[k]=v; const d=bastCmdData(); const a=G('bast-ancrages'); if(a) a.textContent=d.ancrages+' u'; metreTouched(); }
 function bastCmdRows(){
   const d=bastCmdData(); if(!d.has) return [];
   const dim=(d.mlSh?`${fmt(d.mlSh)} ml simple h.`:'')+(d.mlDh?`${d.mlSh?' + ':''}${fmt(d.mlDh)} ml double h. (×2 barres)`:'');
@@ -3723,7 +3748,7 @@ function bastCmdGenerer(){
   genCmdPDF('acc', {fouNom:'Bastaing de protection', rows});
 }
 function cmdAccEffectiveMode(){ if(CMDACC_MODE!=='auto') return CMDACC_MODE; return metreCalc().data.surfTot<100?'celtek':'normal'; }
-function cmdAccSetMode(m){ CMDACC_MODE=m; metreRenderResults(); }
+function cmdAccSetMode(m){ CMDACC_MODE=m; metreRenderResults(); metreTouched(); }
 function cmdAccGenerer(fou){
   const g=cmdAccGroupes(cmdAccEffectiveMode()), rows=g[fou];
   if(!rows||!rows.length){ showToast('Rien à commander pour '+fou, true); return; }
@@ -5671,7 +5696,7 @@ function saveDraft(){
   const num=G('devis-num')?.textContent||''; if(!num) return;
   const o=readDrafts();
   o[num]={ ts:Date.now(), num, projet:G('projet-nom')?.value||'', items:items, travaux:travaux, client:curClient,
-    pp:G('pp')?.value, pa:G('pa')?.value, pc:G('pc')?.value, pxOverride:PXOV, trManual:trManual, trTotal:G('tr-total')?.value, remise:remisePayload(),
+    pp:G('pp')?.value, pa:G('pa')?.value, pc:G('pc')?.value, pxOverride:PXOV, trManual:trManual, trTotal:G('tr-total')?.value, remise:remisePayload(), metre:metrePayload(),
     evBase:G('ev-base')?.value, manuBase:G('manu-base')?.value, manuClient:G('manu-client')?.checked,
     poseMode:document.querySelector('input[name="pose-mode"]:checked')?.value, journeePx:G('journee-px')?.value, depose:DEPOSE };
   const keys=Object.keys(o).sort((a,b)=>(o[b].ts||0)-(o[a].ts||0)); keys.slice(30).forEach(k=>delete o[k]); // garder les 30 plus récents
@@ -5705,6 +5730,7 @@ function restoreDraft(d){
   if(d.poseMode){ const r=document.querySelector('input[name="pose-mode"][value="'+d.poseMode+'"]'); if(r) r.checked=true; }
   if(G('journee-px')&&d.journeePx!=null&&d.journeePx!=='') G('journee-px').value=d.journeePx;
   REMISE=remiseLoad(d.remise); remiseApplyToUI();
+  metreLoad(d.metre);
   if(curClient) setClient(curClient); else clearClient();
   refreshAll(); renderAccList();
 }
@@ -5839,7 +5865,7 @@ async function sauvegarderDevis(opts){
     client: curClient,
     projet_nom: G('projet-nom')?.value||'',
     items: items,
-    params: { pose: parseFloat(G('pp')?.value)||18, acc: parseFloat(G('pa')?.value)||6, coef: parseFloat(G('pc')?.value)||1.5, depose: deposePayload(), pxOverride: PXOV, evBase: valOr('ev-base',EVMANU_DEF.ev), manuBase: valOr('manu-base',EVMANU_DEF.manu), manuClient: G('manu-client')?.checked||false, poseMode: document.querySelector('input[name="pose-mode"]:checked')?.value||'budget', journeePx: valOr('journee-px',POSE_DEF.px), travaux: travaux, remise: remisePayload() },
+    params: { pose: parseFloat(G('pp')?.value)||18, acc: parseFloat(G('pa')?.value)||6, coef: parseFloat(G('pc')?.value)||1.5, depose: deposePayload(), pxOverride: PXOV, evBase: valOr('ev-base',EVMANU_DEF.ev), manuBase: valOr('manu-base',EVMANU_DEF.manu), manuClient: G('manu-client')?.checked||false, poseMode: document.querySelector('input[name="pose-mode"]:checked')?.value||'budget', journeePx: valOr('journee-px',POSE_DEF.px), travaux: travaux, remise: remisePayload(), metre: metrePayload() },
     transport: tr,
     evacuation: evac,
     manutention: { base: parseFloat(G('manu-base')?.value)||600, client: G('manu-client')?.checked||false, total: manu },
@@ -6127,6 +6153,7 @@ async function chargerDevis(id){
     { const pm=_prm.poseMode||POSE_DEF.mode; const r=document.querySelector('input[name="pose-mode"][value="'+pm+'"]'); if(r) r.checked=true; }
     if(G('journee-px')) G('journee-px').value = (_prm.journeePx!=null) ? _prm.journeePx : POSE_DEF.px;
     REMISE=remiseLoad(_prm.remise); remiseApplyToUI();
+    metreLoad(_prm.metre); // métré chantier propre au devis
     if(G('projet-nom')) G('projet-nom').value = d.projet_nom||'';
     // Numéro
     G('devis-num').textContent = d.numero;
@@ -6159,6 +6186,7 @@ async function nouveauDevis(force){
   { const r=document.querySelector('input[name="pose-mode"][value="'+POSE_DEF.mode+'"]'); if(r) r.checked=true; }
   if(G('journee-px')) G('journee-px').value = POSE_DEF.px;
   REMISE=remiseEmpty(); remiseApplyToUI();
+  metreLoad(null); // métré remis à zéro
   curClient = null;
   if(G('projet-nom')) G('projet-nom').value = '';
   if(G('pp')) G('pp').value = DEFAULT_PARAMS.pp;
