@@ -1893,14 +1893,14 @@ function togglePwd(){
         <div class="card-header"><div class="card-title">Panneaux</div></div>
         <div class="card-body">
           <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Prix d'achat €/m² par épaisseur</div>
-          <table class="px-table" style="max-width:380px">
-            <tr><th>Ép.</th><th>PIR Cloison €/m²</th><th>PIR Plafond €/m²</th><th>LR €/m²</th></tr>
-            <tr><td>40</td><td><input id="x40ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xPL40ll" type="number" value="" step="0.01" placeholder="= cloison" oninput="refreshAll()"></td><td><input id="xLR40" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
-            <tr><td>60</td><td><input id="x60ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xPL60ll" type="number" value="" step="0.01" placeholder="= cloison" oninput="refreshAll()"></td><td><input id="xLR60" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
-            <tr><td>80</td><td><input id="x80ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xPL80ll" type="number" value="" step="0.01" placeholder="= cloison" oninput="refreshAll()"></td><td><input id="xLR80" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
-            <tr><td>100</td><td><input id="x100ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xPL100ll" type="number" value="" step="0.01" placeholder="= cloison" oninput="refreshAll()"></td><td><input id="xLR100" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
-            <tr><td>120</td><td><input id="x120ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xPL120ll" type="number" value="" step="0.01" placeholder="= cloison" oninput="refreshAll()"></td><td><input id="xLR120" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
-            <tr><td>150</td><td><input id="x150ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xPL150ll" type="number" value="" step="0.01" placeholder="= cloison" oninput="refreshAll()"></td><td><input id="xLR150" type="number" value="" step="0.01" oninput="refreshAll()"></td></tr>
+          <table class="px-table" style="max-width:480px">
+            <tr><th>Ép.</th><th>PIR Cloison €/m²</th><th>PIR Plafond €/m²</th><th>LR Cloison €/m²</th><th>LR Plafond €/m²</th></tr>
+            <tr><td>40</td><td><input id="x40ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xPL40ll" type="number" value="" step="0.01" placeholder="= cloison" oninput="refreshAll()"></td><td><input id="xLR40" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xLRPL40" type="number" value="" step="0.01" placeholder="= cloison" oninput="refreshAll()"></td></tr>
+            <tr><td>60</td><td><input id="x60ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xPL60ll" type="number" value="" step="0.01" placeholder="= cloison" oninput="refreshAll()"></td><td><input id="xLR60" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xLRPL60" type="number" value="" step="0.01" placeholder="= cloison" oninput="refreshAll()"></td></tr>
+            <tr><td>80</td><td><input id="x80ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xPL80ll" type="number" value="" step="0.01" placeholder="= cloison" oninput="refreshAll()"></td><td><input id="xLR80" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xLRPL80" type="number" value="" step="0.01" placeholder="= cloison" oninput="refreshAll()"></td></tr>
+            <tr><td>100</td><td><input id="x100ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xPL100ll" type="number" value="" step="0.01" placeholder="= cloison" oninput="refreshAll()"></td><td><input id="xLR100" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xLRPL100" type="number" value="" step="0.01" placeholder="= cloison" oninput="refreshAll()"></td></tr>
+            <tr><td>120</td><td><input id="x120ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xPL120ll" type="number" value="" step="0.01" placeholder="= cloison" oninput="refreshAll()"></td><td><input id="xLR120" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xLRPL120" type="number" value="" step="0.01" placeholder="= cloison" oninput="refreshAll()"></td></tr>
+            <tr><td>150</td><td><input id="x150ll" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xPL150ll" type="number" value="" step="0.01" placeholder="= cloison" oninput="refreshAll()"></td><td><input id="xLR150" type="number" value="" step="0.01" oninput="refreshAll()"></td><td><input id="xLRPL150" type="number" value="" step="0.01" placeholder="= cloison" oninput="refreshAll()"></td></tr>
           </table>
           <div style="margin-top:14px">
             <div style="font-weight:600;font-size:12px;margin-bottom:5px">Supplément d'achat par face (€/m²)</div>
@@ -2735,7 +2735,7 @@ function initAccPrices(){
   });
 }
 // Prix panneau (achat/m²) = base(isolant, épaisseur) + supplément face intérieure + supplément face extérieure.
-// Base : PIR = x{ep}ll ; LR = xLR{ep}. Suppléments d'achat PAR FACE : Lisse/Nervuré = 0, PET55 = sup_pet55, Inox = sup_inox.
+// Base : PIR = x{ep}ll (plafond xPL{ep}ll) ; LR = xLR{ep} (plafond xLRPL{ep}). Suppléments d'achat PAR FACE : Lisse/Nervuré = 0, PET55 = sup_pet55, Inox = sup_inox.
 // La surface est stockée « faceInt/faceExt » (ex. "Lisse/Inox"). Tous les prix viennent de Supabase.
 const FACE_OPTS=[['Lisse','Lisse','Standard'],['Nervuré','Nervuré','Standard'],['PET55','PET55','Alimentaire +'],['Inox','Inox','Inox +']];
 function normFace(f){f=String(f||'').trim();if(/inox/i.test(f))return'Inox';if(/pet/i.test(f))return'PET55';if(/nervur/i.test(f))return'Nervuré';if(/lisse/i.test(f))return'Lisse';return f||'Lisse';}
@@ -2747,7 +2747,7 @@ function normSurf(s){ s=String(s||''); return /lisse|nervur|pet|inox/i.test(s)?s
 // sur la base globale, remis à zéro sur un nouveau devis, enregistré avec le devis.
 function panBaseAchat(mousse,ep,paroi){
   if(mousse==='BRIO') return parseFloat(G('xBRIO'+ep)?.value)||0;
-  if(mousse==='LR')   return parseFloat(G('xLR'+ep)?.value)||0;
+  if(mousse==='LR'){ if(paroi==='Plafond'){ const pl=parseFloat(G('xLRPL'+ep)?.value); if(pl>0) return pl; } return parseFloat(G('xLR'+ep)?.value)||0; } // LR plafond (xLRPL) si renseigné, sinon LR cloison
   const key=(paroi==='Plafond'?'PL':'CL')+'_'+ep;
   if(PXOV[key]!=null && PXOV[key]!=='' && !isNaN(parseFloat(PXOV[key]))) return parseFloat(PXOV[key]); // override devis
   if(paroi==='Plafond'){ const pl=parseFloat(G('xPL'+ep+'ll')?.value); if(pl>0) return pl; }          // base plafond
@@ -5458,6 +5458,7 @@ function collectParams(){
     px['x'+ep+'ll']   = parseFloat(G('x'+ep+'ll')?.value)||0;
     px['xPL'+ep+'ll'] = parseFloat(G('xPL'+ep+'ll')?.value)||0; // base plafond (0 = même que cloison)
     px['xLR'+ep]      = parseFloat(G('xLR'+ep)?.value)||0;
+    px['xLRPL'+ep]    = parseFloat(G('xLRPL'+ep)?.value)||0; // base LR plafond (0 = même que LR cloison)
   });
   // Base BRIO (épaisseurs 2/3/5 mm)
   ['2','3','5'].forEach(ep=>{ px['xBRIO'+ep]=parseFloat(G('xBRIO'+ep)?.value)||0; });
@@ -5508,6 +5509,7 @@ function applyParams(px){
     if(G('x'+ep+'ll') && px['x'+ep+'ll']!==undefined) G('x'+ep+'ll').value = px['x'+ep+'ll'];
     if(G('xPL'+ep+'ll') && px['xPL'+ep+'ll']!==undefined) G('xPL'+ep+'ll').value = px['xPL'+ep+'ll']||'';
     if(G('xLR'+ep) && px['xLR'+ep]!==undefined) G('xLR'+ep).value = px['xLR'+ep];
+    if(G('xLRPL'+ep) && px['xLRPL'+ep]!==undefined) G('xLRPL'+ep).value = px['xLRPL'+ep]||'';
   });
   ['2','3','5'].forEach(ep=>{ if(G('xBRIO'+ep) && px['xBRIO'+ep]!==undefined) G('xBRIO'+ep).value = px['xBRIO'+ep]; });
   if(G('sup_pet55') && px.sup_pet55!==undefined) G('sup_pet55').value = px.sup_pet55;
