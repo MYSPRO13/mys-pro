@@ -646,6 +646,9 @@ body {
 }
 .item-del:hover { background: var(--red-light); border-color: #f09595; color: var(--red); }
 .item-edit { font-size: 11px; }
+.pu-fige { font-size: 10px; color: var(--orange); font-weight: 600; background: rgba(245,158,11,.10); border: 1px solid rgba(245,158,11,.35); border-radius: 999px; padding: 1px 7px; white-space: nowrap; font-family: 'DM Mono', monospace; }
+.pu-fige a { cursor: pointer; margin-left: 3px; color: var(--orange); }
+.pu-inp { width: 88px; text-align: right; font-family: 'DM Mono', monospace; font-size: 12px; border: 1px solid var(--orange); border-radius: 6px; padding: 3px 6px; background: var(--surface); color: var(--text); }
 .item-edit:hover { background: var(--blue-light); border-color: var(--blue-mid); color: var(--blue); }
 .tag { display: inline-block; padding: 1px 6px; border-radius: 8px; font-size: 9px; font-weight: 600; }
 .tag-pan { background: var(--green-light); color: #085041; }
@@ -2776,19 +2779,26 @@ function r2(n){return Math.round((Number(n)||0)*100)/100;}
 // Prix d'une ligne. Règle de facturation : le PU est arrondi au CENTIME d'abord,
 // puis Montant = PU affiché × Quantité affichée — ainsi chaque ligne du devis se
 // vérifie à la calculatrice (PU × Qté = Montant, au centime).
+// Quantité facturée d'une ligne (m² panneaux, ml de Té, m²/ml/unités des compléments)
+function qteFacturee(it){ if(it.type==='pan') return it.surf||it.surfExact||0; if(it.type==='acc') return it.accId==='te_reprise'?(it.ml||0):(it.qty||1); return 1; }
+function puFige(it){ return (it.puOverride!=null&&it.puOverride!==''&&!isNaN(parseFloat(it.puOverride))) ? parseFloat(it.puOverride) : null; }
 function cpv(it,p){
+  const pf=puFige(it); // prix unitaire FIGÉ sur la ligne (propre à ce devis) : prime sur tout calcul
   if(it.type==='pan'){
-    const a=(it.achatOverride!=null&&!isNaN(it.achatOverride))?Number(it.achatOverride):getPx(it.ep,it.surface,it.mousse,it.paroi);
     const s=it.surf||it.surfExact||0; // la quantité FACTURÉE = celle affichée sur le devis
+    if(pf!=null) return r2(pf*s);
+    const a=(it.achatOverride!=null&&!isNaN(it.achatOverride))?Number(it.achatOverride):getPx(it.ep,it.surface,it.mousse,it.paroi);
     return r2(r2((a+p.pose+p.acc)*p.coef)*s); // journée : p.pose=0 mais p.acc conservé
   }
   if(it.type==='por'){
     const rid = (it.rideauOn!==false && it.rauto) ? r2(it.rauto*p.coef) : 0;
+    if(pf!=null) return r2(pf)+rid; // porte figée (le rideau garde son propre prix)
     const opt = it.optAchat||0; // options Xpress (parts) → toujours côté matière
     if(p.mode==='journee') return r2((it.achat+opt)*p.coef) + rid; // pose exclue
     return r2((it.achat+it.pose+opt)*p.coef) + rid;
   }
   if(it.type==='acc'){
+    if(pf!=null) return r2(pf*qteFacturee(it));
     if(it.accId==='te_reprise') return teReprisePrix(it.ml||0, it.hauteur||0, p).total;
     if(it.accId==='lisse'){ const px=getAccPx('lisse');
       // Lisse PVC : achat par BARRE de 3 m, pose par ML. Chiffrée au ml (unit='ml') ; anciens items = à la barre.
@@ -4037,19 +4047,19 @@ function refreshAll(){
       const pans=items.filter(i=>i.type==='pan'),pors=items.filter(i=>i.type==='por'),accs=items.filter(i=>i.type==='acc');
       let h='';
       if(!items.length && !travaux.length && !dep.on) h+='<div class="empty-state" style="padding:1.25rem 0">Devis vide — utilise le Configurateur (panneaux, portes, produits complémentaires, travaux spécifiques ou dépose).</div>';
-      if(pans.length){const stPan=pans.reduce((s,it)=>s+cpv(it,p),0);h+=`<div class="items-section"><div class="items-section-title sec-tog" onclick="togSec('edit_pan')"><span>${secFold.edit_pan?'▾':'▸'} Panneaux (${pans.length})</span><span>${fmt(stPan)} €</span></div>`;if(secFold.edit_pan)h+=items.map((it,i)=>{if(it.type!=='pan')return'';const pvm2=it.surf>0?cpv(it,p)/it.surf:0;const warn=it.dimsIncomplete?`<div style="margin-top:5px;display:inline-flex;align-items:center;gap:6px;background:#FDE7E9;color:#B4232A;border:1px solid #F1B0B4;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:600">⚠ Hauteur / ML à compléter <a onclick="event.stopPropagation();completerPanneau(${i})" style="color:#B4232A;text-decoration:underline;cursor:pointer">compléter</a></div>`:'';return`<div class="item-row"><div class="item-left"><div class="item-name"><span class="tag tag-pan">Pan</span>${it.label}</div><div class="item-meta">${it.meta}${pvm2>0?` · <span style="color:var(--blue);font-weight:600">${fmt(pvm2)} €/m²</span>`:''}</div>${warn}</div><div class="item-right"><div class="item-price">${fmt(cpv(it,p))} €</div><button class="item-del item-edit" title="Modifier ce panneau" onclick="editItem(${i})">✎</button><button class="item-del" onclick="delItem(${i})">×</button></div></div>`;}).join('');h+='</div>';}
+      if(pans.length){const stPan=pans.reduce((s,it)=>s+cpv(it,p),0);h+=`<div class="items-section"><div class="items-section-title sec-tog" onclick="togSec('edit_pan')"><span>${secFold.edit_pan?'▾':'▸'} Panneaux (${pans.length})</span><span>${fmt(stPan)} €</span></div>`;if(secFold.edit_pan)h+=items.map((it,i)=>{if(it.type!=='pan')return'';const pvm2=it.surf>0?cpv(it,p)/it.surf:0;const warn=it.dimsIncomplete?`<div style="margin-top:5px;display:inline-flex;align-items:center;gap:6px;background:#FDE7E9;color:#B4232A;border:1px solid #F1B0B4;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:600">⚠ Hauteur / ML à compléter <a onclick="event.stopPropagation();completerPanneau(${i})" style="color:#B4232A;text-decoration:underline;cursor:pointer">compléter</a></div>`:'';return`<div class="item-row"><div class="item-left"><div class="item-name"><span class="tag tag-pan">Pan</span>${it.label}</div><div class="item-meta">${it.meta}${pvm2>0?` · <span style="color:var(--blue);font-weight:600">${fmt(pvm2)} €/m²</span>`:''}</div>${warn}</div><div class="item-right">${puCtl(it,i,pvm2)}<div class="item-price">${fmt(cpv(it,p))} €</div><button class="item-del item-edit" title="Modifier ce panneau" onclick="editItem(${i})">✎</button><button class="item-del" onclick="delItem(${i})">×</button></div></div>`;}).join('');h+='</div>';}
       if(pors.length){const stPor=pors.reduce((s,it)=>s+cpv(it,p),0);h+=`<div class="items-section"><div class="items-section-title sec-tog" onclick="togSec('edit_por')"><span>${secFold.edit_por?'▾':'▸'} Portes & Rideaux (${pors.length})</span><span>${fmt(stPor)} €</span></div>`;if(secFold.edit_por)h+=items.map((it,i)=>{
         if(it.type!=='por')return'';
         const hasR = it.rideauOn!==false && it.rauto;
         const doorPv = (p.mode==='journee'?it.achat:(it.achat+it.pose))*p.coef;
-        let row=`<div class="item-row"><div class="item-left"><div class="item-name"><span class="tag tag-por">Porte</span>${it.label}</div><div class="item-meta">${it.meta}</div></div><div class="item-right"><div class="item-price">${fmt(hasR?doorPv:cpv(it,p))} €</div><button class="item-del item-edit" title="Modifier cette porte" onclick="editItem(${i})">✎</button><button class="item-del" onclick="delItem(${i})">×</button></div></div>`;
+        let row=`<div class="item-row"><div class="item-left"><div class="item-name"><span class="tag tag-por">Porte</span>${it.label}</div><div class="item-meta">${it.meta}</div></div><div class="item-right">${puCtl(it,i,(puFige(it)!=null?puFige(it):doorPv))}<div class="item-price">${fmt(hasR?(puFige(it)!=null?puFige(it):doorPv):cpv(it,p))} €</div><button class="item-del item-edit" title="Modifier cette porte" onclick="editItem(${i})">✎</button><button class="item-del" onclick="delItem(${i})">×</button></div></div>`;
         if(hasR){
           const rDim=porRideauDim(it), rRef=porRideauRef(it), rPv=it.rauto*p.coef;
           row+=`<div class="item-row"><div class="item-left"><div class="item-name"><span class="tag tag-por">Rideau</span>Rideau à lanières <span style="color:var(--text3);font-weight:400">${rRef}</span></div><div class="item-meta">${rDim?rDim+' mm':''}</div></div><div class="item-right"><div class="item-price">${fmt(rPv)} €</div><button class="item-del" onclick="delRideau(${i})" title="Retirer uniquement le rideau">×</button></div></div>`;
         }
         return row;
       }).join('');h+='</div>';}
-      if(accs.length){const stAcc=accs.reduce((s,it)=>s+cpv(it,p),0);h+=`<div class="items-section"><div class="items-section-title sec-tog" onclick="togSec('edit_acc')"><span>${secFold.edit_acc?'▾':'▸'} Compléments (${accs.length})</span><span>${stAcc>0?fmt(stAcc)+' €':''}</span></div>`;if(secFold.edit_acc)h+=items.map((it,i)=>{if(it.type!=='acc')return'';const v=cpv(it,p);return`<div class="item-row"><div class="item-left"><div class="item-name"><span class="tag tag-acc">+</span>${it.label}</div><div class="item-meta">${it.meta}</div></div><div class="item-right"><div class="item-price"${v>0?'':' style="color:var(--text2)"'}>${v>0?fmt(v)+' €':'À chiffrer'}</div><button class="item-del item-edit" title="Modifier ce complément" onclick="editAccItem(${i})">✎</button><button class="item-del" onclick="delItem(${i})">×</button></div></div>`;}).join('');h+='</div>';}
+      if(accs.length){const stAcc=accs.reduce((s,it)=>s+cpv(it,p),0);h+=`<div class="items-section"><div class="items-section-title sec-tog" onclick="togSec('edit_acc')"><span>${secFold.edit_acc?'▾':'▸'} Compléments (${accs.length})</span><span>${stAcc>0?fmt(stAcc)+' €':''}</span></div>`;if(secFold.edit_acc)h+=items.map((it,i)=>{if(it.type!=='acc')return'';const v=cpv(it,p);const q=qteFacturee(it);const puA=q>0?v/q:v;return`<div class="item-row"><div class="item-left"><div class="item-name"><span class="tag tag-acc">+</span>${it.label}</div><div class="item-meta">${it.meta}${v>0&&q>0?` · <span style="color:var(--blue);font-weight:600">${fmt(puA)} €${puUnite(it)}</span>`:''}</div></div><div class="item-right">${puCtl(it,i,puA)}<div class="item-price"${v>0?'':' style="color:var(--text2)"'}>${v>0?fmt(v)+' €':'À chiffrer'}</div><button class="item-del item-edit" title="Modifier ce complément" onclick="editAccItem(${i})">✎</button><button class="item-del" onclick="delItem(${i})">×</button></div></div>`;}).join('');h+='</div>';}
       // (plus de « Total HT produits » intermédiaire : seul le Total HT final compte — demande Clément 2026-09-03)
       // ── Travaux spécifiques & Dépose : lignes-résumé (édition dans le Configurateur) ──
       if(travaux.length){
@@ -4254,6 +4264,18 @@ function refreshAll(){
         </div>`;
     }
   }
+}
+// Prix unitaire figé : saisie en ligne dans la vue Édition (Entrée = valider, Échap = annuler, vide = libérer)
+let _puEdit=null;
+function puFixe(i){ _puEdit=i; refreshAll(); const inp=document.querySelector('.pu-inp'); if(inp){ inp.focus(); inp.select(); } }
+function puFixeSet(i,v){ const it=items[i]; if(!it) return; if(v===''||v==null||isNaN(parseFloat(v))) delete it.puOverride; else it.puOverride=Math.round(parseFloat(v)*100)/100; _puEdit=null; refreshAll(); }
+function puFixeCancel(){ _puEdit=null; refreshAll(); }
+function puUnite(it){ return it.type==='pan'?'/m²':it.type==='por'?'':(it.accId==='te_reprise'?'/ml':(it.unit==='m²'?'/m²':it.unit==='ml'?'/ml':'/u')); }
+function puCtl(it,i,cur){ // cur = PU courant (calculé ou figé)
+  if(_puEdit===i) return `<input class="pu-inp" type="number" step="0.01" min="0" value="${cur>0?cur.toFixed(2):''}" onkeydown="if(event.key==='Enter'){event.preventDefault();puFixeSet(${i},this.value)}else if(event.key==='Escape'){puFixeCancel()}" onblur="if(_puEdit===${i})puFixeSet(${i},this.value)" title="Prix unitaire HT ${puUnite(it)} — vide = revenir au calcul">`;
+  const pf=puFige(it);
+  return (pf!=null?`<span class="pu-fige" title="Prix unitaire figé pour ce devis (hérité par les versions)">PU figé ${fmt(pf)} €${puUnite(it)} <a onclick="event.stopPropagation();puFixeSet(${i},'')" title="Revenir au prix calculé">✕</a></span>`:'')
+    +`<button class="item-del item-edit" title="Figer le prix unitaire de cette ligne (propre à ce devis)" onclick="puFixe(${i})">€</button>`;
 }
 function delItem(i){if(!confirm('Supprimer cet article ?'))return;items.splice(i,1);
   if(editIdx!=null){ if(i===editIdx){ cancelEdit(); } else if(i<editIdx){ editIdx--; } }
