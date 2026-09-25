@@ -5016,6 +5016,7 @@ function panneauxDevisLignes(pans, p){
 }
 function devisDesigAcc(it){ // libellé + détail montrés au CLIENT (aperçu + PDF) ; le détail de commande reste dans l'app
   if(it.accId==='sol_phen') return {label:'Sol phénolique 100mm', meta:fmt(parseFloat(it.qty)||0)+' m² — sur chevrons PVC inclus'};
+  if(it.accId==='tole') return {label:'Tôle larmée 4mm', meta:fmt(parseFloat(it.qty)||0)+' m²'}; // sans nombre ni format de tôles côté client
   const meta=String(it.meta||'').trim();
   if(/^\d+\s+unités?$/i.test(meta)) return {label:it.label||'', meta:''}; // « 3 unités » : déjà dans la colonne Quantité
   return {label:it.label||'', meta};
