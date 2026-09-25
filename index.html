@@ -5014,6 +5014,12 @@ function panneauxDevisLignes(pans, p){
   });
   return out;
 }
+function devisDesigAcc(it){ // libellé + détail montrés au CLIENT (aperçu + PDF) ; le détail de commande reste dans l'app
+  if(it.accId==='sol_phen') return {label:'Sol phénolique 100mm', meta:fmt(parseFloat(it.qty)||0)+' m² — sur chevrons PVC inclus'};
+  const meta=String(it.meta||'').trim();
+  if(/^\d+\s+unités?$/i.test(meta)) return {label:it.label||'', meta:''}; // « 3 unités » : déjà dans la colonne Quantité
+  return {label:it.label||'', meta};
+}
 function apercuDevisRows(items, travaux, p){
   const money=v=>fmt(v)+' €';
   const sec=(t,k)=>`<tr class="ap-sec sec-tog" onclick="togSec('${k}')"><td colspan="5">${secFold[k]?'▾':'▸'} ${t}</td></tr>`;
@@ -5045,7 +5051,7 @@ function apercuDevisRows(items, travaux, p){
     h+=sec('Accessoires & compléments','ap_acc');
     if(secFold.ap_acc) accs.forEach(it=>{
       const v=cpv(it,p), qte=it.qty||1, pu=qte>0?v/qte:v;
-      h+=row('', it.label||'', it.meta||'', v>0?money(pu):'—', `${String(qte).replace('.',',')} ${it.unit||'u'}`, v>0?money(v):'À chiffrer');
+      const dd=devisDesigAcc(it); h+=row('', dd.label, dd.meta, v>0?money(pu):'—', `${String(qte).replace('.',',')} ${it.unit||'u'}`, v>0?money(v):'À chiffrer');
     });
   }
   if(travaux.length){
@@ -5361,7 +5367,7 @@ function genPDF(){
       const v=cpv(it,p);
       const pu=qte>0?v/qte:v;
       const montant=v>0?fn(v):'À chiffrer';
-      const desigAcc=it.meta?`${it.label||''} — ${it.meta}`:(it.label||'');
+      const dd=devisDesigAcc(it); const desigAcc=dd.meta?`${dd.label} — ${dd.meta}`:dd.label;
       drawRow('', desigAcc, v>0?fn(pu):'—', String(qte).replace('.',',')+' '+(it.unit||'u'), montant, i%2===1);
     });
   }
