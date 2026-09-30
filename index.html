@@ -1965,9 +1965,9 @@ function togglePwd(){
           </div>
           <div id="sol-chev-info" style="font-size:11.5px;color:var(--text3);margin-bottom:16px;line-height:1.5"></div>
           <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Transport — taux de référence</div>
-          <div style="font-size:11.5px;color:var(--text3);margin-bottom:8px;line-height:1.45">Ligne Transport au réel : somme des postes (panneaux selon le fournisseur du devis, portes en % de l'achat, sol phénolique au m², tés au ml, consommables), multipliée par le coefficient transport. Le total reste forçable à la main sur chaque devis.</div>
+          <div style="font-size:11.5px;color:var(--text3);margin-bottom:8px;line-height:1.45">Ligne Transport au réel : somme des postes (panneaux : port réel saisi sur le devis, sinon forfait du fournisseur × livraisons ; portes en % de l'achat, sol phénolique au m², tés au ml, consommables), multipliée par le coefficient transport. Le total reste forçable à la main sur chaque devis.</div>
           <div style="display:grid;grid-template-columns:1fr auto auto;gap:7px 10px;max-width:360px;font-size:12.5px;align-items:center">
-            <span>Panneaux Arcelor — forfait / livraison</span><input id="tr-pan-arcelor" type="number" value="0" step="10" style="width:82px" oninput="refreshAll()"><span style="color:var(--text3)">€</span>
+            <span>Panneaux Arcelor — forfait / livraison</span><input id="tr-pan-arcelor" type="number" value="380" step="10" style="width:82px" oninput="refreshAll()"><span style="color:var(--text3)">€</span>
             <span>Panneaux Huurre / Esquiss — forfait / livraison</span><input id="tr-pan-huurre" type="number" value="0" step="10" style="width:82px" oninput="refreshAll()"><span style="color:var(--text3)">€</span>
             <span>Panneaux Celtek — forfait / livraison</span><input id="tr-pan-celtek" type="number" value="300" step="10" style="width:82px" oninput="refreshAll()"><span style="color:var(--text3)">€</span>
             <span>Portes — taux sur l'achat</span><input id="tr-por-taux" type="number" value="15" step="1" style="width:82px" oninput="refreshAll()"><span style="color:var(--text3)">%</span>
@@ -2043,6 +2043,7 @@ function togglePwd(){
         <option value="arcelor">Arcelor</option><option value="huurre">Huurre / Esquiss</option><option value="celtek">Celtek</option>
       </select></div>
     <div class="sr-row"><span class="sr-label">Livraisons panneaux</span><span><input class="sr-input" id="tr-pan-livr" type="number" min="1" step="1" value="1" oninput="trParamInput()" style="width:40px"></span></div>
+    <div class="sr-row" title="Port réel indiqué sur le devis / la commande du fournisseur de panneaux. Vide = forfait du fournisseur × livraisons."><span class="sr-label">Port panneaux (devis fournisseur)</span><span><input class="sr-input" id="tr-pan-montant" type="number" min="0" step="10" oninput="trParamInput()"><span class="sr-unit">€</span></span></div>
     <div id="tr-detail" style="font-size:11px;color:var(--text2);padding:4px 0 2px;line-height:1.6"></div>
     <div class="sr-row" style="padding-top:4px;border-top:1px solid var(--border2);margin-top:2px">
       <span class="sr-label" style="font-weight:600;color:var(--text2)">Total transport HT</span>
@@ -4095,8 +4096,6 @@ function refreshAll(){
         if(journeeForfait>0) h+=`<div style="display:flex;justify-content:space-between;padding:2px 0;color:var(--text2)"><span>Main d'œuvre & Déplacement</span><span style="color:var(--text)">${fmt(journeeForfait)} €</span></div>`;
         if(tr.trNet>0){
           h+=`<div style="display:flex;justify-content:space-between;padding:2px 0;color:var(--text2)"><span>Transport</span><span style="color:var(--text)">${fmt(tr.trNet)} €</span></div>`;
-          if(tr.trPan===0&&items.filter(i=>i.type==='pan').reduce((s,i)=>s+i.surf,0)>0)
-            h+=`<div style="font-size:10px;color:var(--green);padding:0 0 2px 8px">↳ Panneaux franco de port</div>`;
         }
         if(evac>0) h+=`<div style="display:flex;justify-content:space-between;padding:2px 0;color:var(--text2)"><span>Évacuation & Déchets</span><span style="color:var(--text)">${fmt(evac)} €</span></div>`;
         if(manuClient) h+=`<div style="display:flex;justify-content:space-between;padding:2px 0;color:var(--text2)"><span>Manutention</span><span style="color:var(--text3);font-style:italic">À la charge du client</span></div>`;
@@ -4962,7 +4961,7 @@ function buildApercuAnnexes(tr, evac, manu, manuClient, items, p){
   }
   if(tr.trNet > 0){
     const surfPan = items.filter(i=>i.type==='pan').reduce((s,i)=>s+i.surf, 0);
-    const label = 'Transport HT' + (tr.trPan===0 && surfPan>0 ? ' (panneaux franco)' : '');
+    const label = 'Transport HT'; // jamais de précision « franco » ou autre sur le devis (demande Clément 30/09/2026)
     h += '<div class="ap-tot-row"><span>' + label + '</span><span>' + fmt(tr.trNet) + ' €</span></div>';
   }
   if(evac > 0){
@@ -5113,11 +5112,12 @@ function calcTransport(p, items){
   items = items || [];
   const n=(id,def)=>{ const v=parseFloat(G(id)?.value); return isNaN(v)?def:v; };
   const pans=items.filter(i=>i.type==='pan'); const hasPan=pans.length>0;
-  // 1) Panneaux : forfait par livraison selon le fournisseur du devis (Arcelor = franco, fournisseur par défaut)
+  // 1) Panneaux : port saisi sur le devis (prioritaire) ou forfait par livraison selon le fournisseur (Arcelor 380 € par défaut)
   const fou=(G('tr-pan-fou')?.value)||'arcelor'; const livr=Math.max(1, parseInt(G('tr-pan-livr')?.value)||1);
   const FOU_LAB={arcelor:'Arcelor', huurre:'Huurre / Esquiss', celtek:'Celtek'};
-  const forfaitFou=({arcelor:n('tr-pan-arcelor',0), huurre:n('tr-pan-huurre',0), celtek:n('tr-pan-celtek',300)})[fou]||0;
-  const trPan = hasPan ? r2(forfaitFou*livr) : 0;
+  const forfaitFou=({arcelor:n('tr-pan-arcelor',380), huurre:n('tr-pan-huurre',0), celtek:n('tr-pan-celtek',300)})[fou]||0;
+  const ovPanRaw=G('tr-pan-montant')?.value; const ovPan=(ovPanRaw!==''&&ovPanRaw!=null&&!isNaN(parseFloat(ovPanRaw)))?parseFloat(ovPanRaw):null; // port réel saisi sur le devis
+  const trPan = hasPan ? (ovPan!=null ? r2(ovPan) : r2(forfaitFou*livr)) : 0;
   // 2) Portes : taux sur l'achat, borné min / max
   const achatPor=items.filter(i=>i.type==='por').reduce((s,i)=>s+(parseFloat(i.achat)||0),0);
   const trPor = achatPor>0 ? r2(Math.min(n('tr-por-max',650), Math.max(n('tr-por-min',150), achatPor*n('tr-por-taux',15)/100))) : 0;
@@ -5135,7 +5135,7 @@ function calcTransport(p, items){
   const computed = r2(trBrut*trCoef); // coût réel × coefficient transport (1,2 par défaut)
   const trNet = trManual ? (parseFloat(G('tr-total')?.value)||0) : computed;
   const details=[];
-  if(hasPan) details.push({lab:'Panneaux — '+(FOU_LAB[fou]||fou)+(livr>1?' × '+livr+' livr.':''), v:trPan, franco:trPan===0});
+  if(hasPan) details.push({lab:'Panneaux — '+(FOU_LAB[fou]||fou)+(ovPan!=null?' (port saisi)':(livr>1?' × '+livr+' livr.':'')), v:trPan, franco:trPan===0});
   if(achatPor>0) details.push({lab:'Portes — '+n('tr-por-taux',15)+' % de '+fmt(achatPor)+' €', v:trPor});
   if(solM2>0) details.push({lab:'Sol phénolique — '+fmt(solM2)+' m²', v:trSol});
   if(teMl>0) details.push({lab:'Tés de reprise — '+fmt(teMl)+' ml', v:trTe});
@@ -5402,7 +5402,7 @@ function genPDF(){
     y+=2;
     if(journeeForfait>0) drawAnnexe('MAIN D\'ŒUVRE & DÉPLACEMENT', fn(journeeForfait));
     if(tr.trNet>0){
-      const lbl='TRANSPORT'+(tr.trPan===0&&surfPan>0?' (panneaux franco)':'');
+      const lbl='TRANSPORT'; // libellé nu sur le PDF
       drawAnnexe(lbl, fn(tr.trNet));
     }
     if(evac>0) drawAnnexe('ÉVACUATION DES DÉCHETS', fn(evac));
@@ -5532,8 +5532,8 @@ function collectParams(){
   // Sol phénolique : chevrons PVC de calage (ml par m² de sol, pose €/m²)
   px.sol_chev_ml   = SOL_CHEV.ml;
   px.sol_chev_pose = SOL_CHEV.pose;
-  // Transport au réel (tr_v2) — valOr respecte 0 (Arcelor franco)
-  px.tr_v2=true;
+  // Transport au réel (tr_v2) — valOr respecte 0 ; tr_v3 = Arcelor à 380 €/livraison par défaut (30/09/2026)
+  px.tr_v2=true; px.tr_v3=true;
   px.tr_pan_arcelor=valOr('tr-pan-arcelor',0); px.tr_pan_huurre=valOr('tr-pan-huurre',0); px.tr_pan_celtek=valOr('tr-pan-celtek',300);
   px.tr_por_pct=valOr('tr-por-taux',15); px.tr_por_min=valOr('tr-por-min',150); px.tr_por_max=valOr('tr-por-max',650);
   px.tr_sol_m2=valOr('tr-sol-m2',7.5); px.tr_sol_min=valOr('tr-sol-min',150); px.tr_sol_max=valOr('tr-sol-max',450);
@@ -5592,7 +5592,7 @@ function applyParams(px){
   if(G('sol-chev-pose')) G('sol-chev-pose').value = SOL_CHEV.pose;
   if(px.tr_v2){ // réglages transport au réel ; les anciens (franco 500 / forfait 200 / 12 % / 65 / acc 150) sont ignorés → nouveaux défauts
     const setv=(id,v)=>{ if(G(id)&&v!=null&&!isNaN(parseFloat(v))) G(id).value=v; };
-    setv('tr-pan-arcelor',px.tr_pan_arcelor); setv('tr-pan-huurre',px.tr_pan_huurre); setv('tr-pan-celtek',px.tr_pan_celtek);
+    setv('tr-pan-arcelor', px.tr_v3 ? px.tr_pan_arcelor : 380); setv('tr-pan-huurre',px.tr_pan_huurre); setv('tr-pan-celtek',px.tr_pan_celtek); // avant tr_v3, Arcelor était enregistré « franco » à tort
     setv('tr-por-taux',px.tr_por_pct); setv('tr-por-min',px.tr_por_min); setv('tr-por-max',px.tr_por_max);
     setv('tr-sol-m2',px.tr_sol_m2); setv('tr-sol-min',px.tr_sol_min); setv('tr-sol-max',px.tr_sol_max);
     setv('tr-te-ml',px.tr_te_ml); setv('tr-te-min',px.tr_te_min); setv('tr-conso',px.tr_conso); setv('tr-pdn',px.tr_pdn); setv('tr-coef',px.tr_coef);
@@ -5815,7 +5815,7 @@ function saveDraft(){
   const num=G('devis-num')?.textContent||''; if(!num) return;
   const o=readDrafts();
   o[num]={ ts:Date.now(), num, projet:G('projet-nom')?.value||'', items:items, travaux:travaux, client:curClient,
-    pp:G('pp')?.value, pa:G('pa')?.value, pc:G('pc')?.value, pxOverride:PXOV, trManual:trManual, trTotal:G('tr-total')?.value, trPanFou:G('tr-pan-fou')?.value, trPanLivr:G('tr-pan-livr')?.value, remise:remisePayload(), metre:metrePayload(),
+    pp:G('pp')?.value, pa:G('pa')?.value, pc:G('pc')?.value, pxOverride:PXOV, trManual:trManual, trTotal:G('tr-total')?.value, trPanFou:G('tr-pan-fou')?.value, trPanLivr:G('tr-pan-livr')?.value, trPanMontant:G('tr-pan-montant')?.value, remise:remisePayload(), metre:metrePayload(),
     evBase:G('ev-base')?.value, manuBase:G('manu-base')?.value, manuClient:G('manu-client')?.checked,
     poseMode:document.querySelector('input[name="pose-mode"]:checked')?.value, journeePx:G('journee-px')?.value, depose:DEPOSE };
   const keys=Object.keys(o).sort((a,b)=>(o[b].ts||0)-(o[a].ts||0)); keys.slice(30).forEach(k=>delete o[k]); // garder les 30 plus récents
@@ -5850,7 +5850,7 @@ function restoreDraft(d){
   if(G('journee-px')&&d.journeePx!=null&&d.journeePx!=='') G('journee-px').value=d.journeePx;
   REMISE=remiseLoad(d.remise); remiseApplyToUI();
   metreLoad(d.metre);
-  if(G('tr-pan-fou')&&d.trPanFou) G('tr-pan-fou').value=d.trPanFou; if(G('tr-pan-livr')&&d.trPanLivr) G('tr-pan-livr').value=d.trPanLivr;
+  if(G('tr-pan-fou')&&d.trPanFou) G('tr-pan-fou').value=d.trPanFou; if(G('tr-pan-livr')&&d.trPanLivr) G('tr-pan-livr').value=d.trPanLivr; if(G('tr-pan-montant')) G('tr-pan-montant').value=(d.trPanMontant!=null?d.trPanMontant:'');
   if(curClient) setClient(curClient); else clearClient();
   refreshAll(); renderAccList();
 }
@@ -5985,7 +5985,7 @@ async function sauvegarderDevis(opts){
     client: curClient,
     projet_nom: G('projet-nom')?.value||'',
     items: items,
-    params: { pose: parseFloat(G('pp')?.value)||18, acc: parseFloat(G('pa')?.value)||6, coef: parseFloat(G('pc')?.value)||1.5, depose: deposePayload(), pxOverride: PXOV, evBase: valOr('ev-base',EVMANU_DEF.ev), manuBase: valOr('manu-base',EVMANU_DEF.manu), manuClient: G('manu-client')?.checked||false, poseMode: document.querySelector('input[name="pose-mode"]:checked')?.value||'budget', journeePx: valOr('journee-px',POSE_DEF.px), travaux: travaux, remise: remisePayload(), metre: metrePayload(), trPanFou: (G('tr-pan-fou')?.value)||'arcelor', trPanLivr: parseInt(G('tr-pan-livr')?.value)||1 },
+    params: { pose: parseFloat(G('pp')?.value)||18, acc: parseFloat(G('pa')?.value)||6, coef: parseFloat(G('pc')?.value)||1.5, depose: deposePayload(), pxOverride: PXOV, evBase: valOr('ev-base',EVMANU_DEF.ev), manuBase: valOr('manu-base',EVMANU_DEF.manu), manuClient: G('manu-client')?.checked||false, poseMode: document.querySelector('input[name="pose-mode"]:checked')?.value||'budget', journeePx: valOr('journee-px',POSE_DEF.px), travaux: travaux, remise: remisePayload(), metre: metrePayload(), trPanFou: (G('tr-pan-fou')?.value)||'arcelor', trPanLivr: parseInt(G('tr-pan-livr')?.value)||1, trPanMontant: (G('tr-pan-montant')?.value)||'' },
     transport: tr,
     evacuation: evac,
     manutention: { base: parseFloat(G('manu-base')?.value)||600, client: G('manu-client')?.checked||false, total: manu },
@@ -6211,7 +6211,7 @@ async function telechargerDevisPDF(id){
   if(!data||!data.length){ showToast('Devis introuvable', true); return; }
   const d=data[0];
   // On génère le PDF du devis sauvegardé sans écraser le devis en cours de travail
-  const bak={items:items, curClient:curClient, trManual:trManual, trTotal:G('tr-total')?G('tr-total').value:'', trFou:G('tr-pan-fou')?G('tr-pan-fou').value:'arcelor', trLivr:G('tr-pan-livr')?G('tr-pan-livr').value:1, pxov:PXOV, dep:DEPOSE, rem:REMISE, trv:travaux,
+  const bak={items:items, curClient:curClient, trManual:trManual, trTotal:G('tr-total')?G('tr-total').value:'', trFou:G('tr-pan-fou')?G('tr-pan-fou').value:'arcelor', trLivr:G('tr-pan-livr')?G('tr-pan-livr').value:1, trMont:G('tr-pan-montant')?G('tr-pan-montant').value:'', pxov:PXOV, dep:DEPOSE, rem:REMISE, trv:travaux,
     projet:G('projet-nom')?G('projet-nom').value:'', num:G('devis-num')?G('devis-num').textContent:'',
     pp:G('pp')?G('pp').value:'', pa:G('pa')?G('pa').value:'', pc:G('pc')?G('pc').value:'',
     ev:G('ev-base')?G('ev-base').value:'', mn:G('manu-base')?G('manu-base').value:'', mc:G('manu-client')?G('manu-client').checked:false};
@@ -6221,7 +6221,7 @@ async function telechargerDevisPDF(id){
     travaux=(d.params&&Array.isArray(d.params.travaux))?d.params.travaux:[];
     curClient=d.client||null;
     trManual=!!(d.transport&&d.transport.trManual); if(trManual&&G('tr-total')) G('tr-total').value=d.transport.trNet;
-    {const _q=d.params||{}; if(G('tr-pan-fou')) G('tr-pan-fou').value=_q.trPanFou||'arcelor'; if(G('tr-pan-livr')) G('tr-pan-livr').value=_q.trPanLivr||1;}
+    {const _q=d.params||{}; if(G('tr-pan-fou')) G('tr-pan-fou').value=_q.trPanFou||'arcelor'; if(G('tr-pan-livr')) G('tr-pan-livr').value=_q.trPanLivr||1; if(G('tr-pan-montant')) G('tr-pan-montant').value=(_q.trPanMontant!=null?_q.trPanMontant:'');}
     PXOV=(d.params&&d.params.pxOverride&&typeof d.params.pxOverride==='object')?Object.assign({},d.params.pxOverride):{};
     DEPOSE=deposeLoad(d.params&&d.params.depose); // la dépose du devis enregistré, pas celle du devis en cours
     REMISE=remiseLoad(d.params&&d.params.remise);
@@ -6234,7 +6234,7 @@ async function telechargerDevisPDF(id){
   }catch(e){ console.error('Génération PDF devis:', e); showToast('Erreur PDF', true); }
   finally{
     items=bak.items; travaux=bak.trv; curClient=bak.curClient; trManual=bak.trManual; PXOV=bak.pxov;
-    if(G('tr-total')) G('tr-total').value=bak.trTotal; if(G('tr-pan-fou')) G('tr-pan-fou').value=bak.trFou; if(G('tr-pan-livr')) G('tr-pan-livr').value=bak.trLivr;
+    if(G('tr-total')) G('tr-total').value=bak.trTotal; if(G('tr-pan-fou')) G('tr-pan-fou').value=bak.trFou; if(G('tr-pan-livr')) G('tr-pan-livr').value=bak.trLivr; if(G('tr-pan-montant')) G('tr-pan-montant').value=bak.trMont;
     DEPOSE=bak.dep; REMISE=bak.rem; remiseApplyToUI();
     if(G('ev-base'))G('ev-base').value=bak.ev; if(G('manu-base'))G('manu-base').value=bak.mn; if(G('manu-client'))G('manu-client').checked=bak.mc;
     if(G('projet-nom'))G('projet-nom').value=bak.projet;
@@ -6275,7 +6275,7 @@ async function chargerDevis(id){
     if(G('journee-px')) G('journee-px').value = (_prm.journeePx!=null) ? _prm.journeePx : POSE_DEF.px;
     REMISE=remiseLoad(_prm.remise); remiseApplyToUI();
     metreLoad(_prm.metre); // métré chantier propre au devis
-    if(G('tr-pan-fou')) G('tr-pan-fou').value=_prm.trPanFou||'arcelor'; if(G('tr-pan-livr')) G('tr-pan-livr').value=_prm.trPanLivr||1; // transport : fournisseur panneaux du devis
+    if(G('tr-pan-fou')) G('tr-pan-fou').value=_prm.trPanFou||'arcelor'; if(G('tr-pan-livr')) G('tr-pan-livr').value=_prm.trPanLivr||1; if(G('tr-pan-montant')) G('tr-pan-montant').value=(_prm.trPanMontant!=null?_prm.trPanMontant:''); // transport : fournisseur panneaux du devis
     if(G('projet-nom')) G('projet-nom').value = d.projet_nom||'';
     // Numéro
     G('devis-num').textContent = d.numero;
@@ -6309,7 +6309,7 @@ async function nouveauDevis(force){
   if(G('journee-px')) G('journee-px').value = POSE_DEF.px;
   REMISE=remiseEmpty(); remiseApplyToUI();
   metreLoad(null); // métré remis à zéro
-  if(G('tr-pan-fou')) G('tr-pan-fou').value='arcelor'; if(G('tr-pan-livr')) G('tr-pan-livr').value=1;
+  if(G('tr-pan-fou')) G('tr-pan-fou').value='arcelor'; if(G('tr-pan-livr')) G('tr-pan-livr').value=1; if(G('tr-pan-montant')) G('tr-pan-montant').value='';
   curClient = null;
   if(G('projet-nom')) G('projet-nom').value = '';
   if(G('pp')) G('pp').value = DEFAULT_PARAMS.pp;
