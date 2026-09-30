@@ -1965,9 +1965,10 @@ function togglePwd(){
           </div>
           <div id="sol-chev-info" style="font-size:11.5px;color:var(--text3);margin-bottom:16px;line-height:1.5"></div>
           <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Transport — taux de référence</div>
-          <div style="font-size:11.5px;color:var(--text3);margin-bottom:8px;line-height:1.45">Ligne Transport au réel : somme des postes (panneaux : port réel saisi sur le devis, sinon forfait du fournisseur × livraisons ; portes en % de l'achat, sol phénolique au m², tés au ml, consommables), multipliée par le coefficient transport. Le total reste forçable à la main sur chaque devis.</div>
+          <div style="font-size:11.5px;color:var(--text3);margin-bottom:8px;line-height:1.45">Ligne Transport au réel : somme des postes (panneaux : port réel saisi sur le devis, sinon forfait du fournisseur × livraisons, Arcelor franco au-delà du seuil d'achat ; portes en % de l'achat, sol phénolique au m², tés au ml, consommables), multipliée par le coefficient transport. Le total reste forçable à la main sur chaque devis.</div>
           <div style="display:grid;grid-template-columns:1fr auto auto;gap:7px 10px;max-width:360px;font-size:12.5px;align-items:center">
             <span>Panneaux Arcelor — forfait / livraison</span><input id="tr-pan-arcelor" type="number" value="380" step="10" style="width:82px" oninput="refreshAll()"><span style="color:var(--text3)">€</span>
+            <span>Panneaux Arcelor — franco à partir de (achat panneaux HT)</span><input id="tr-pan-arcelor-franco" type="number" value="10000" step="500" style="width:82px" oninput="refreshAll()" title="Constaté sur les AR Arcelor : 380 € de port à 1 393 € et 6 455 € d'achat, franco à 11 311 €. Seuil exact à confirmer auprès de Gréaume."><span style="color:var(--text3)">€</span>
             <span>Panneaux Huurre / Esquiss — forfait / livraison</span><input id="tr-pan-huurre" type="number" value="0" step="10" style="width:82px" oninput="refreshAll()"><span style="color:var(--text3)">€</span>
             <span>Panneaux Celtek — forfait / livraison</span><input id="tr-pan-celtek" type="number" value="300" step="10" style="width:82px" oninput="refreshAll()"><span style="color:var(--text3)">€</span>
             <span>Portes — taux sur l'achat</span><input id="tr-por-taux" type="number" value="15" step="1" style="width:82px" oninput="refreshAll()"><span style="color:var(--text3)">%</span>
@@ -5117,7 +5118,10 @@ function calcTransport(p, items){
   const FOU_LAB={arcelor:'Arcelor', huurre:'Huurre / Esquiss', celtek:'Celtek'};
   const forfaitFou=({arcelor:n('tr-pan-arcelor',380), huurre:n('tr-pan-huurre',0), celtek:n('tr-pan-celtek',300)})[fou]||0;
   const ovPanRaw=G('tr-pan-montant')?.value; const ovPan=(ovPanRaw!==''&&ovPanRaw!=null&&!isNaN(parseFloat(ovPanRaw)))?parseFloat(ovPanRaw):null; // port réel saisi sur le devis
-  const trPan = hasPan ? (ovPan!=null ? r2(ovPan) : r2(forfaitFou*livr)) : 0;
+  // Achat panneaux HT (base fournisseur × m²) : Arcelor livre franco au-delà d'un seuil (AR du 18/09/2026 : 380 € à 1 393 et 6 455 € d'achat, franco à 11 311 €)
+  const achatPan=pans.reduce((t,i)=>{ const a=(i.achatOverride!=null&&!isNaN(i.achatOverride))?Number(i.achatOverride):getPx(i.ep,i.surface,i.mousse,i.paroi); return t+a*(i.surf||i.surfExact||0); },0);
+  const seuilFranco=fou==='arcelor'?n('tr-pan-arcelor-franco',10000):0; const francoAuto=hasPan&&seuilFranco>0&&achatPan>=seuilFranco;
+  const trPan = hasPan ? (ovPan!=null ? r2(ovPan) : (francoAuto ? 0 : r2(forfaitFou*livr))) : 0;
   // 2) Portes : taux sur l'achat, borné min / max
   const achatPor=items.filter(i=>i.type==='por').reduce((s,i)=>s+(parseFloat(i.achat)||0),0);
   const trPor = achatPor>0 ? r2(Math.min(n('tr-por-max',650), Math.max(n('tr-por-min',150), achatPor*n('tr-por-taux',15)/100))) : 0;
@@ -5135,7 +5139,7 @@ function calcTransport(p, items){
   const computed = r2(trBrut*trCoef); // coût réel × coefficient transport (1,2 par défaut)
   const trNet = trManual ? (parseFloat(G('tr-total')?.value)||0) : computed;
   const details=[];
-  if(hasPan) details.push({lab:'Panneaux — '+(FOU_LAB[fou]||fou)+(ovPan!=null?' (port saisi)':(livr>1?' × '+livr+' livr.':'')), v:trPan, franco:trPan===0});
+  if(hasPan) details.push({lab:'Panneaux — '+(FOU_LAB[fou]||fou)+(ovPan!=null?' (port saisi)':francoAuto?' (achat '+fmt(achatPan)+' € ≥ '+fmt(seuilFranco)+' €)':(livr>1?' × '+livr+' livr.':'')), v:trPan, franco:trPan===0});
   if(achatPor>0) details.push({lab:'Portes — '+n('tr-por-taux',15)+' % de '+fmt(achatPor)+' €', v:trPor});
   if(solM2>0) details.push({lab:'Sol phénolique — '+fmt(solM2)+' m²', v:trSol});
   if(teMl>0) details.push({lab:'Tés de reprise — '+fmt(teMl)+' ml', v:trTe});
@@ -5534,7 +5538,7 @@ function collectParams(){
   px.sol_chev_pose = SOL_CHEV.pose;
   // Transport au réel (tr_v2) — valOr respecte 0 ; tr_v3 = Arcelor à 380 €/livraison par défaut (30/09/2026)
   px.tr_v2=true; px.tr_v3=true;
-  px.tr_pan_arcelor=valOr('tr-pan-arcelor',0); px.tr_pan_huurre=valOr('tr-pan-huurre',0); px.tr_pan_celtek=valOr('tr-pan-celtek',300);
+  px.tr_pan_arcelor=valOr('tr-pan-arcelor',0); px.tr_pan_arcelor_franco=valOr('tr-pan-arcelor-franco',10000); px.tr_pan_huurre=valOr('tr-pan-huurre',0); px.tr_pan_celtek=valOr('tr-pan-celtek',300);
   px.tr_por_pct=valOr('tr-por-taux',15); px.tr_por_min=valOr('tr-por-min',150); px.tr_por_max=valOr('tr-por-max',650);
   px.tr_sol_m2=valOr('tr-sol-m2',7.5); px.tr_sol_min=valOr('tr-sol-min',150); px.tr_sol_max=valOr('tr-sol-max',450);
   px.tr_te_ml=valOr('tr-te-ml',5); px.tr_te_min=valOr('tr-te-min',60); px.tr_conso=valOr('tr-conso',50); px.tr_pdn=valOr('tr-pdn',0); px.tr_coef=valOr('tr-coef',1.2);
@@ -5592,7 +5596,7 @@ function applyParams(px){
   if(G('sol-chev-pose')) G('sol-chev-pose').value = SOL_CHEV.pose;
   if(px.tr_v2){ // réglages transport au réel ; les anciens (franco 500 / forfait 200 / 12 % / 65 / acc 150) sont ignorés → nouveaux défauts
     const setv=(id,v)=>{ if(G(id)&&v!=null&&!isNaN(parseFloat(v))) G(id).value=v; };
-    setv('tr-pan-arcelor', px.tr_v3 ? px.tr_pan_arcelor : 380); setv('tr-pan-huurre',px.tr_pan_huurre); setv('tr-pan-celtek',px.tr_pan_celtek); // avant tr_v3, Arcelor était enregistré « franco » à tort
+    setv('tr-pan-arcelor', px.tr_v3 ? px.tr_pan_arcelor : 380); setv('tr-pan-arcelor-franco', px.tr_pan_arcelor_franco==null ? 10000 : px.tr_pan_arcelor_franco); setv('tr-pan-huurre',px.tr_pan_huurre); setv('tr-pan-celtek',px.tr_pan_celtek); // avant tr_v3, Arcelor était enregistré « franco » à tort
     setv('tr-por-taux',px.tr_por_pct); setv('tr-por-min',px.tr_por_min); setv('tr-por-max',px.tr_por_max);
     setv('tr-sol-m2',px.tr_sol_m2); setv('tr-sol-min',px.tr_sol_min); setv('tr-sol-max',px.tr_sol_max);
     setv('tr-te-ml',px.tr_te_ml); setv('tr-te-min',px.tr_te_min); setv('tr-conso',px.tr_conso); setv('tr-pdn',px.tr_pdn); setv('tr-coef',px.tr_coef);
