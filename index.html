@@ -1957,7 +1957,12 @@ function togglePwd(){
             <label style="display:flex;gap:6px;align-items:center">Pose <input id="def-pp" type="number" value="18" step="0.5" style="width:72px" oninput="divDefInput()"> €/m²</label>
             <label style="display:flex;gap:6px;align-items:center">Accessoires <input id="def-pa" type="number" value="6" step="0.5" style="width:72px" oninput="divDefInput()"> €/m²</label>
             <label style="display:flex;gap:6px;align-items:center">Coefficient <input id="def-pc" type="number" value="1.5" step="0.05" style="width:72px" oninput="divDefInput()"> ×</label>
+            <label style="display:flex;gap:6px;align-items:center">Évacuation déchets <input id="def-ev" type="number" value="660" step="10" min="0" style="width:72px" oninput="divDefInput()"> € HT</label>
+            <label style="display:flex;gap:6px;align-items:center">Manutention <input id="def-manu" type="number" value="600" step="10" min="0" style="width:72px" oninput="divDefInput()"> € HT</label>
+            <label style="display:flex;gap:6px;align-items:center">Mode de pose <select id="def-pose" style="font-size:12.5px;padding:3px 6px" onchange="divDefInput()"><option value="budget">Budget (€/m²)</option><option value="journee">Journée simple</option></select></label>
+            <label style="display:flex;gap:6px;align-items:center">Forfait journée <input id="def-journee" type="number" value="1125" step="25" min="0" style="width:72px" oninput="divDefInput()"> € HT</label>
           </div>
+          <div style="font-size:11.5px;color:var(--text3);margin:-10px 0 16px;line-height:1.45">Ces valeurs sont celles d'un devis neuf. Ce que tu modifies ensuite dans la barre latérale d'un devis reste propre à ce devis.</div>
           <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Sol phénolique — chevrons PVC de calage (comptés dans le prix du sol)</div>
           <div style="display:flex;gap:18px;flex-wrap:wrap;font-size:12.5px;margin-bottom:6px;align-items:center">
             <label style="display:flex;gap:6px;align-items:center">Chevrons <input id="sol-chev-ml" type="number" value="3" step="0.1" min="0" style="width:72px" oninput="solChevInput()"> ml par m² de sol</label>
@@ -3878,7 +3883,9 @@ function initSidebarCards(){
 }
 function syncP(){refreshAll();}
 // Divers › Défauts nouveau devis : les champs def-* pilotent DEFAULT_PARAMS (valeurs de départ d'un nouveau devis).
-function divDefInput(){ const n=(id,d)=>{const v=parseFloat(G(id)?.value); return isNaN(v)?d:v;}; DEFAULT_PARAMS.pp=n('def-pp',DEFAULT_PARAMS.pp); DEFAULT_PARAMS.pa=n('def-pa',DEFAULT_PARAMS.pa); DEFAULT_PARAMS.pc=n('def-pc',DEFAULT_PARAMS.pc); refreshAll(); }
+function divDefInput(){ const n=(id,d)=>{const v=parseFloat(G(id)?.value); return isNaN(v)?d:v;}; DEFAULT_PARAMS.pp=n('def-pp',DEFAULT_PARAMS.pp); DEFAULT_PARAMS.pa=n('def-pa',DEFAULT_PARAMS.pa); DEFAULT_PARAMS.pc=n('def-pc',DEFAULT_PARAMS.pc);
+  EVMANU_DEF.ev=n('def-ev',EVMANU_DEF.ev); EVMANU_DEF.manu=n('def-manu',EVMANU_DEF.manu); POSE_DEF.px=n('def-journee',POSE_DEF.px); const pm=G('def-pose')?.value; if(pm==='budget'||pm==='journee') POSE_DEF.mode=pm;
+  refreshAll(); }
 // Chevrons PVC de calage sous le sol phénolique (paramètre de base, global — sauvegardé avec les prix)
 function solChevInput(){ const n=(id,d)=>{const v=parseFloat(G(id)?.value); return isNaN(v)?d:v;}; SOL_CHEV.ml=n('sol-chev-ml',SOL_CHEV.ml); SOL_CHEV.pose=n('sol-chev-pose',SOL_CHEV.pose); refreshAll(); }
 function solChevInfo(){
@@ -5542,18 +5549,18 @@ function collectParams(){
   px.tr_por_pct=valOr('tr-por-taux',15); px.tr_por_min=valOr('tr-por-min',150); px.tr_por_max=valOr('tr-por-max',650);
   px.tr_sol_m2=valOr('tr-sol-m2',7.5); px.tr_sol_min=valOr('tr-sol-min',150); px.tr_sol_max=valOr('tr-sol-max',450);
   px.tr_te_ml=valOr('tr-te-ml',5); px.tr_te_min=valOr('tr-te-min',60); px.tr_conso=valOr('tr-conso',50); px.tr_pdn=valOr('tr-pdn',0); px.tr_coef=valOr('tr-coef',1.2);
-  // Évacuation
-  px.ev_base = parseFloat(G('ev-base')?.value)||660;
-  // Manutention
-  px.manu_base = parseFloat(G('manu-base')?.value)||600;
+  // Évacuation / manutention : DÉFAUTS d'un nouveau devis (les champs ev-base / manu-base de la barre
+  // latérale sont propres au devis ouvert et NE DOIVENT PAS devenir la base — bug corrigé le 02/10/2026)
+  px.ev_base = EVMANU_DEF.ev;
+  px.manu_base = EVMANU_DEF.manu;
   // Dépose de l'existant (tarifs de vente)
   px.depose_pan      = parseFloat(G('depose-pan')?.value)||21;
   px.depose_por_coul = parseFloat(G('depose-por-coul')?.value)||150;
   px.depose_por_piv  = parseFloat(G('depose-por-piv')?.value)||100;
   px.depose_km_bareme = DEPOSE_KM_BAREME.map(r=>({max:(r.max==null||r.max==='')?null:(parseFloat(r.max)||0), sup:parseFloat(r.sup)||0}));
-  // Journée simple
-  px.journee_px = parseFloat(G('journee-px')?.value)||1125;
-  px.pose_mode  = document.querySelector('input[name="pose-mode"]:checked')?.value||'budget';
+  // Mode de pose / forfait journée : DÉFAUTS d'un nouveau devis (idem, pas les valeurs du devis ouvert)
+  px.journee_px = POSE_DEF.px;
+  px.pose_mode  = POSE_DEF.mode;
   // Accessoires divers
   ACC_DEFAULTS.forEach(a=>{
     px['acc_a_'+a.id] = accPxNum('a',a.id);
@@ -5603,6 +5610,8 @@ function applyParams(px){
   }
   if(px.ev_base!=null)   EVMANU_DEF.ev   = px.ev_base;
   if(px.manu_base!=null) EVMANU_DEF.manu = px.manu_base;
+  if(G('def-ev'))   G('def-ev').value   = EVMANU_DEF.ev;
+  if(G('def-manu')) G('def-manu').value = EVMANU_DEF.manu;
   // Évac/manut = propres au devis : on ne pose les défauts globaux dans ces champs que si aucun devis n'est chargé.
   if(!items.length){
     if(G('ev-base')   && px.ev_base!=null)   G('ev-base').value   = px.ev_base;
@@ -5616,6 +5625,8 @@ function applyParams(px){
   // et on ne les pose dans les champs que si aucun devis n'est chargé.
   if(px.journee_px!=null) POSE_DEF.px = px.journee_px;
   if(px.pose_mode) POSE_DEF.mode = px.pose_mode;
+  if(G('def-journee')) G('def-journee').value = POSE_DEF.px;
+  if(G('def-pose'))    G('def-pose').value    = POSE_DEF.mode;
   if(!items.length){
     if(G('journee-px') && px.journee_px!=null) G('journee-px').value = px.journee_px;
     if(px.pose_mode){
