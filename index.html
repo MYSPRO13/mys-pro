@@ -5086,6 +5086,9 @@ function calcEvacuation(p){
   return base;
 }
 
+// Chariot / nacelle de la manutention : propres au devis (remis à 0 sur un nouveau devis, enregistrés avec le devis)
+function manuExtraGet(){ return { chariotPx:valOr('manu-chariot-px',0), chariotJ:valOr('manu-chariot-j',0), nacellePx:valOr('manu-nacelle-px',0), nacelleJ:valOr('manu-nacelle-j',0) }; }
+function manuExtraApply(m){ m=(m&&typeof m==='object')?m:{}; const set=(id,v)=>{ if(G(id)) G(id).value=(v!=null&&v!==''&&!isNaN(parseFloat(v)))?v:0; }; set('manu-chariot-px',m.chariotPx); set('manu-chariot-j',m.chariotJ); set('manu-nacelle-px',m.nacellePx); set('manu-nacelle-j',m.nacelleJ); }
 function calcManutention(p){
   const clientCharge = G('manu-client')?.checked;
   const fields = G('manu-fields');
@@ -5831,7 +5834,7 @@ function saveDraft(){
   const o=readDrafts();
   o[num]={ ts:Date.now(), num, projet:G('projet-nom')?.value||'', items:items, travaux:travaux, client:curClient,
     pp:G('pp')?.value, pa:G('pa')?.value, pc:G('pc')?.value, pxOverride:PXOV, trManual:trManual, trTotal:G('tr-total')?.value, trPanFou:G('tr-pan-fou')?.value, trPanLivr:G('tr-pan-livr')?.value, trPanMontant:G('tr-pan-montant')?.value, remise:remisePayload(), metre:metrePayload(),
-    evBase:G('ev-base')?.value, manuBase:G('manu-base')?.value, manuClient:G('manu-client')?.checked,
+    evBase:G('ev-base')?.value, manuBase:G('manu-base')?.value, manuClient:G('manu-client')?.checked, manuExtra:manuExtraGet(),
     poseMode:document.querySelector('input[name="pose-mode"]:checked')?.value, journeePx:G('journee-px')?.value, depose:DEPOSE };
   const keys=Object.keys(o).sort((a,b)=>(o[b].ts||0)-(o[a].ts||0)); keys.slice(30).forEach(k=>delete o[k]); // garder les 30 plus récents
   writeDrafts(o);
@@ -5861,6 +5864,7 @@ function restoreDraft(d){
   if(G('ev-base')&&d.evBase!=null&&d.evBase!=='') G('ev-base').value=d.evBase;
   if(G('manu-base')&&d.manuBase!=null&&d.manuBase!=='') G('manu-base').value=d.manuBase;
   if(G('manu-client')) G('manu-client').checked=!!d.manuClient;
+  manuExtraApply(d.manuExtra);
   if(d.poseMode){ const r=document.querySelector('input[name="pose-mode"][value="'+d.poseMode+'"]'); if(r) r.checked=true; }
   if(G('journee-px')&&d.journeePx!=null&&d.journeePx!=='') G('journee-px').value=d.journeePx;
   REMISE=remiseLoad(d.remise); remiseApplyToUI();
@@ -6000,7 +6004,7 @@ async function sauvegarderDevis(opts){
     client: curClient,
     projet_nom: G('projet-nom')?.value||'',
     items: items,
-    params: { pose: parseFloat(G('pp')?.value)||18, acc: parseFloat(G('pa')?.value)||6, coef: parseFloat(G('pc')?.value)||1.5, depose: deposePayload(), pxOverride: PXOV, evBase: valOr('ev-base',EVMANU_DEF.ev), manuBase: valOr('manu-base',EVMANU_DEF.manu), manuClient: G('manu-client')?.checked||false, poseMode: document.querySelector('input[name="pose-mode"]:checked')?.value||'budget', journeePx: valOr('journee-px',POSE_DEF.px), travaux: travaux, remise: remisePayload(), metre: metrePayload(), trPanFou: (G('tr-pan-fou')?.value)||'arcelor', trPanLivr: parseInt(G('tr-pan-livr')?.value)||1, trPanMontant: (G('tr-pan-montant')?.value)||'' },
+    params: { pose: parseFloat(G('pp')?.value)||18, acc: parseFloat(G('pa')?.value)||6, coef: parseFloat(G('pc')?.value)||1.5, depose: deposePayload(), pxOverride: PXOV, evBase: valOr('ev-base',EVMANU_DEF.ev), manuBase: valOr('manu-base',EVMANU_DEF.manu), manuClient: G('manu-client')?.checked||false, manuExtra: manuExtraGet(), poseMode: document.querySelector('input[name="pose-mode"]:checked')?.value||'budget', journeePx: valOr('journee-px',POSE_DEF.px), travaux: travaux, remise: remisePayload(), metre: metrePayload(), trPanFou: (G('tr-pan-fou')?.value)||'arcelor', trPanLivr: parseInt(G('tr-pan-livr')?.value)||1, trPanMontant: (G('tr-pan-montant')?.value)||'' },
     transport: tr,
     evacuation: evac,
     manutention: { base: parseFloat(G('manu-base')?.value)||600, client: G('manu-client')?.checked||false, total: manu },
@@ -6229,7 +6233,7 @@ async function telechargerDevisPDF(id){
   const bak={items:items, curClient:curClient, trManual:trManual, trTotal:G('tr-total')?G('tr-total').value:'', trFou:G('tr-pan-fou')?G('tr-pan-fou').value:'arcelor', trLivr:G('tr-pan-livr')?G('tr-pan-livr').value:1, trMont:G('tr-pan-montant')?G('tr-pan-montant').value:'', pxov:PXOV, dep:DEPOSE, rem:REMISE, trv:travaux,
     projet:G('projet-nom')?G('projet-nom').value:'', num:G('devis-num')?G('devis-num').textContent:'',
     pp:G('pp')?G('pp').value:'', pa:G('pa')?G('pa').value:'', pc:G('pc')?G('pc').value:'',
-    ev:G('ev-base')?G('ev-base').value:'', mn:G('manu-base')?G('manu-base').value:'', mc:G('manu-client')?G('manu-client').checked:false};
+    ev:G('ev-base')?G('ev-base').value:'', mn:G('manu-base')?G('manu-base').value:'', mc:G('manu-client')?G('manu-client').checked:false, mx:manuExtraGet()};
   window._noDraft=true; // ne pas écraser le brouillon local avec ce devis temporaire
   try{
     items=d.items||[];
@@ -6240,7 +6244,7 @@ async function telechargerDevisPDF(id){
     PXOV=(d.params&&d.params.pxOverride&&typeof d.params.pxOverride==='object')?Object.assign({},d.params.pxOverride):{};
     DEPOSE=deposeLoad(d.params&&d.params.depose); // la dépose du devis enregistré, pas celle du devis en cours
     REMISE=remiseLoad(d.params&&d.params.remise);
-    {const _p=d.params||{}; if(G('ev-base'))G('ev-base').value=(_p.evBase!=null)?_p.evBase:EVMANU_DEF.ev; if(G('manu-base'))G('manu-base').value=(_p.manuBase!=null)?_p.manuBase:EVMANU_DEF.manu; if(G('manu-client'))G('manu-client').checked=!!_p.manuClient;}
+    {const _p=d.params||{}; if(G('ev-base'))G('ev-base').value=(_p.evBase!=null)?_p.evBase:EVMANU_DEF.ev; if(G('manu-base'))G('manu-base').value=(_p.manuBase!=null)?_p.manuBase:EVMANU_DEF.manu; if(G('manu-client'))G('manu-client').checked=!!_p.manuClient; manuExtraApply(_p.manuExtra);}
     if(G('pp'))G('pp').value=(d.params&&d.params.pose)||DEFAULT_PARAMS.pp; if(G('pa'))G('pa').value=(d.params&&d.params.acc)||DEFAULT_PARAMS.pa; if(G('pc'))G('pc').value=(d.params&&d.params.coef)||DEFAULT_PARAMS.pc;
     if(G('projet-nom'))G('projet-nom').value=d.projet_nom||'';
     if(G('devis-num'))G('devis-num').textContent=d.numero||'';
@@ -6251,7 +6255,7 @@ async function telechargerDevisPDF(id){
     items=bak.items; travaux=bak.trv; curClient=bak.curClient; trManual=bak.trManual; PXOV=bak.pxov;
     if(G('tr-total')) G('tr-total').value=bak.trTotal; if(G('tr-pan-fou')) G('tr-pan-fou').value=bak.trFou; if(G('tr-pan-livr')) G('tr-pan-livr').value=bak.trLivr; if(G('tr-pan-montant')) G('tr-pan-montant').value=bak.trMont;
     DEPOSE=bak.dep; REMISE=bak.rem; remiseApplyToUI();
-    if(G('ev-base'))G('ev-base').value=bak.ev; if(G('manu-base'))G('manu-base').value=bak.mn; if(G('manu-client'))G('manu-client').checked=bak.mc;
+    if(G('ev-base'))G('ev-base').value=bak.ev; if(G('manu-base'))G('manu-base').value=bak.mn; if(G('manu-client'))G('manu-client').checked=bak.mc; manuExtraApply(bak.mx);
     if(G('projet-nom'))G('projet-nom').value=bak.projet;
     if(G('devis-num'))G('devis-num').textContent=bak.num;
     if(G('pp'))G('pp').value=bak.pp; if(G('pa'))G('pa').value=bak.pa; if(G('pc'))G('pc').value=bak.pc;
@@ -6286,6 +6290,7 @@ async function chargerDevis(id){
     if(G('ev-base'))     G('ev-base').value     = (_prm.evBase!=null)   ? _prm.evBase   : EVMANU_DEF.ev;
     if(G('manu-base'))   G('manu-base').value   = (_prm.manuBase!=null) ? _prm.manuBase : EVMANU_DEF.manu;
     if(G('manu-client')) G('manu-client').checked = !!_prm.manuClient;
+    manuExtraApply(_prm.manuExtra); // chariot / nacelle du devis (0 pour les anciens devis)
     { const pm=_prm.poseMode||POSE_DEF.mode; const r=document.querySelector('input[name="pose-mode"][value="'+pm+'"]'); if(r) r.checked=true; }
     if(G('journee-px')) G('journee-px').value = (_prm.journeePx!=null) ? _prm.journeePx : POSE_DEF.px;
     REMISE=remiseLoad(_prm.remise); remiseApplyToUI();
@@ -6320,6 +6325,7 @@ async function nouveauDevis(force){
   if(G('ev-base'))     G('ev-base').value     = EVMANU_DEF.ev;
   if(G('manu-base'))   G('manu-base').value   = EVMANU_DEF.manu;
   if(G('manu-client')) G('manu-client').checked = false;
+  manuExtraApply(null); // chariot / nacelle du devis précédent ne se transmettent pas
   { const r=document.querySelector('input[name="pose-mode"][value="'+POSE_DEF.mode+'"]'); if(r) r.checked=true; }
   if(G('journee-px')) G('journee-px').value = POSE_DEF.px;
   REMISE=remiseEmpty(); remiseApplyToUI();
