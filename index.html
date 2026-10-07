@@ -2669,7 +2669,7 @@ const ACC_DEFAULTS = [
   // ── Plafond & suspension ──
   {id:'tige_filetee_1m',  cat:'plafond', fou:'Fixone', u:'unité', nom:'Tige filetée ø10 mm de 1000 mm'},
   {id:'tendeur_10',       cat:'plafond', fou:'Fixone', u:'unité', nom:'Tendeur ø10 mm 125 × 40 × 43 mm'},
-  {id:'ecrou_pom_10',     cat:'plafond', fou:'Fixone', u:'unité', nom:'Écrou POM ø10 mm sans rondelle'},
+  {id:'ecrou_pom_10',     cat:'plafond', fou:'Fixone', u:'point de suspension', nom:'Écrou POM ø10 mm — reprise de plafond (fourniture écrou + tige + rondelle, pose du point)', defA:4, defP:34.64}, // (4 + 34,64) × 1,5 = 57,96 € HT le point, prix vendu sur Le Pontet 2026-1015
   {id:'rondelle_pvc',     cat:'plafond', fou:'Fixone', u:'unité', nom:'Rondelle PVC pour écrou POM ø8 ou 10 mm'},
   {id:'boite_ecrou_10',   cat:'plafond', fou:'Fixone', u:'boîte', nom:'Boîte écrou ø10 mm'},
   // ── Équipements ──
@@ -2709,7 +2709,7 @@ const ACC_PX_MAP={te_systeme:'te', mousse_pu:'mousse', usol:'u_sol', ecrou_pom:'
 const ACC_PX_STORE={};
 function accPxRead(pref,id){ const v=ACC_PX_STORE[pref+'_'+id]; return v==null?'':v; }
 function accPxWrite(pref,id,val){ ACC_PX_STORE[pref+'_'+id]=(val===''||val==null)?'':val; }
-function accPxNum(pref,id){ return parseFloat(ACC_PX_STORE[pref+'_'+id])||0; }
+function accPxNum(pref,id){ const v=parseFloat(ACC_PX_STORE[pref+'_'+id]); if(!isNaN(v)) return v; const a=ACC_DEFAULTS.find(x=>x.id===id); const d=a?(pref==='a'?a.defA:a.defP):null; return (d!=null&&!isNaN(parseFloat(d)))?parseFloat(d):0; } // vide dans Paramètres → défaut du catalogue (defA/defP) s'il existe
 function getAccPx(id){ id=ACC_PX_MAP[id]||id; return { achat: accPxNum('a',id), pose: accPxNum('p',id) }; }
 
 // Familles repliées par défaut, sauf celles où il reste des prix à saisir
@@ -2750,6 +2750,7 @@ function initAccPrices(){
         const inp=document.createElement('input');
         inp.type='number'; inp.id='acc-'+pref+'-'+a.id; inp.step='0.01';
         inp.value = accPxRead(pref,a.id);
+        { const d=(pref==='a'?a.defA:a.defP); if(d!=null){ inp.placeholder=String(d); inp.title='Vide = défaut '+d+' €'; } }
         inp.className='sr-input'; inp.style.cssText='width:68px;font-size:11px';
         inp.oninput=()=>{ accPxWrite(pref,a.id,inp.value); refreshAll(); };
         td.appendChild(inp); return td;
@@ -2964,7 +2965,7 @@ let accCat=null,accProd=null;
 const ACC_PRODS={
   equipements:[{id:'soupape',n:"Soupape d'équilibrage",hint:'Panneau ≥ 100mm'},{id:'trappe',n:'Trappe de visite 740×740mm',hint:'Plafond isotherme'},{id:'lisse',n:'Lisse de protection PVC',hint:'ML → nb barres 3m'}],
   sol:[{id:'sol_phen',n:'Sol phénolique 100mm',hint:'Surface m² → nb panneaux'},{id:'tole',n:'Tôle larmée 4mm',hint:'Surface m² → nb tôles'},{id:'iso_sol',n:'Isolant de sol CF négative',hint:'2 couches 80mm → surface'},{id:'bastaing',n:'Bastaing de protection',hint:'Simple/double hauteur → ML'}],
-  plafond:[{id:'te_reprise',n:'Té de reprise (système complet)',hint:'ML + hauteur → Té + coulisses + œillets + clips + câble + éclisses'},{id:'ecrou_pom',n:'Écrou POM ø10 mm',hint:'Quantité → unités (Fixone)'}],
+  plafond:[{id:'te_reprise',n:'Té de reprise (système complet)',hint:'ML + hauteur → Té + coulisses + œillets + clips + câble + éclisses'},{id:'ecrou_pom',n:'Reprise de plafond — écrou POM',hint:'Nombre de points → tige filetée + écrou POM traversant, fourniture et pose'}],
   finitions:[{id:'corn_ext',n:'Cornière ext. 50×150mm',hint:'ML → nb barres 3m'},{id:'corn_int',n:'Cornière int. 50×50mm',hint:'Angles + périmètre → nb barres'},{id:'plinthe',n:'Plinthe PVC 80mm',hint:'Auto depuis cloisons ≤80mm + ML séparatif'}],
   consommables:[{id:'silicone',n:'Silicone blanc 300ml',hint:'Auto depuis nb panneaux'},{id:'mousse_pu',n:'Mousse PU 750ml',hint:'Auto depuis portes + sol + angles'},{id:'usol',n:'U de sol',hint:'Auto depuis épaisseur + ML cloisons'}]
 };
@@ -3047,7 +3048,7 @@ function renderAccForm(pid){
   const nbPor=items.filter(i=>i.type==='por').length;
   const forms={
     soupape:`<div class="acc-note">1 soupape par chambre négative.</div><div class="acc-field"><label>Quantité</label><input type="number" id="af-qty" value="1" min="1" step="1"><span class="acc-unit">unité(s)</span></div>`,
-    ecrou_pom:`<div class="acc-note">Écrou POM ø10 mm sans rondelle (Fixone). Prix : Paramètres › Accessoires › Plafond &amp; suspension.</div><div class="acc-field"><label>Quantité</label><input type="number" id="af-qty" value="1" min="1" step="1"><span class="acc-unit">unité(s)</span></div>`,
+    ecrou_pom:`<div class="acc-note">Reprise des plafonds existants après dépose des cloisons qui les portent : suspension à la structure par tige filetée et écrou POM ø10 mm traversant, posée avant la dépose. Prix par point (fourniture + pose) : Paramètres › Accessoires › Plafond &amp; suspension.</div><div class="acc-field"><label>Points de suspension</label><input type="number" id="af-qty" value="1" min="1" step="1"><span class="acc-unit">unité(s)</span></div>`,
     trappe:`<div class="acc-note">1 trappe par plafond isotherme.</div><div class="acc-field"><label>Quantité</label><input type="number" id="af-qty" value="1" min="1" step="1"><span class="acc-unit">unité(s)</span></div>`,
     lisse:`<div class="acc-field"><label>Longueur totale (ML)</label><input type="number" id="af-ml" value="0" min="0" step="0.5" oninput="calcLisse()"><span class="acc-unit">m</span></div>
       <div class="acc-field"><label>Niveaux</label><select id="af-niv" onchange="calcLisse()"><option value="1">1 niveau</option><option value="2">2 niveaux</option></select></div>
@@ -3171,7 +3172,7 @@ function calcLisse(){const ml=parseFloat(G('af-ml')?.value)||0;const niv=parseIn
 // ══ SOL PHÉNOLIQUE — optimiseur de plaques (1,2 m de large × 2/2,2/2,4/2,6/2,8/3 m) ══
 // Modèle ruban : chaque rangée fait 1,2 m de large ; on couvre la longueur avec un mélange
 // de plaques, chute mini, réutilisation d'une chute uniquement si elle fait ≥ 1 m (Clément).
-const SOL_LENGTHS=[2.0,2.2,2.4,2.6,2.8,3.0], SOL_W=1.2, SOL_MINREUSE=1.0;
+const SOL_LENGTHS=[2.0,2.2,2.4,2.6,2.8,3.0], SOL_W=1.2, SOL_MINREUSE=0.30; // chute réemployée en début de rangée suivante seulement si elle fait au moins 0,30 m de long (règle Clément 07/10/2026 ; avant : 1,00 m)
 const SOL_COLORS={2:'#8ecae6',2.2:'#a3c4a8',2.4:'#ffd166',2.6:'#f4a261',2.8:'#e07a5f',3:'#7f77dd'};
 function solPick(rem){ for(const L of SOL_LENGTHS){ if(L>=rem-1e-9) return L; } return SOL_LENGTHS[SOL_LENGTHS.length-1]; }
 function solSimulate(L,l){
@@ -3414,7 +3415,8 @@ function accAdd(){
     return;
   }
   if(pid==='soupape'){qty=parseInt(G('af-qty')?.value)||1;vol=parseFloat(G('af-soup-vol')?.value)||0;meta=`${qty} unité${qty>1?'s':''}`;}
-  else if(['trappe','silicone','ecrou_pom'].includes(pid)){qty=parseInt(G('af-qty')?.value)||1;meta=`${qty} unité${qty>1?'s':''}`;}
+  else if(pid==='ecrou_pom'){qty=parseInt(G('af-qty')?.value)||1;unit='u';label='Pose écrou POM pour reprise plafond';meta=`${qty} point${qty>1?'s':''} de suspension — tige filetée + écrou POM traversant`;}
+  else if(['trappe','silicone'].includes(pid)){qty=parseInt(G('af-qty')?.value)||1;meta=`${qty} unité${qty>1?'s':''}`;}
   else if(pid==='lisse'){const ml=parseFloat(G('af-ml')?.value)||0;const niv=parseInt(G('af-niv')?.value)||1;const totMl=ml*niv;const barres=Math.ceil(totMl/3);qty=totMl;unit='ml';nbU=barres;meta=`${fmt(totMl)} ml${niv>1?` (${ml} × ${niv} niv.)`:''} — ${barres} barre${barres>1?'s':''} 3m`;}
   else if(pid==='sol_phen'){const out=solResult();if(!out){alert((G('af-sol-mode')?.value)==='surf'?'Saisir la surface.':'Saisir la longueur et la largeur.');return;}qty=out.qty;nbU=out.nb;unit='m²';meta=out.meta;cmdDetail=out.cmdDetail;extra.solMix=(out.mode==='dim'&&out.res)?Object.assign({},out.res.plaques):{3:out.nb};extra.solMode=out.mode;extra.solL=out.L||0;extra.solW=out.l||0;}
   else if(pid==='brio'){const ml=parseFloat(G('af-brio-ml')?.value)||0;const ep=G('af-brio-ep')?.value;const h=G('af-brio-h')?.value;qty=Math.ceil(Math.round(ml/1.22*1e10)/1e10);meta=`${qty} panneaux BRIO ${ep}mm × ${(parseInt(h)/1000).toFixed(2)}m`;}
@@ -3690,6 +3692,7 @@ function accCmdLines(it){
     const f=it.toleFmt?toleFormat(it.toleFmt):null;
     return [[f?('Tôle larmée 4mm - '+Math.round(f.L*1000)+' x '+Math.round(f.l*1000)+' mm'):it.label, (it.nbU||0)+' unité'+((it.nbU||0)>1?'s':''), it.cmdDetail||accDetail(it)||'']];
   }
+  if(id==='ecrou_pom'){ const q=parseInt(it.qty)||1; return [['Écrou POM ø10 mm sans rondelle', q+' unité'+(q>1?'s':''), 'reprise de plafond — '+q+' point'+(q>1?'s':'')+' de suspension (tiges filetées et rondelles à prévoir)']]; }
   return [[it.label, cmdAccQty(it), (it.cmdDetail||accDetail(it)||'')]];
 }
 function cmdAccQty(it){ return it.accId==='te_reprise'?((it.ml||0)+' ml'):it.accId==='sol_phen'?((it.nbU||0)+' unité'+((it.nbU||0)>1?'s':'')):it.accId==='iso_sol'?((it.nbU||0)+' colis'):it.accId==='lisse'?((it.nbU||0)+' barre'+((it.nbU||0)>1?'s':'')+' 3m'):String(it.nbU||it.qty||1); }
@@ -5024,6 +5027,7 @@ function panneauxDevisLignes(pans, p){
 function devisDesigAcc(it){ // libellé + détail montrés au CLIENT (aperçu + PDF) ; le détail de commande reste dans l'app
   if(it.accId==='sol_phen') return {label:'Sol phénolique 100mm', meta:fmt(parseFloat(it.qty)||0)+' m² — sur chevrons PVC inclus'};
   if(it.accId==='tole') return {label:'Tôle larmée 4mm', meta:fmt(parseFloat(it.qty)||0)+' m²'}; // sans nombre ni format de tôles côté client
+  if(it.accId==='ecrou_pom') return {label:'Pose écrou POM pour reprise plafond', meta:'Suspension des plafonds existants à la structure, par tige filetée et écrou POM traversant'};
   const meta=String(it.meta||'').trim();
   if(/^\d+\s+unités?$/i.test(meta)) return {label:it.label||'', meta:''}; // « 3 unités » : déjà dans la colonne Quantité
   return {label:it.label||'', meta};
