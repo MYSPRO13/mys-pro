@@ -695,6 +695,11 @@ body {
 .dh-label { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 4px; }
 .dh-line { font-size: 12px; line-height: 1.6; color: var(--text); }
 .dh-num { font-size: 14px; font-weight: 600; color: var(--blue); margin-top: 6px; font-family: 'DM Mono', monospace; }
+.dh-date-inp { border: none; border-bottom: 1px dashed var(--border); background: transparent; font-family: 'DM Sans', sans-serif; font-size: 11px; color: var(--text2); padding: 0 2px; cursor: pointer; }
+.dh-date-inp:hover, .dh-date-inp:focus { color: var(--blue); border-bottom-color: var(--blue); outline: none; }
+.dh-date-inp.manual { color: var(--magenta); font-weight: 600; border-bottom-color: var(--magenta); }
+.dh-date-reset { margin-left: 6px; color: var(--magenta); cursor: pointer; font-weight: 600; }
+.dh-date-reset:hover { text-decoration: underline; }
 .client-empty { font-size: 13px; color: var(--text3); font-style: italic; }
 .client-set-badge {
   background: var(--green-light);
@@ -1651,7 +1656,7 @@ function togglePwd(){
             <button class="btn" style="margin-top:8px;font-size:11px" onclick="showContacts('cli')">Sélectionner dans l'annuaire</button>
           </div>
           <div class="dh-num">N° <span id="dnum">2026-1041</span></div>
-          <div class="dh-line" style="font-size:11px;color:var(--text2)" id="dh-date">— validité 30 jours</div>
+          <div class="dh-line" style="font-size:11px;color:var(--text2)" id="dh-date"><input type="date" id="dh-date-inp" class="dh-date-inp" onchange="devisDateSet(this.value)" title="Date du devis : automatique (aujourd'hui) tant que tu ne la modifies pas. Une date modifiée est enregistrée avec le devis."> — validité 30 jours <a id="dh-date-reset" class="dh-date-reset" onclick="devisDateSet('')" title="Revenir à la date automatique (date du jour)" style="display:none">↺ date auto</a></div>
         </div>
       </div>
     </div>
@@ -4012,6 +4017,12 @@ function applyTheme(t){
   try{ localStorage.setItem('mys_theme', dark?'dark':'light'); }catch(e){}
 }
 function toggleTheme(){ applyTheme(document.documentElement.getAttribute('data-theme')==='dark' ? 'light' : 'dark'); }
+// ── Date du devis : null = automatique (aujourd'hui), sinon 'AAAA-MM-JJ' saisi par Clément, enregistré avec le devis ──
+let DEVIS_DATE=null;
+function devisDateObj(){ if(DEVIS_DATE){ const d=new Date(DEVIS_DATE+'T12:00:00'); if(!isNaN(d.getTime())) return d; } return new Date(); }
+function devisDateStr(opts){ return devisDateObj().toLocaleDateString('fr-FR', opts||{day:'numeric',month:'long',year:'numeric'}); }
+function devisDateIso(){ const d=devisDateObj(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function devisDateSet(v){ DEVIS_DATE=(v&&/^\d{4}-\d{2}-\d{2}$/.test(v))?v:null; refreshAll(); }
 function showPage(name, el){
   document.querySelectorAll('.page-content').forEach(p=>p.style.display='none');
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
@@ -4265,7 +4276,7 @@ function refreshAll(){
   const _htTxt=grp(Math.round(totAvecTr))+' €', _ttcTxt=grp(Math.round(totAvecTr+tva))+' €';
   ['st','sht2'].forEach(id=>{const e=G(id);if(e)e.textContent=_htTxt;});
   ['sttc','st-ttc2'].forEach(id=>{const e=G(id);if(e)e.textContent=_ttcTxt;});
-  const dhd=G('dh-date');if(dhd)dhd.textContent=new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})+' — validité 30 jours';
+  { const inp=G('dh-date-inp'); if(inp){ inp.value=devisDateIso(); inp.classList.toggle('manual', !!DEVIS_DATE); } const rs=G('dh-date-reset'); if(rs) rs.style.display=DEVIS_DATE?'':'none'; }
   G('bdg').textContent=items.length;
   try{ renderCfgItems(p); }catch(e){}
   try{ renderTravauxCfg(); }catch(e){}
@@ -4363,7 +4374,7 @@ function refreshAll(){
           ${cl?`<div class="apercu-client-name">${cl.nom}</div><div class="apercu-client-detail">${[cl.adresse,cl.cp&&cl.ville?cl.cp+' '+cl.ville:'',cl.tel].filter(Boolean).join('<br>')}</div>`:'<div style="font-size:13px;color:var(--text3);font-style:italic">Non renseigné</div>'}
           <div class="apercu-num">Devis N° ${esc(G('devis-num')?.textContent||'—')}</div>
           ${(()=>{const n=G('devis-num')?.textContent||'',v=verNum(n);return v>1?`<div style="font-size:11px;color:var(--text2);font-style:italic;margin-top:2px">Annule et remplace le devis N° ${esc(v===2?baseNum(n):baseNum(n)+'-V'+(v-1))}</div>`:'';})()}
-          <div style="font-size:11px;color:var(--text2);margin-top:2px">${new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})} — validité 30 jours</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px">${devisDateStr()} — validité 30 jours</div>
         </div>
       </div>
       ${(items.length||travaux.length)?`
@@ -5413,7 +5424,7 @@ function genPDF(){
   // ── En-tête : rappel du N° à gauche + encadré infos (calé sur la colonne Client) ──
   const colW=TW/2-3, rcol=ML+colW+6;
   const projetNom=(G('projet-nom')?.value||'').trim();
-  const dateStr=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+  const dateStr=devisDateStr({day:'2-digit',month:'long',year:'numeric'}); // date du devis (manuelle si saisie, sinon aujourd'hui)
   const numStr=G('devis-num').textContent;
 
   // Version ≥ 2 → mention « Annule et remplace » (numéro de la version précédente)
@@ -6043,7 +6054,7 @@ function saveDraft(){
   const num=G('devis-num')?.textContent||''; if(!num) return;
   const o=readDrafts();
   o[num]={ ts:Date.now(), num, projet:G('projet-nom')?.value||'', items:items, travaux:travaux, client:curClient,
-    pp:G('pp')?.value, pa:G('pa')?.value, pc:G('pc')?.value, pxOverride:PXOV, trManual:trManual, trTotal:G('tr-total')?.value, trPanFou:G('tr-pan-fou')?.value, trPanLivr:G('tr-pan-livr')?.value, trPanMontant:G('tr-pan-montant')?.value, remise:remisePayload(), metre:metrePayload(),
+    pp:G('pp')?.value, pa:G('pa')?.value, pc:G('pc')?.value, pxOverride:PXOV, trManual:trManual, trTotal:G('tr-total')?.value, trPanFou:G('tr-pan-fou')?.value, trPanLivr:G('tr-pan-livr')?.value, trPanMontant:G('tr-pan-montant')?.value, dateDevis:DEVIS_DATE, remise:remisePayload(), metre:metrePayload(),
     evBase:G('ev-base')?.value, manuBase:G('manu-base')?.value, manuClient:G('manu-client')?.checked, manuExtra:manuExtraGet(),
     poseMode:document.querySelector('input[name="pose-mode"]:checked')?.value, journeePx:G('journee-px')?.value, depose:DEPOSE };
   const keys=Object.keys(o).sort((a,b)=>(o[b].ts||0)-(o[a].ts||0)); keys.slice(30).forEach(k=>delete o[k]); // garder les 30 plus récents
@@ -6079,7 +6090,7 @@ function restoreDraft(d){
   if(G('journee-px')&&d.journeePx!=null&&d.journeePx!=='') G('journee-px').value=d.journeePx;
   REMISE=remiseLoad(d.remise); remiseApplyToUI();
   metreLoad(d.metre);
-  if(G('tr-pan-fou')&&d.trPanFou) G('tr-pan-fou').value=d.trPanFou; if(G('tr-pan-livr')&&d.trPanLivr) G('tr-pan-livr').value=d.trPanLivr; if(G('tr-pan-montant')) G('tr-pan-montant').value=(d.trPanMontant!=null?d.trPanMontant:'');
+  if(G('tr-pan-fou')&&d.trPanFou) G('tr-pan-fou').value=d.trPanFou; if(G('tr-pan-livr')&&d.trPanLivr) G('tr-pan-livr').value=d.trPanLivr; if(G('tr-pan-montant')) G('tr-pan-montant').value=(d.trPanMontant!=null?d.trPanMontant:''); DEVIS_DATE=d.dateDevis||null;
   if(curClient) setClient(curClient); else clearClient();
   refreshAll(); renderAccList();
 }
@@ -6176,7 +6187,7 @@ async function nouvelleVersionDevis(){
   window._skipVersionGuard=true; // le +V gère lui-même la version → pas de garde-fou
   try{
     await sauvegarderDevis();               // fige l'état courant sous son numéro actuel
-    G('devis-num').textContent=nv;
+    G('devis-num').textContent=nv; DEVIS_DATE=null; // nouvelle version = nouvelle date d'émission (automatique)
     if(G('dnum')) G('dnum').textContent=nv;
     // Réapplique les réglages d'origine avant de créer la V2 (au cas où ils auraient bougé entre-temps)
     if(G('pp')&&snapParams.pp!=null) G('pp').value=snapParams.pp;
@@ -6214,7 +6225,7 @@ async function sauvegarderDevis(opts){
     client: curClient,
     projet_nom: G('projet-nom')?.value||'',
     items: items,
-    params: { pose: parseFloat(G('pp')?.value)||18, acc: parseFloat(G('pa')?.value)||6, coef: parseFloat(G('pc')?.value)||1.5, depose: deposePayload(), pxOverride: PXOV, evBase: valOr('ev-base',EVMANU_DEF.ev), manuBase: valOr('manu-base',EVMANU_DEF.manu), manuClient: G('manu-client')?.checked||false, manuExtra: manuExtraGet(), poseMode: document.querySelector('input[name="pose-mode"]:checked')?.value||'budget', journeePx: valOr('journee-px',POSE_DEF.px), travaux: travaux, remise: remisePayload(), metre: metrePayload(), trPanFou: (G('tr-pan-fou')?.value)||'arcelor', trPanLivr: parseInt(G('tr-pan-livr')?.value)||1, trPanMontant: (G('tr-pan-montant')?.value)||'' },
+    params: { pose: parseFloat(G('pp')?.value)||18, acc: parseFloat(G('pa')?.value)||6, coef: parseFloat(G('pc')?.value)||1.5, depose: deposePayload(), pxOverride: PXOV, evBase: valOr('ev-base',EVMANU_DEF.ev), manuBase: valOr('manu-base',EVMANU_DEF.manu), manuClient: G('manu-client')?.checked||false, manuExtra: manuExtraGet(), poseMode: document.querySelector('input[name="pose-mode"]:checked')?.value||'budget', journeePx: valOr('journee-px',POSE_DEF.px), travaux: travaux, remise: remisePayload(), metre: metrePayload(), trPanFou: (G('tr-pan-fou')?.value)||'arcelor', trPanLivr: parseInt(G('tr-pan-livr')?.value)||1, trPanMontant: (G('tr-pan-montant')?.value)||'', dateDevis: DEVIS_DATE },
     transport: tr,
     evacuation: evac,
     manutention: { base: parseFloat(G('manu-base')?.value)||600, client: G('manu-client')?.checked||false, total: manu },
@@ -6440,7 +6451,7 @@ async function telechargerDevisPDF(id){
   if(!data||!data.length){ showToast('Devis introuvable', true); return; }
   const d=data[0];
   // On génère le PDF du devis sauvegardé sans écraser le devis en cours de travail
-  const bak={items:items, curClient:curClient, trManual:trManual, trTotal:G('tr-total')?G('tr-total').value:'', trFou:G('tr-pan-fou')?G('tr-pan-fou').value:'arcelor', trLivr:G('tr-pan-livr')?G('tr-pan-livr').value:1, trMont:G('tr-pan-montant')?G('tr-pan-montant').value:'', pxov:PXOV, dep:DEPOSE, rem:REMISE, trv:travaux,
+  const bak={items:items, curClient:curClient, trManual:trManual, trTotal:G('tr-total')?G('tr-total').value:'', trFou:G('tr-pan-fou')?G('tr-pan-fou').value:'arcelor', trLivr:G('tr-pan-livr')?G('tr-pan-livr').value:1, trMont:G('tr-pan-montant')?G('tr-pan-montant').value:'', dd:DEVIS_DATE, pxov:PXOV, dep:DEPOSE, rem:REMISE, trv:travaux,
     projet:G('projet-nom')?G('projet-nom').value:'', num:G('devis-num')?G('devis-num').textContent:'',
     pp:G('pp')?G('pp').value:'', pa:G('pa')?G('pa').value:'', pc:G('pc')?G('pc').value:'',
     ev:G('ev-base')?G('ev-base').value:'', mn:G('manu-base')?G('manu-base').value:'', mc:G('manu-client')?G('manu-client').checked:false, mx:manuExtraGet()};
@@ -6450,7 +6461,7 @@ async function telechargerDevisPDF(id){
     travaux=(d.params&&Array.isArray(d.params.travaux))?d.params.travaux:[];
     curClient=d.client||null;
     trManual=!!(d.transport&&d.transport.trManual); if(trManual&&G('tr-total')) G('tr-total').value=d.transport.trNet;
-    {const _q=d.params||{}; if(G('tr-pan-fou')) G('tr-pan-fou').value=_q.trPanFou||'arcelor'; if(G('tr-pan-livr')) G('tr-pan-livr').value=_q.trPanLivr||1; if(G('tr-pan-montant')) G('tr-pan-montant').value=(_q.trPanMontant!=null?_q.trPanMontant:'');}
+    {const _q=d.params||{}; if(G('tr-pan-fou')) G('tr-pan-fou').value=_q.trPanFou||'arcelor'; if(G('tr-pan-livr')) G('tr-pan-livr').value=_q.trPanLivr||1; if(G('tr-pan-montant')) G('tr-pan-montant').value=(_q.trPanMontant!=null?_q.trPanMontant:''); DEVIS_DATE=_q.dateDevis||null;}
     PXOV=(d.params&&d.params.pxOverride&&typeof d.params.pxOverride==='object')?Object.assign({},d.params.pxOverride):{};
     DEPOSE=deposeLoad(d.params&&d.params.depose); // la dépose du devis enregistré, pas celle du devis en cours
     REMISE=remiseLoad(d.params&&d.params.remise);
@@ -6463,7 +6474,7 @@ async function telechargerDevisPDF(id){
   }catch(e){ console.error('Génération PDF devis:', e); showToast('Erreur PDF', true); }
   finally{
     items=bak.items; travaux=bak.trv; curClient=bak.curClient; trManual=bak.trManual; PXOV=bak.pxov;
-    if(G('tr-total')) G('tr-total').value=bak.trTotal; if(G('tr-pan-fou')) G('tr-pan-fou').value=bak.trFou; if(G('tr-pan-livr')) G('tr-pan-livr').value=bak.trLivr; if(G('tr-pan-montant')) G('tr-pan-montant').value=bak.trMont;
+    if(G('tr-total')) G('tr-total').value=bak.trTotal; if(G('tr-pan-fou')) G('tr-pan-fou').value=bak.trFou; if(G('tr-pan-livr')) G('tr-pan-livr').value=bak.trLivr; if(G('tr-pan-montant')) G('tr-pan-montant').value=bak.trMont; DEVIS_DATE=bak.dd;
     DEPOSE=bak.dep; REMISE=bak.rem; remiseApplyToUI();
     if(G('ev-base'))G('ev-base').value=bak.ev; if(G('manu-base'))G('manu-base').value=bak.mn; if(G('manu-client'))G('manu-client').checked=bak.mc; manuExtraApply(bak.mx);
     if(G('projet-nom'))G('projet-nom').value=bak.projet;
@@ -6505,7 +6516,7 @@ async function chargerDevis(id){
     if(G('journee-px')) G('journee-px').value = (_prm.journeePx!=null) ? _prm.journeePx : POSE_DEF.px;
     REMISE=remiseLoad(_prm.remise); remiseApplyToUI();
     metreLoad(_prm.metre); // métré chantier propre au devis
-    if(G('tr-pan-fou')) G('tr-pan-fou').value=_prm.trPanFou||'arcelor'; if(G('tr-pan-livr')) G('tr-pan-livr').value=_prm.trPanLivr||1; if(G('tr-pan-montant')) G('tr-pan-montant').value=(_prm.trPanMontant!=null?_prm.trPanMontant:''); // transport : fournisseur panneaux du devis
+    if(G('tr-pan-fou')) G('tr-pan-fou').value=_prm.trPanFou||'arcelor'; if(G('tr-pan-livr')) G('tr-pan-livr').value=_prm.trPanLivr||1; if(G('tr-pan-montant')) G('tr-pan-montant').value=(_prm.trPanMontant!=null?_prm.trPanMontant:''); DEVIS_DATE=_prm.dateDevis||null; // transport : fournisseur panneaux du devis
     if(G('projet-nom')) G('projet-nom').value = d.projet_nom||'';
     // Numéro
     G('devis-num').textContent = d.numero;
@@ -6540,7 +6551,7 @@ async function nouveauDevis(force){
   if(G('journee-px')) G('journee-px').value = POSE_DEF.px;
   REMISE=remiseEmpty(); remiseApplyToUI();
   metreLoad(null); // métré remis à zéro
-  if(G('tr-pan-fou')) G('tr-pan-fou').value='arcelor'; if(G('tr-pan-livr')) G('tr-pan-livr').value=1; if(G('tr-pan-montant')) G('tr-pan-montant').value='';
+  if(G('tr-pan-fou')) G('tr-pan-fou').value='arcelor'; if(G('tr-pan-livr')) G('tr-pan-livr').value=1; if(G('tr-pan-montant')) G('tr-pan-montant').value=''; DEVIS_DATE=null; // nouveau devis → date du jour
   curClient = null;
   if(G('projet-nom')) G('projet-nom').value = '';
   if(G('pp')) G('pp').value = DEFAULT_PARAMS.pp;
