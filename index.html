@@ -1052,6 +1052,7 @@ select.dx-pill { cursor: pointer; border: none; outline: none; -webkit-appearanc
 .cc-btn.use:hover { background: var(--blue); color: #fff; }
 .cc-btn.del:hover { background: var(--red-light); color: var(--red); border-color: #f09595; }
 .cc-name { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+.cc-sub { font-size: 11px; color: var(--text3); margin: -2px 0 3px; } /* raison sociale sous l'enseigne */
 .cc-detail { font-size: 11px; color: var(--text2); line-height: 1.5; }
 .cc-tag { display: inline-block; font-size: 9px; padding: 2px 7px; border-radius: 8px; margin-top: 5px; font-weight: 600; }
 .tag-rec { background: var(--green-light); color: #085041; }
@@ -1960,7 +1961,8 @@ function togglePwd(){
       <div class="pon-form">
         <div class="pon-title">Client ponctuel <span style="font-size:11px;color:var(--text2);font-weight:400">— pour ce devis uniquement</span></div>
         <div class="form-grid">
-          <div class="form-field"><label>Raison sociale *</label><input type="text" id="pon-nom" placeholder="Ex: Carrefour Nîmes"></div>
+          <div class="form-field full"><label>Enseigne / établissement</label><input type="text" id="pon-ens" placeholder="Ex : Carrefour - Nîmes (facultatif)"></div>
+          <div class="form-field"><label>Raison sociale *</label><input type="text" id="pon-nom" placeholder="Ex : SAS Carrefour Nîmes"></div>
           <div class="form-field"><label>Contact</label><input type="text" id="pon-cont" placeholder="M. Dupont"></div>
           <div class="form-field full"><label>Adresse</label><input type="text" id="pon-adr" placeholder=""></div>
           <div class="form-field"><label>Code postal</label><input type="text" id="pon-cp" placeholder=""></div>
@@ -2326,7 +2328,8 @@ function togglePwd(){
   <div class="modal">
     <div class="modal-title" id="modal-title">Ajouter</div>
     <div class="form-grid">
-      <div class="form-field"><label>Raison sociale / Nom *</label><input type="text" id="m-nom"></div>
+      <div class="form-field full" id="m-ens-field" style="display:none"><label>Enseigne / établissement <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3)">— ce que tu vois dans les listes</span></label><input type="text" id="m-ens" placeholder="Ex : Intermarché - St Ambroix"></div>
+      <div class="form-field"><label>Raison sociale / Nom *</label><input type="text" id="m-nom" placeholder="Ex : SAS SAMIRE"></div>
       <div class="form-field"><label>Contact</label><input type="text" id="m-cont"></div>
       <div class="form-field full"><label>Adresse</label><input type="text" id="m-adr"></div>
       <div class="form-field"><label>Code postal</label><input type="text" id="m-cp"></div>
@@ -4151,13 +4154,13 @@ function closePicker(e){
 function filterPicker(){
   const q=(G('cp-search').value||'').toLowerCase();
   let list=[...CLI];
-  if(q)list=list.filter(c=>c.nom.toLowerCase().includes(q)||(c.ville||'').toLowerCase().includes(q));
-  list.sort((a,b)=>a.nom.localeCompare(b.nom));
+  if(q)list=list.filter(c=>cliLabel(c).toLowerCase().includes(q)||(c.nom||'').toLowerCase().includes(q)||(c.ville||'').toLowerCase().includes(q));
+  list.sort((a,b)=>cliLabel(a).localeCompare(cliLabel(b)));
   const el=G('cp-list');
   if(!list.length){el.innerHTML='<div style="padding:.5rem 1rem;font-size:12px;color:var(--text3);font-style:italic">Aucun résultat</div>';return;}
   el.innerHTML=list.map(c=>{
     const i=CLI.indexOf(c);
-    return `<div onclick="pickClient(${i})" style="padding:.5rem 1rem;font-size:12px;cursor:pointer" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''"><div style="font-weight:500">${c.nom}</div><div style="font-size:10px;color:var(--text3)">${[c.cp,c.ville].filter(Boolean).join(' ')}${c.tel?' — '+c.tel:''}</div></div>`;
+    return `<div onclick="pickClient(${i})" style="padding:.5rem 1rem;font-size:12px;cursor:pointer" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''"><div style="font-weight:500">${cliLabel(c)}</div>${cliSub(c)?`<div style="font-size:10.5px;color:var(--text2)">${cliSub(c)}</div>`:''}<div style="font-size:10px;color:var(--text3)">${[c.cp,c.ville].filter(Boolean).join(' ')}${c.tel?' — '+c.tel:''}</div></div>`;
   }).join('');
 }
 function pickClient(i){
@@ -4177,17 +4180,22 @@ function openClientPickerPon(){
 }
 
 // ══ CLIENT ══════════════════════════════════════════════════
+// Enseigne / établissement (ex. « Intermarché - St Ambroix ») : nom affiché dans les listes et sélecteurs ;
+// la raison sociale (ex. « SAS SAMIRE ») reste la première ligne du devis.
+function cliLabel(c){ return (c&&(c.enseigne||c.nom))||''; }
+function cliSub(c){ return (c&&c.enseigne&&c.nom&&c.enseigne!==c.nom)?c.nom:''; }
 function setClient(c){
   curClient=c;
-  G('client-display').innerHTML=`<div class="client-set-badge">✓ ${c.nom}</div><div style="font-weight:600;font-size:13px;margin-top:2px">${c.nom}</div>${c.adresse?`<div class="dh-line">${c.adresse}</div>`:''}<div class="dh-line">${[c.cp,c.ville].filter(Boolean).join(' ')}</div>${c.tel?`<div class="dh-line">${c.tel}</div>`:''}<button class="btn" style="margin-top:8px;font-size:11px" onclick="clearClient()">Changer de client</button>`;
+  G('client-display').innerHTML=`<div class="client-set-badge">✓ ${cliLabel(c)}</div><div style="font-weight:600;font-size:13px;margin-top:2px">${cliLabel(c)}</div>${cliSub(c)?`<div class="dh-line">${cliSub(c)}</div>`:''}${c.adresse?`<div class="dh-line">${c.adresse}</div>`:''}<div class="dh-line">${[c.cp,c.ville].filter(Boolean).join(' ')}</div>${c.tel?`<div class="dh-line">${c.tel}</div>`:''}<button class="btn" style="margin-top:8px;font-size:11px" onclick="clearClient()">Changer de client</button>`;
   const sc=G('scli');
   if(sc){
-    const nom=c.nom.length>16?c.nom.slice(0,16)+'…':c.nom;
+    const lab=cliLabel(c);
+    const nom=lab.length>16?lab.slice(0,16)+'…':lab;
     sc.textContent=nom;
     sc.style.color='var(--text)';
   }
   const chip=G('scli-chip');
-  if(chip){ chip.textContent=ini(c.nom); chip.style.display='flex'; }
+  if(chip){ chip.textContent=ini(cliLabel(c)); chip.style.display='flex'; }
   // Ne redirige vers devis que si on n'est pas déjà sur le configurateur
   const onConfig = G('page-config') && G('page-config').style.display!=='none';
   if(!onConfig) showPage('devis',null);
@@ -4371,7 +4379,7 @@ function refreshAll(){
         </div>
         <div>
           <div class="apercu-client-label">Client</div>
-          ${cl?`<div class="apercu-client-name">${cl.nom}</div><div class="apercu-client-detail">${[cl.adresse,cl.cp&&cl.ville?cl.cp+' '+cl.ville:'',cl.tel].filter(Boolean).join('<br>')}</div>`:'<div style="font-size:13px;color:var(--text3);font-style:italic">Non renseigné</div>'}
+          ${cl?`<div class="apercu-client-name">${cl.nom}</div>${cliSub(cl)?`<div style="font-size:12px;color:var(--text2)">${cl.enseigne}</div>`:''}<div class="apercu-client-detail">${[cl.adresse,cl.cp&&cl.ville?cl.cp+' '+cl.ville:'',cl.tel].filter(Boolean).join('<br>')}</div>`:'<div style="font-size:13px;color:var(--text3);font-style:italic">Non renseigné</div>'}
           <div class="apercu-num">Devis N° ${esc(G('devis-num')?.textContent||'—')}</div>
           ${(()=>{const n=G('devis-num')?.textContent||'',v=verNum(n);return v>1?`<div style="font-size:11px;color:var(--text2);font-style:italic;margin-top:2px">Annule et remplace le devis N° ${esc(v===2?baseNum(n):baseNum(n)+'-V'+(v-1))}</div>`:'';})()}
           <div style="font-size:11px;color:var(--text2);margin-top:2px">${devisDateStr()} — validité 30 jours</div>
@@ -4598,11 +4606,11 @@ function syncTravauxTotals(){
 function renCli(){
   const q=(G('s-cli').value||'').toLowerCase();
   let l=[...CLI];
-  if(q)l=l.filter(c=>c.nom.toLowerCase().includes(q)||(c.ville||'').toLowerCase().includes(q));
-  l.sort((a,b)=>sortAZ?a.nom.localeCompare(b.nom):b.nom.localeCompare(a.nom));
+  if(q)l=l.filter(c=>cliLabel(c).toLowerCase().includes(q)||(c.nom||'').toLowerCase().includes(q)||(c.ville||'').toLowerCase().includes(q));
+  l.sort((a,b)=>sortAZ?cliLabel(a).localeCompare(cliLabel(b)):cliLabel(b).localeCompare(cliLabel(a)));
   const grid=G('grid-cli');
   if(!l.length){grid.innerHTML='<div class="no-results">Aucun résultat pour cette recherche</div>';return;}
-  grid.innerHTML=l.map(c=>{const i=CLI.indexOf(c);return`<div class="client-card"><div class="cc-top"><div class="cc-avatar">${ini(c.nom)}</div><div class="cc-actions"><button class="cc-btn use" onclick="setClient(CLI[${i}])">Utiliser</button><button class="cc-btn" title="Modifier" onclick="openModal('client',${i})">✎</button><button class="cc-btn del" onclick="delCli(${i})">×</button></div></div><div class="cc-name">${c.nom}</div><div class="cc-detail">${[c.adresse,c.cp&&c.ville?c.cp+' '+c.ville:''].filter(Boolean).join('<br>')}${c.tel?'<br>'+c.tel:''}</div><span class="cc-tag tag-rec">Récurrent</span></div>`;}).join('');
+  grid.innerHTML=l.map(c=>{const i=CLI.indexOf(c);return`<div class="client-card"><div class="cc-top"><div class="cc-avatar">${ini(cliLabel(c))}</div><div class="cc-actions"><button class="cc-btn use" onclick="setClient(CLI[${i}])">Utiliser</button><button class="cc-btn" title="Modifier" onclick="openModal('client',${i})">✎</button><button class="cc-btn del" onclick="delCli(${i})">×</button></div></div><div class="cc-name">${cliLabel(c)}</div>${cliSub(c)?`<div class="cc-sub">${cliSub(c)}</div>`:''}<div class="cc-detail">${[c.adresse,c.cp&&c.ville?c.cp+' '+c.ville:''].filter(Boolean).join('<br>')}${c.tel?'<br>'+c.tel:''}</div><span class="cc-tag tag-rec">Récurrent</span></div>`;}).join('');
   G('cnt-cli').textContent=CLI.length;
 }
 function togSort(){sortAZ=!sortAZ;G('sort-btn').textContent=sortAZ?'A → Z':'Z → A';G('sort-btn').classList.toggle('active',sortAZ);renCli();}
@@ -4644,9 +4652,9 @@ function showContacts(tab){
 function usePon(){
   const n=G('pon-nom').value.trim();
   if(!n){alert('Raison sociale obligatoire.');return;}
-  setClient({nom:n,adresse:G('pon-adr').value.trim(),cp:G('pon-cp').value.trim(),ville:G('pon-vil').value.trim(),tel:G('pon-tel').value.trim()});
+  setClient({nom:n,enseigne:(G('pon-ens')?G('pon-ens').value.trim():''),adresse:G('pon-adr').value.trim(),cp:G('pon-cp').value.trim(),ville:G('pon-vil').value.trim(),tel:G('pon-tel').value.trim()});
 }
-function clearPon(){['pon-nom','pon-cont','pon-adr','pon-cp','pon-vil','pon-tel'].forEach(id=>G(id).value='');}
+function clearPon(){['pon-ens','pon-nom','pon-cont','pon-adr','pon-cp','pon-vil','pon-tel'].forEach(id=>{const el=G(id); if(el) el.value='';});}
 
 // ══ MODAL ══════════════════════════════════════════════════
 let modIdx=null; // null = ajout ; sinon index de la fiche modifiée
@@ -4654,11 +4662,12 @@ function openModal(t, idx){
   modType=t; modIdx=(idx==null)?null:idx;
   const T={client:['Ajouter un client récurrent','Modifier le client'],poseur:['Ajouter un poseur','Modifier le poseur'],apporteur:["Ajouter un apporteur d'affaires","Modifier l'apporteur"],fournisseur:['Ajouter un fournisseur','Modifier le fournisseur']};
   G('modal-title').textContent=(T[t]||['Ajouter','Modifier'])[modIdx==null?0:1];
-  ['m-nom','m-cont','m-adr','m-cp','m-vil','m-tel'].forEach(id=>G(id).value='');
+  ['m-nom','m-ens','m-cont','m-adr','m-cp','m-vil','m-tel'].forEach(id=>G(id).value='');
+  const ef=G('m-ens-field'); if(ef) ef.style.display=(t==='client')?'':'none'; // enseigne : clients seulement
   const list=(t==='client'?CLI:t==='poseur'?POS:t==='apporteur'?APP:FOU);
   const src=(modIdx!=null)?list[modIdx]:null;
   if(src){
-    G('m-nom').value=src.nom||''; G('m-cont').value=(t==='fournisseur'?(src.note||''):(src.contact||''));
+    G('m-nom').value=src.nom||''; G('m-ens').value=src.enseigne||''; G('m-cont').value=(t==='fournisseur'?(src.note||''):(src.contact||''));
     G('m-adr').value=src.adresse||''; G('m-cp').value=src.cp||''; G('m-vil').value=src.ville||''; G('m-tel').value=src.tel||'';
     // Ancien fournisseur sans champs séparés : son bloc « det » est proposé dans Adresse pour être retravaillé
     if(t==='fournisseur' && !src.adresse && !src.cp && !src.ville && !src.tel && src.det) G('m-adr').value=src.det;
@@ -4680,10 +4689,12 @@ function confModal(){
   } else {
     list=(modType==='client'?CLI:modType==='poseur'?POS:APP);
     e=Object.assign({},base,{contact:cont});
+    if(modType==='client') e.enseigne=G('m-ens').value.trim(); // enseigne / établissement (facultatif)
   }
   if(modIdx!=null && list[modIdx]) Object.assign(list[modIdx],e); // modification en place
   else list.push(e);
-  if(modType!=='apporteur') list.sort((a,b)=>(a.nom||'').localeCompare(b.nom||''));
+  if(modType==='client') list.sort((a,b)=>cliLabel(a).localeCompare(cliLabel(b)));
+  else if(modType!=='apporteur') list.sort((a,b)=>(a.nom||'').localeCompare(b.nom||''));
   if(modType==='client') renCli();
   else if(modType==='poseur'){ renPos(); try{ initMissionSelect(); }catch(err){} }
   else if(modType==='apporteur') renApp();
@@ -5482,9 +5493,10 @@ function genPDF(){
   sf(false,7.5,GREY); doc.text('A :', rx+3, y+6);
   if(cl){
     sf(true,9,BLACK); doc.text(cl.nom, rx+10, y+6);
-    sf(false,7.5,GREY); doc.text('Adresse :', rx+3, y+11);
-    sf(false,7.5,DGREY);
     let cy=y+11;
+    if(cliSub(cl)){ sf(false,7.5,DGREY); doc.text(cl.enseigne, rx+10, cy); cy+=3.8; } // enseigne sous la raison sociale
+    sf(false,7.5,GREY); doc.text('Adresse :', rx+3, cy);
+    sf(false,7.5,DGREY);
     if(cl.adresse){doc.text(cl.adresse, rx+22, cy);cy+=3.8;}
     if(cl.cp||cl.ville){doc.text([cl.cp,cl.ville].filter(Boolean).join(' '), rx+22, cy);}
   } else {
@@ -6318,7 +6330,7 @@ function dxSortGroups(groups){
     switch(dxSort.col){
       case 'numero': return String(d.numero||'');
       case 'projet': return String(d.projet_nom||'').toLowerCase();
-      case 'client': return String((d.client&&d.client.nom)||'').toLowerCase();
+      case 'client': return cliLabel(d.client).toLowerCase();
       case 'date':   return String(d.updated_at||'');
       case 'total':  return Number(d.total_ht)||0;
       case 'statut': return String(devisStatut(d)||'');
@@ -6364,7 +6376,7 @@ function renderDevisExistant(groups){
   const searching=(G('dx-search') && G('dx-search').value.trim()) || dxFilter!=='tous';
   if(!groups.length){ el.innerHTML='<tr><td colspan="7" class="dx-empty">'+(searching?'Aucun devis ne correspond.':'Aucun devis sauvegardé pour le moment.')+'</td></tr>'; return; }
   const rowHtml=(d,old)=>{
-    const cli=d.client&&d.client.nom?d.client.nom:'—';
+    const cli=cliLabel(d.client)||'—';
     const dt=d.updated_at?new Date(d.updated_at).toLocaleDateString('fr-FR'):'';
     const tot=(d.total_ht!=null)?Number(d.total_ht).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €':'—';
     const st=devisStatut(d);
@@ -6401,7 +6413,7 @@ function filterDevisExistant(){
   if(dxFilter!=='tous') groups=groups.filter(g=>devisStatut(g.latest)===dxFilter);
   // Recherche : sur TOUTES les versions du groupe
   if(q) groups=groups.filter(g=>[g.latest,...g.olds].some(d=>{
-    const hay=[d.numero||'', d.projet_nom||'', (d.client&&d.client.nom)||''].join(' ').toLowerCase();
+    const hay=[d.numero||'', d.projet_nom||'', (d.client&&d.client.nom)||'', (d.client&&d.client.enseigne)||''].join(' ').toLowerCase();
     return hay.includes(q);
   }));
   groups=dxSortGroups(groups);
@@ -6613,7 +6625,7 @@ function renderListeDevis(list){
         <span style="display:inline-flex;align-items:center;gap:6px"><span class="dx-pill ${devisStatut(d)}">${SLAB[devisStatut(d)]||''}</span><span style="font-size:11px;color:var(--text3)">${new Date(d.updated_at).toLocaleDateString('fr-FR')}</span></span>
       </div>
       ${d.projet_nom?`<div style="font-size:12px;color:var(--text2);margin-top:2px">${d.projet_nom}</div>`:''}
-      ${d.client?`<div style="font-size:11px;color:var(--text3)">${d.client.nom}</div>`:''}
+      ${d.client?`<div style="font-size:11px;color:var(--text3)">${cliLabel(d.client)}</div>`:''}
       <div style="font-size:11px;color:var(--blue);margin-top:2px;font-weight:500">${d.total_ht?d.total_ht.toLocaleString('fr-FR',{minimumFractionDigits:2})+' € HT':''}</div>
     </div>`;
   // Une carte par devis = sa DERNIÈRE version ; les précédentes en menu déroulant dessous
