@@ -74,7 +74,7 @@ html[data-theme="dark"] .stat-card.hero { background: linear-gradient(135deg, #2
 html[data-theme="dark"] .tag-pan, html[data-theme="dark"] .tag-rec, html[data-theme="dark"] .rideau-auto-title, html[data-theme="dark"] .rideau-auto-desc,
 html[data-theme="dark"] .sol-result, html[data-theme="dark"] .client-set-badge, html[data-theme="dark"] .dx-pill.accepte, html[data-theme="dark"] .dx-pill.signe { color: #8EDDBA; }
 html[data-theme="dark"] .rideau-auto-box, html[data-theme="dark"] .client-set-badge { border-color: #2F5F4C; }
-html[data-theme="dark"] .tag-por, html[data-theme="dark"] .tag-app, html[data-theme="dark"] .prm-tag, html[data-theme="dark"] .sec-card.hl .sec-card-name { color: #F2C77A; }
+html[data-theme="dark"] .tag-por, html[data-theme="dark"] .tag-app, html[data-theme="dark"] .prm-tag, html[data-theme="dark"] .por-qty-badge, html[data-theme="dark"] .sec-card.hl .sec-card-name { color: #F2C77A; }
 html[data-theme="dark"] .sec-card.hl .btn-sec-add:hover { background: #C98A2A; }
 html[data-theme="dark"] .tag-acc { background: #2B2850; color: #C3BCF5; }
 html[data-theme="dark"] .choice.default .ch-hint, html[data-theme="dark"] .choice.selected .ch-hint, html[data-theme="dark"] .price-formula { color: #ABA4E8; }
@@ -766,6 +766,11 @@ body {
 .tag-pan { background: var(--green-light); color: #085041; }
 .tag-por { background: var(--orange-light); color: #7A4C0E; }
 .tag-acc { background: #EEEDFE; color: #3C3489; }
+.por-qty-badge { display: inline-block; margin-left: 7px; padding: 1px 8px; border-radius: 999px; background: var(--orange-light); color: #7A4C0E; font-size: 10px; font-weight: 700; vertical-align: 1px; }
+.por-qty-badge a { cursor: pointer; margin-left: 6px; text-decoration: underline; font-weight: 600; }
+.por-block { display: flex; align-items: center; justify-content: space-between; gap: 14px; background: var(--orange-light); border: 1px solid var(--orange-mid); border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 1rem; font-size: 12.5px; color: var(--text); }
+.por-block b { color: var(--orange); }
+.por-block-sub { font-size: 11px; color: var(--text2); margin-top: 3px; line-height: 1.45; }
 .total-row {
   display: flex;
   justify-content: space-between;
@@ -1726,11 +1731,12 @@ function togglePwd(){
       <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
         <div class="card-title">Commande portes & rideaux</div>
         <div style="display:flex;gap:8px">
-          <button class="btn" onclick="genDecoupePDF()" style="font-size:12px;padding:6px 14px" title="Fiche poseur : réservations à découper dans les panneaux">Cotes de découpe</button>
-          <button class="btn btn-green" onclick="genCmdPDF('por')" style="font-size:12px;padding:6px 14px">Générer PDF</button>
+          <button class="btn por-gate" onclick="genDecoupePDF()" style="font-size:12px;padding:6px 14px" title="Fiche poseur : réservations à découper dans les panneaux">Cotes de découpe</button>
+          <button class="btn btn-green por-gate" onclick="genCmdPDF('por')" style="font-size:12px;padding:6px 14px">Générer PDF</button>
         </div>
       </div>
       <div class="card-body">
+        <div id="por-block-cmd"></div>
         <div id="cmd-por-form" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem">
           <div>
             <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Fournisseur</label>
@@ -1816,11 +1822,12 @@ function togglePwd(){
         <div class="card-title">Ordre de mission</div>
         <div style="display:flex;gap:8px">
           <button class="btn" id="btn-plans" onclick="genPlansPDF()" style="font-size:12px;padding:6px 14px;display:none" title="Plans de pose cotés du sol phénolique et des tôles larmées (calepinages saisis en dimensions)">📐 Plans de calepinage</button>
-          <button class="btn" onclick="genRecapPDF()" style="font-size:12px;padding:6px 14px" title="Fiche poseur : portes + cotes de découpe, panneaux et accessoires — sans prix">Récap chantier poseur</button>
-          <button class="btn btn-green" onclick="genMissionPDF()" style="font-size:12px;padding:6px 14px">Générer PDF</button>
+          <button class="btn por-gate" onclick="genRecapPDF()" style="font-size:12px;padding:6px 14px" title="Fiche poseur : portes + cotes de découpe, panneaux et accessoires — sans prix">Récap chantier poseur</button>
+          <button class="btn btn-green por-gate" onclick="genMissionPDF()" style="font-size:12px;padding:6px 14px">Générer PDF</button>
         </div>
       </div>
       <div class="card-body">
+        <div id="por-block-mission"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem">
           <div>
             <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Poseur</label>
@@ -2388,6 +2395,32 @@ const RNEG=MX_RIDEAU_NEG;
 const TL={PCIP:'PCIP',PCIN:'PCIN',PPIP:'PPIP',PPIN:'PPIN',PPSI:'PPSI',PPSI_CF:'PPSI CF',PPIP_CF:'PPIP CF',PVV:'PVV',PCS:'PCS',PPS:'PPS',CHASSIS:'Châssis fixe PVC',RIDEAU:'Rideau à lanières'};
 // Noms complets des types de porte (pour les fiches)
 const TYPE_NAMES={PCIP:'Porte Coulissante Isotherme Positive',PCIN:'Porte Coulissante Isotherme Négative',PPIP:'Porte Pivotante Isotherme Positive',PPIN:'Porte Pivotante Isotherme Négative',PPSI:'Porte Pivotante Semi-Isotherme',PPSI_CF:'Porte Pivotante Semi-Isotherme Coupe-Feu',PPIP_CF:'Porte Pivotante Isotherme Positive Coupe-Feu',PVV:'Porte Va-et-Vient',PCS:'Porte Coulissante Service',PPS:'Porte de Service Isoplane',CHASSIS:'Châssis fixe PVC',RIDEAU:'Rideau à lanières'};
+// Quantité d'une ligne porte (1 par défaut ; > 1 = plusieurs portes identiques, à détailler avant commande)
+function porQty(it){ return Math.max(1, parseInt(it&&it.qty)||1); }
+// Portes qui ne peuvent pas partir en commande / ordre de mission : quantité > 1, ou sens d'ouverture non choisi
+function porAIndividualiser(){ return items.filter(i=>i.type==='por' && (porQty(i)>1 || (HAS_FERR.includes(i.subtype) && !i.ferr))); }
+function porBlocageHtml(ctx){
+  const L=porAIndividualiser(); if(!L.length) return '';
+  const tot=L.reduce((t,i)=>t+porQty(i),0);
+  const refs=L.map(i=>(i.ref||'?')+(porQty(i)>1?' ×'+porQty(i):'')+((HAS_FERR.includes(i.subtype)&&!i.ferr)?' (sens ?)':'')).join(', ');
+  const aDet=L.some(i=>porQty(i)>1);
+  return `<div class="por-block"><div><b>${tot} porte${tot>1?'s':''} à individualiser</b> avant ${ctx} : ${refs}.<div class="por-block-sub">Chaque porte commandée doit avoir son repère et son sens d'ouverture. « Détailler » crée une ligne par porte ; il reste ensuite à préciser le sens sur chacune (crayon dans Devis client).</div></div>${aDet?`<button class="btn btn-primary" style="white-space:nowrap" onclick="porEclaterTout()">Détailler toutes les portes</button>`:''}</div>`;
+}
+function porBloque(ctx){ const L=porAIndividualiser(); if(!L.length) return false; showToast('Portes à individualiser avant '+ctx+' : '+L.map(i=>i.ref||'?').join(', ')+' — voir le bandeau', true); return true; }
+function porCopies(it){ const q=porQty(it); const out=[]; for(let k=0;k<q;k++){ const c=JSON.parse(JSON.stringify(it)); c.qty=1; out.push(c); } return out; }
+function porEclater(i){
+  const it=items[i]; if(!it||it.type!=='por') return; const q=porQty(it); if(q<=1) return;
+  if(!confirm(`Détailler cette ligne en ${q} portes individuelles ?\n\nMême configuration pour chacune, sens d'ouverture à préciser ensuite. On ne peut pas regrouper à nouveau.`)) return;
+  items.splice(i,1,...porCopies(it)); renumberPortes(); refreshAll(); showToast(q+' portes créées — précise le sens de chacune');
+}
+function porEclaterTout(){
+  const idx=[]; items.forEach((it,i)=>{ if(it.type==='por'&&porQty(it)>1) idx.push(i); });
+  if(!idx.length){ showToast('Aucune ligne de porte à détailler'); return; }
+  const tot=idx.reduce((t,i)=>t+porQty(items[i]),0);
+  if(!confirm(`Détailler ${idx.length} ligne${idx.length>1?'s':''} en ${tot} portes individuelles ?\n\nMême configuration pour chacune, sens d'ouverture à préciser ensuite. On ne peut pas regrouper à nouveau.`)) return;
+  for(let k=idx.length-1;k>=0;k--){ const i=idx[k]; items.splice(i,1,...porCopies(items[i])); }
+  renumberPortes(); refreshAll(); showToast(tot+' portes créées — précise le sens de chacune');
+}
 function porTypeName(it){const code=it.subtype||(String(it.label||'').split(' — ')[0]||'').trim();return TYPE_NAMES[code]||TL[code]||code||'Porte';}
 function porFerrage(it){const c=it.ferr||(String(it.meta||'').match(/Ferrage ([GD])/)?.[1])||'';return c==='G'?'Gauche':c==='D'?'Droite':(c||'—');}
 function porCadre(it){const e=it.ep||(String(it.meta||'').match(/Cadre (\d+)/)?.[1])||'';return e?e+' mm':'—';}
@@ -2442,7 +2475,7 @@ function poseGlobale(){
   let total=0;
   items.forEach(it=>{
     if(it.type==='pan') total+=(it.surf||0)*posePx;
-    else if(it.type==='por') total+=(it.pose||0);
+    else if(it.type==='por') total+=(it.pose||0)*porQty(it);
     else if(it.type==='acc'){
       if(it.accId==='bastaing'){ total+=(it.poseUnit!=null?it.poseUnit:(BASTAING[it.mode]||BASTAING.sh).pose)*(it.qty||0); }
       else if(it.accId==='iso_sol'){ total+=ISO_SOL.pose*(it.qty||0); }
@@ -2658,7 +2691,7 @@ function deposeAuto(){
   let clo=0, plaf=0;
   items.filter(i=>i.type==='pan').forEach(i=>{ const s=i.surf||0; if(i.paroi==='Plafond') plaf+=s; else clo+=s; });
   let coul=0,piv=0;
-  items.filter(i=>i.type==='por').forEach(it=>{ const t=it.subtype||''; if(DEPOSE_COUL.includes(t)) coul++; else if(t&&t!=='CHASSIS'&&t!=='RIDEAU') piv++; });
+  items.filter(i=>i.type==='por').forEach(it=>{ const t=it.subtype||''; const q=porQty(it); if(DEPOSE_COUL.includes(t)) coul+=q; else if(t&&t!=='CHASSIS'&&t!=='RIDEAU') piv+=q; });
   return {cloisonM2:Math.round(clo*100)/100, plafondM2:Math.round(plaf*100)/100, porCoul:coul, porPiv:piv};
 }
 function deposeLoad(dpz){
@@ -3000,11 +3033,12 @@ function cpv(it,p){
     return r2(r2((a+p.pose+p.acc)*p.coef)*s); // journée : p.pose=0 mais p.acc conservé
   }
   if(it.type==='por'){
+    const q=porQty(it); // ligne = q portes identiques → PU unitaire × q
     const rid = (it.rideauOn!==false && it.rauto) ? r2(it.rauto*p.coef) : 0;
-    if(pf!=null) return r2(pf)+rid; // porte figée (le rideau garde son propre prix)
+    if(pf!=null) return r2((r2(pf)+rid)*q); // porte figée (le rideau garde son propre prix)
     const opt = it.optAchat||0; // options Xpress (parts) → toujours côté matière
-    if(p.mode==='journee') return r2((it.achat+opt)*p.coef) + rid; // pose exclue
-    return r2((it.achat+it.pose+opt)*p.coef) + rid;
+    if(p.mode==='journee') return r2((r2((it.achat+opt)*p.coef) + rid)*q); // pose exclue
+    return r2((r2((it.achat+it.pose+opt)*p.coef) + rid)*q);
   }
   if(it.type==='acc'){
     if(pf!=null) return r2(pf*qteFacturee(it));
@@ -3036,7 +3070,7 @@ function calcMarge(p, remiseMontant){
     } else if(it.type==='por'){
       if(it.achat>0){
         vFerme+=v;
-        cFerme+=(p.mode==='journee'?it.achat:(it.achat+it.pose)) + ((it.rideauOn!==false&&it.rauto)?it.rauto:0);
+        cFerme+=((p.mode==='journee'?it.achat:(it.achat+it.pose)) + ((it.rideauOn!==false&&it.rauto)?it.rauto:0))*porQty(it);
       } else { vFlou+=v; flou.push('Porte — '+it.label+" (prix d'achat non renseigné)"); }
     } else if(it.type==='acc'){
       if(it.accId==='te_reprise'){
@@ -3231,7 +3265,7 @@ function renderAccForm(pid){
   const mlCl80=items.filter(i=>i.type==='pan'&&i.paroi==='Cloison'&&i.ep==='80').reduce((s,i)=>s+(i._ml||0),0);
   const mlClNeg=items.filter(i=>i.type==='pan'&&i.paroi==='Cloison'&&parseInt(i.ep)>=100).reduce((s,i)=>s+(i._ml||0),0);
   const nbPan=items.filter(i=>i.type==='pan').reduce((s,i)=>s+(i.nbPan||0),0);
-  const nbPor=items.filter(i=>i.type==='por').length;
+  const nbPor=items.filter(i=>i.type==='por').reduce((t,i)=>t+porQty(i),0);
   const forms={
     soupape:`<div class="acc-note">1 soupape par chambre négative.</div><div class="acc-field"><label>Quantité</label><input type="number" id="af-qty" value="1" min="1" step="1"><span class="acc-unit">unité(s)</span></div>`,
     ecrou_pom:`<div class="acc-note">Reprise des plafonds existants après dépose des cloisons qui les portent : suspension à la structure par tige filetée et écrou POM ø10 mm traversant, posée avant la dépose. Prix par point (fourniture + pose) : Paramètres › Accessoires › Plafond &amp; suspension.</div><div class="acc-field"><label>Points de suspension</label><input type="number" id="af-qty" value="1" min="1" step="1"><span class="acc-unit">unité(s)</span></div>`,
@@ -3704,8 +3738,8 @@ function metreDevisData(){
     hMax:Math.max(2.5,...clois.map(p=>parseFloat(p._h)||0)),
     epMax:Math.max(0,...clois.map(p=>parseInt(p.ep)||0)),
     surfBrio:sum(pans.filter(p=>p.mousse==='BRIO'),p=>p.surf),
-    nbPortes:pors.filter(p=>p.subtype!=='RIDEAU'&&p.subtype!=='CHASSIS').length,
-    nbPivot:pors.filter(p=>PIVOT.includes(p.subtype)).length
+    nbPortes:pors.filter(p=>p.subtype!=='RIDEAU'&&p.subtype!=='CHASSIS').reduce((t,p)=>t+porQty(p),0),
+    nbPivot:pors.filter(p=>PIVOT.includes(p.subtype)).reduce((t,p)=>t+porQty(p),0)
   };
 }
 // Chevrons PVC d'une chambre négative : périmètre + rangées intermédiaires tous les « esp » cm (dans le sens de la longueur)
@@ -4277,7 +4311,7 @@ function refreshAll(){
   const tva = totAvecTr * .2;
   try{ remiseInfoUpdate(remise); }catch(e){}
   const surfTot=items.filter(i=>i.type==='pan').reduce((s,i)=>s+i.surf,0);
-  const porTot=items.filter(i=>i.type==='por').length;
+  const porTot=items.filter(i=>i.type==='por').reduce((t,i)=>t+porQty(i),0);
   ['stat-surf','stat-surf2'].forEach(id=>{const e=G(id);if(e)e.textContent=surfTot>0?fmt(surfTot)+' m²':'0 m²';});
   ['stat-por','stat-por2'].forEach(id=>{const e=G(id);if(e)e.textContent=porTot;});
   // Total HT (tout compris : produits + transport + annexes) et Total TTC — identiques Configurateur & Devis
@@ -4304,9 +4338,9 @@ function refreshAll(){
         if(it.type!=='por')return'';
         const hasR = it.rideauOn!==false && it.rauto;
         const doorPv = (p.mode==='journee'?it.achat:(it.achat+it.pose))*p.coef;
-        let row=`<div class="item-row"><div class="item-left"><div class="item-name"><span class="tag tag-por">Porte</span>${it.label}</div><div class="item-meta">${it.meta}</div></div><div class="item-right">${puCtl(it,i,(puFige(it)!=null?puFige(it):doorPv))}<div class="item-price">${fmt(hasR?(puFige(it)!=null?puFige(it):doorPv):cpv(it,p))} €</div><button class="item-del item-edit" title="Modifier cette porte" onclick="editItem(${i})">✎</button><button class="item-del" onclick="delItem(${i})">×</button></div></div>`;
+        let row=`<div class="item-row"><div class="item-left"><div class="item-name"><span class="tag tag-por">Porte</span>${it.label}${porQty(it)>1?`<span class="por-qty-badge">× ${porQty(it)}<a onclick="event.stopPropagation();porEclater(${i})" title="Créer ${porQty(it)} portes individuelles (sens à préciser sur chacune) — nécessaire avant la commande">détailler</a></span>`:''}</div><div class="item-meta">${it.meta}</div></div><div class="item-right">${puCtl(it,i,(puFige(it)!=null?puFige(it):doorPv))}<div class="item-price">${fmt(hasR?r2((puFige(it)!=null?puFige(it):doorPv)*porQty(it)):cpv(it,p))} €</div><button class="item-del item-edit" title="Modifier cette porte" onclick="editItem(${i})">✎</button><button class="item-del" onclick="delItem(${i})">×</button></div></div>`;
         if(hasR){
-          const rDim=porRideauDim(it), rRef=porRideauRef(it), rPv=it.rauto*p.coef;
+          const rDim=porRideauDim(it), rRef=porRideauRef(it), rPv=r2(it.rauto*p.coef*porQty(it));
           row+=`<div class="item-row"><div class="item-left"><div class="item-name"><span class="tag tag-por">Rideau</span>Rideau à lanières <span style="color:var(--text3);font-weight:400">${rRef}</span></div><div class="item-meta">${rDim?rDim+' mm':''}</div></div><div class="item-right"><div class="item-price">${fmt(rPv)} €</div><button class="item-del" onclick="delRideau(${i})" title="Retirer uniquement le rideau">×</button></div></div>`;
         }
         return row;
@@ -4418,6 +4452,8 @@ function refreshAll(){
     }
   }
 
+  // Portes à individualiser (quantité > 1 ou sens non choisi) : bandeaux + boutons PDF grisés
+  { const bc=G('por-block-cmd'), bm=G('por-block-mission'); const html=porBlocageHtml('la commande'); if(bc) bc.innerHTML=html; if(bm) bm.innerHTML=html?html.replace('avant la commande','avant l\'ordre de mission'):''; const blocked=!!html; document.querySelectorAll('.por-gate').forEach(b=>{ b.disabled=blocked; b.style.opacity=blocked?'.45':''; b.style.cursor=blocked?'not-allowed':''; b.title=blocked?'Détaille d\'abord les portes (voir le bandeau)':(b.getAttribute('data-title')||b.title); }); }
   // CMD POR
   const cpor=G('cmd-por-body');
   if(cpor){
@@ -4469,7 +4505,7 @@ function refreshAll(){
       // Portes
       // Portes regroupées par type similaire (même pose)
       const porG={};
-      pors.forEach(it=>{ const key=(it.subtype||porTypeName(it))+'|'+(it.pose||0); if(!porG[key]) porG[key]={desig:porTypeName(it),pose:it.pose||0,n:0}; porG[key].n++; });
+      pors.forEach(it=>{ const key=(it.subtype||porTypeName(it))+'|'+(it.pose||0); if(!porG[key]) porG[key]={desig:porTypeName(it),pose:it.pose||0,n:0}; porG[key].n+=porQty(it); });
       Object.values(porG).forEach(g=>{
         const montant=g.pose*g.n; total+=montant;
         rows+=`<tr><td>${g.desig}</td><td style="text-align:right">${g.n} u</td><td style="text-align:right">${fmt(g.pose)} €/u</td><td style="text-align:right;font-weight:600">${fmt(montant)} €</td></tr>`;
@@ -4548,7 +4584,7 @@ function editItem(i){
     swCfg('pan'); panRender();
   } else if(it.type==='por'){
     editIdx=i; editType='por';
-    qS={type:it.subtype, piece:it.piece||''};
+    qS={type:it.subtype, piece:it.piece||'', qty:porQty(it)};
     if(it.subtype==='RIDEAU'){ qS.rt=/négatif/.test(it.label||'')?'négatif':'positif'; }
     else if(it.ep){ qS.ep=it.ep; }
     if(it.cf) qS.cf=it.cf; else if(HAS_CF.includes(it.subtype)){ const m=String(it.meta||'').match(/Coupe-feu (\S+)/); if(m) qS.cf=m[1]; }
@@ -4958,7 +4994,7 @@ function optShort(o){ if(o.grp==='protection') return `Protection basse ${o.mat}
 // Prix des options d'une porte, ligne par ligne (extraites du total de la porte sur le devis)
 function porOptionLines(it,p){ return (it.options||[]).map(x=>({label:optInstLabel(x), price:r2(optInstNet(x)*(p.coef||1))})); }
 // Meta d'une porte sans le segment « Options : … » (les options ont leurs propres lignes sur le devis)
-function porMetaNoOpt(it){ return String(it.meta||'').split(' | ').filter(s=>!/^Options\s*:/.test(s)).join(' | '); }
+function porMetaNoOpt(it){ return String(it.meta||'').split(' | ').filter(s=>!/^Options\s*:/.test(s)&&!/^Sens à définir/.test(s)).join(' | '); }
 function optCompatible(o,type){
   if(type==='CHASSIS'||type==='RIDEAU') return false;               // pas d'options sur châssis/rideau
   if(o.grp==='protection') return type==='PVV' ? !!o.vv : !o.vv;   // VV réservé aux va-et-vient
@@ -5061,11 +5097,12 @@ function porRender(){
     const gate1=(t==='RIDEAU')?!!qS.rt:(HAS_CF.includes(t)?(!!qS.ep&&!!qS.cf):!!qS.ep);
     if(gate1){
       if(HAS_FERR.includes(t)){
-        h+=cfgBlock("Sens d'ouverture",[['G','Gauche'],['D','Droite']].map(([v,l])=>cfgChoice('porPick','ferr',v,l,'',qS.ferr===v,false)).join(''));
+        h+=cfgBlock("Sens d'ouverture",[['G','Gauche',''],['D','Droite',''],['X','À définir','à préciser avant la commande']].map(([v,l,hint])=>cfgChoice('porPick','ferr',v,l,hint,qS.ferr===v,false)).join(''));
       }
       h+=`<div class="cfg-block"><div class="step-label">Dimensions <span style="font-size:11px;color:var(--text3);font-weight:400">— ${DIM_INFO[t]||''}</span></div>`;
       h+=cfgField('Largeur (mm)','por-lg','100','ex: 900',qS._larg!=null?qS._larg:'','porDim()');
       h+=cfgField('Hauteur (mm)','por-ht','100','ex: 2000',qS._haut!=null?qS._haut:'','porDim()');
+      h+=cfgField('Quantité','por-qty','1','1',qS.qty!=null?qS.qty:1,'porQtyInput()');
       h+=`<div class="field-hint" id="por-prev-hint"></div>`;
       h+=`<div id="por-manual-wrap" class="field-row" style="display:none;flex-wrap:wrap;gap:6px;background:var(--orange-light);border-radius:var(--radius-sm);padding:8px 10px"><label id="por-manual-lbl" style="min-width:100%;color:var(--orange);font-weight:600;font-size:11px;line-height:1.4"></label><input type="number" class="field-input" id="por-manual-px" step="1" placeholder="€ achat HT réel" value="${qS._manualPx!=null?qS._manualPx:''}" oninput="qS._manualPx=this.value;porPrice()"></div>`;
       h+=`</div>`;
@@ -5101,6 +5138,7 @@ function porCalc(){
   const valid=gate1&&l>0&&hh>0&&(!needFerr||!!qS.ferr);
   return {valid,gate1,needFerr,needManual,manualUsed,t,l,h:hh,res,pose,achat,opt,pv,ra,raRes,rideauOn,rideauPv,total,coef:p.coef,ref};
 }
+function porQtyInput(){ const v=parseInt(G('por-qty')?.value); qS.qty=Math.max(1, isNaN(v)?1:v); porPrice(); }
 function porDim(){ const l=G('por-lg'),h=G('por-ht'); if(l)qS._larg=l.value; if(h)qS._haut=h.value; qS._manualPx=''; const mp=G('por-manual-px'); if(mp)mp.value=''; porPrice(); }
 function porPrice(){
   const t=qS.type; if(!t)return;
@@ -5128,7 +5166,8 @@ function porPrice(){
   }
   const sum=G('por-summary'); if(!sum)return;
   const formula=`(${fmt(c.achat)} + ${c.pose} pose${c.rideauPv?` + ${fmt(c.raRes.p)} rideau`:''}) × ${c.coef}`;
-  let s=cfgSummaryBox(c.valid,`<div class="price-box"><div class="price-formula">${formula}</div><div class="price-final">${fmt(c.total)} € HT</div></div>`);
+  const qF=Math.max(1,parseInt(qS.qty)||1);
+  let s=cfgSummaryBox(c.valid,`<div class="price-box"><div class="price-formula">${formula}${qF>1?` × ${qF} portes`:''}</div><div class="price-final">${fmt(r2(c.total)*qF)} € HT${qF>1?` <span style="font-size:12px;font-weight:500;color:var(--text2)">(${qF} × ${fmt(c.total)} €)</span>`:''}</div></div>`);
   if(c.valid&&c.raRes){
     const on=c.rideauOn;
     s+=`<div class="rideau-auto-box"><label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer"><input type="checkbox" ${on?'checked':''} onchange="qS.rideauOn=this.checked;porPrice()" style="margin-top:2px"><span><span class="rideau-auto-title" style="display:block">Rideau à lanières ${on?'inclus':'— retiré'}</span><span class="rideau-auto-desc">${c.raRes.kl}×${c.raRes.kh} mm — ${c.raRes.ref} — ${fmt(c.raRes.p*c.coef)} € HT</span></span></label></div>`;
@@ -5166,7 +5205,7 @@ function porAdd(){
   const ref=wasEdit?(items[editIdx].ref||genRefPor()):genRefPor(); // en modification, on garde la référence d'origine
   const optInsts=(qS.options||[]).map(x=>(x&&typeof x==='object')?{ref:x.ref,faces:x.faces,label:x.label,net:x.net}:{ref:x,faces:1,label:optInstLabel(x),net:optNet(x)});
   const optLabels=optInsts.map(o=>o.label);
-  const it={type:'por',subtype:qS.type,ferr:qS.ferr||'',ep:qS.ep||'',cf:qS.cf||'',ref,label:`${TL[qS.type]||qS.type} — ${c.l}×${c.h}mm${qS.rt?' '+qS.rt:''}`,meta:[qS.cf?`Coupe-feu ${qS.cf}`:null,qS.ferr?`Ferrage ${qS.ferr}`:null,qS.ep?`Cadre ${qS.ep}mm`:null,optLabels.length?('Options : '+optLabels.join(', ')):null,piece||null].filter(Boolean).join(' | '),achat:c.achat,pose:c.pose,options:optInsts,optAchat:optInsts.reduce((s,o)=>s+(o.net||0),0),optDetail:optLabels.join(' · '),rauto:c.ra||0,rautoDim:c.raRes?(c.raRes.kl+'×'+c.raRes.kh):'',rideauOn:c.rideauOn,piece:piece,_larg:c.l,_haut:c.h};
+  const it={type:'por',qty:Math.max(1,parseInt(qS.qty)||1),subtype:qS.type,ferr:(qS.ferr==='X'?'':(qS.ferr||'')),ep:qS.ep||'',cf:qS.cf||'',ref,label:`${TL[qS.type]||qS.type} — ${c.l}×${c.h}mm${qS.rt?' '+qS.rt:''}`,meta:[qS.cf?`Coupe-feu ${qS.cf}`:null,(qS.ferr&&qS.ferr!=='X')?`Ferrage ${qS.ferr}`:(HAS_FERR.includes(qS.type)?'Sens à définir':null),qS.ep?`Cadre ${qS.ep}mm`:null,optLabels.length?('Options : '+optLabels.join(', ')):null,piece||null].filter(Boolean).join(' | '),achat:c.achat,pose:c.pose,options:optInsts,optAchat:optInsts.reduce((s,o)=>s+(o.net||0),0),optDetail:optLabels.join(' · '),rauto:c.ra||0,rautoDim:c.raRes?(c.raRes.kl+'×'+c.raRes.kh):'',rideauOn:c.rideauOn,piece:piece,_larg:c.l,_haut:c.h};
   if(wasEdit){ items.splice(editIdx,1,it); editIdx=null; editType=null; }
   else items.push(it);
   const persist=c.manualUsed;
@@ -5180,10 +5219,10 @@ function porRideauRef(it){ return (it.ref||'')+'-R'; }
 // Lignes de commande d'une porte : la porte elle-même + son rideau à lanières attaché (s'il est inclus).
 // Même format de cellules pour l'écran « Cmd portes » et le PDF : [Réf, Type, Dimensions, Ferrage, Ép. cadre, Qté, Détails]
 function porCmdRows(it){
-  const rows=[[it.ref||'',porTypeName(it),`${it._larg||''}×${it._haut||''} mm`,porFerrage(it),porCadre(it),'1',porDetails(it)]];
+  const rows=[[it.ref||'',porTypeName(it),`${it._larg||''}×${it._haut||''} mm`,porFerrage(it),porCadre(it),String(porQty(it)),porDetails(it)]];
   if(it.rideauOn!==false && it.rauto){
     const dim=porRideauDim(it);
-    rows.push([porRideauRef(it),'Rideau à lanières',dim?dim+' mm':'—','—','—','1','Pour la porte '+(it.ref||'')]);
+    rows.push([porRideauRef(it),'Rideau à lanières',dim?dim+' mm':'—','—','—',String(porQty(it)),'Pour la porte '+(it.ref||'')]);
   }
   return rows;
 }
@@ -5276,14 +5315,15 @@ function apercuDevisRows(items, travaux, p){
     h+=sec('Portes, châssis & rideaux','ap_por');
     if(secFold.ap_por) pors.forEach(it=>{
       const optLines=porOptionLines(it,p);
+      const q=porQty(it);
       const rPv=(it.rideauOn!==false && it.rauto)? r2(it.rauto*p.coef) : 0;
-      const base=r2(cpv(it,p)-optLines.reduce((s,o)=>s+o.price,0)-rPv); // ligne porte = total moins options moins rideau
+      const base=r2(cpv(it,p)/q-optLines.reduce((s,o)=>s+o.price,0)-rPv); // ligne porte (unitaire) = total/q moins options moins rideau
       const sub=[`${it._larg||''}×${it._haut||''} mm`, porMetaNoOpt(it)].filter(Boolean).join(' — ');
-      h+=row(it.ref||'', porTypeName(it), sub, money(base), '1 u', money(base));
+      h+=row(it.ref||'', porTypeName(it), sub, money(base), q+' u', money(r2(base*q)));
       optLines.forEach(o=>{ h+=`<tr class="ap-opt"><td></td><td><div style="font-size:11px;color:var(--text2);padding-left:16px">↳ ${esc(o.label)}</div></td><td style="font-size:11px;color:var(--text2)">${money(o.price)}</td><td style="font-size:11px;color:var(--text2)">1 u</td><td style="font-size:11px;color:var(--text2)">${money(o.price)}</td></tr>`; });
       if(it.rideauOn!==false && it.rauto){
         const rDim=porRideauDim(it);
-        h+=row(porRideauRef(it), 'Rideau à lanières', rDim?rDim+' mm':'', money(rPv), '1 u', money(rPv));
+        h+=row(porRideauRef(it), 'Rideau à lanières', rDim?rDim+' mm':'', money(rPv), q+' u', money(r2(rPv*q)));
       }
     });
   }
@@ -5365,7 +5405,7 @@ function calcTransport(p, items){
   const seuilFranco=fou==='arcelor'?n('tr-pan-arcelor-franco',10000):0; const francoAuto=hasPan&&seuilFranco>0&&achatPan>=seuilFranco;
   const trPan = hasPan ? (ovPan!=null ? r2(ovPan) : (francoAuto ? 0 : r2(forfaitFou*livr))) : 0;
   // 2) Portes : taux sur l'achat, borné min / max
-  const achatPor=items.filter(i=>i.type==='por').reduce((s,i)=>s+(parseFloat(i.achat)||0),0);
+  const achatPor=items.filter(i=>i.type==='por').reduce((s,i)=>s+(parseFloat(i.achat)||0)*porQty(i),0);
   const trPor = achatPor>0 ? r2(Math.min(n('tr-por-max',650), Math.max(n('tr-por-min',150), achatPor*n('tr-por-taux',15)/100))) : 0;
   // 3) Sol phénolique : au m², borné (un camion reste un camion) — hors prix du sol
   const solM2=items.filter(i=>i.type==='acc'&&i.accId==='sol_phen').reduce((s,i)=>s+(parseFloat(i.qty)||0),0);
@@ -5586,22 +5626,23 @@ function genPDF(){
     let ri=0;
     pors.forEach((it,i)=>{
       const optLines=porOptionLines(it,p);
+      const q=porQty(it);
       const rPv0=(it.rideauOn!==false && it.rauto)? r2(it.rauto*p.coef):0;
-      const dPv=r2(cpv(it,p)-optLines.reduce((s,o)=>s+o.price,0)-rPv0); // ligne porte = total moins options moins rideau
+      const dPv=r2(cpv(it,p)/q-optLines.reduce((s,o)=>s+o.price,0)-rPv0); // ligne porte (unitaire) = total/q moins options moins rideau
       // Désignation : type abrégé — dimensions — ferrage — pièce (options en lignes séparées)
       const typeLbl = porTypeName(it);
       const dims = `${it._larg||''}×${it._haut||''} mm`;
       const line2 = [dims, porMetaNoOpt(it)].filter(Boolean).join(' — ');
       const desig = typeLbl + (line2 ? '\n' + line2 : '');
-      drawRow(it.ref||'P'+String(i+1).padStart(3,'0'), desig, fn(dPv), '1 u', fn(dPv), ri%2===1); ri++;
+      drawRow(it.ref||'P'+String(i+1).padStart(3,'0'), desig, fn(dPv), q+' u', fn(r2(dPv*q)), ri%2===1); ri++;
       // Une ligne par option, en plus petit (sous-produit), avec son prix (extrait du total de la porte)
-      optLines.forEach(o=>{ drawRow('', '» '+o.label, fn(o.price), '1 u', fn(o.price), ri%2===1, true); ri++; });
+      optLines.forEach(o=>{ drawRow('', '» '+o.label, fn(o.price), q+' u', fn(r2(o.price*q)), ri%2===1, true); ri++; });
       // Rideau à lanières auto (porte négative) → ligne séparée, sauf s'il a été retiré
       if(it.rideauOn!==false && it.rauto){
         const rPv=it.rauto*p.coef;
         const rDim=porRideauDim(it);
         const rDesig='Rideau à lanières'+(rDim?'\n'+rDim+' mm':'');
-        drawRow(porRideauRef(it), rDesig, fn(rPv), '1 u', fn(rPv), ri%2===1); ri++;
+        drawRow(porRideauRef(it), rDesig, fn(rPv), q+' u', fn(r2(rPv*q)), ri%2===1); ri++;
       }
     });
   }
@@ -6758,7 +6799,7 @@ function pdfTitleAccent(doc, MR, yBase, titleStr){
   doc.setDrawColor(...PDF_ACCENT); doc.setLineWidth(1);
   doc.line(MR-tW, yBase+3, MR, yBase+3);
 }
-function genCmdPDF(type, ov){
+function genCmdPDF(type, ov){ if(type==='por'&&porBloque('la commande des portes')) return;
   ov = ov || {};
   const {jsPDF} = window.jspdf;
   const doc = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
@@ -6949,7 +6990,7 @@ function genCmdPDF(type, ov){
   doc.save(`Cmd_${label}${foupart}_${safe}.pdf`);
 }
 
-function genDecoupePDF(){
+function genDecoupePDF(){ if(porBloque('les cotes de découpe')) return;
   const portes=items.filter(i=>i.type==='por');
   if(!portes.length){ if(typeof toast==='function') toast('Aucune porte dans ce devis — rien à découper.'); else alert('Aucune porte dans ce devis.'); return; }
   const {jsPDF}=window.jspdf;
@@ -7028,7 +7069,7 @@ function genDecoupePDF(){
   doc.save('Cotes_decoupe_'+safe+'.pdf');
 }
 
-function genRecapPDF(){
+function genRecapPDF(){ if(porBloque('le récap poseur')) return;
   if(!items.length){ if(typeof toast==='function') toast('Devis vide — rien à récapituler.'); else alert('Devis vide.'); return; }
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
@@ -7110,7 +7151,7 @@ function genRecapPDF(){
   doc.save('Recap_chantier_'+safe+'.pdf');
 }
 
-function genMissionPDF(){
+function genMissionPDF(){ if(porBloque('l’ordre de mission')) return;
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
   const W=210,ML=14,MR=196,TW=MR-ML;
@@ -7232,7 +7273,7 @@ function genMissionPDF(){
   }
 
   const porGP={};
-  pors.forEach(it=>{ const key=(it.subtype||porTypeName(it))+'|'+(it.pose||0); if(!porGP[key]) porGP[key]={desig:porTypeName(it),pose:it.pose||0,n:0}; porGP[key].n++; });
+  pors.forEach(it=>{ const key=(it.subtype||porTypeName(it))+'|'+(it.pose||0); if(!porGP[key]) porGP[key]={desig:porTypeName(it),pose:it.pose||0,n:0}; porGP[key].n+=porQty(it); });
   Object.values(porGP).forEach(g=>{ const mnt=g.pose*g.n; total+=mnt; drawMRow(g.desig,g.n+' u',fn(g.pose)+'/u',fn(mnt)); });
 
   accs.forEach(it=>{
