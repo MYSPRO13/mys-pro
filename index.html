@@ -5143,7 +5143,9 @@ function porCalc(){
   const m0=t==='RIDEAU'?(qS.rt==='positif'?RPOS:RNEG):(t==='CHASSIS'?MX_CHASSIS:(isCF?((MX_CF[t]&&MX_CF[t][qS.cf])||{}):(MXP[t]||{})));
   const m=v2?(isCF?((MX_CF_2V[t]&&MX_CF_2V[t][qS.cf])||{}):MX_PPSI_2V):m0; // 2 vantaux : matrice dédiée, clés « 900+500x2000 »
   const dimsOk=v2?(l>0&&l2>0&&hh>0):(l>0&&hh>0);
-  const res=dimsOk?(v2?fc2v(m,l,l2,hh):fc(m,l,hh,qS.ferr)):null;
+  // 2 vantaux : clé « l1+l2xh » dans la matrice dédiée ; à défaut, repli sur un prix déjà saisi pour la largeur totale (« 1400x2000 » dans la grille 1 vantail, pratique d'avant)
+  const resTot=(v2&&dimsOk&&m0&&m0[(l+l2)+'x'+hh]!==undefined)?{p:m0[(l+l2)+'x'+hh],ref:(l+l2)+'x'+hh,exact:true,kl:l+l2,kh:hh,fromTotal:true}:null;
+  const res=dimsOk?(v2?(fc2v(m,l,l2,hh)||resTot):fc(m,l,hh,qS.ferr)):null;
   // Dimension hors stock (pas de correspondance exacte) → on invite à saisir le vrai prix
   const needManual = dimsOk && (!res || !res.exact);
   const manual = parseFloat(qS._manualPx)||0;
@@ -5173,7 +5175,7 @@ function porPrice(){
         hint.textContent=`${fmt(c.achat)} € achat HT — saisi manuellement`;
         hint.style.background='var(--green-light)'; hint.style.color='var(--green)';
       } else {
-        hint.textContent=c.res?`${fmt(c.res.p)} € achat HT${c.res.exact?'':` (approché ${c.res.kl}×${c.res.kh})`}`:'Dimension non disponible dans la matrice';
+        hint.textContent=c.res?`${fmt(c.res.p)} € achat HT${c.res.exact?'':` (approché ${c.res.kl}×${c.res.kh})`}${c.res.fromTotal?` — prix repris du ${c.res.kl}×${c.res.kh} un vantail, recopié pour ${c.dimLabel}`:''}`:'Dimension non disponible dans la matrice';
         const exact=c.res&&c.res.exact;
         hint.style.background=exact?'var(--blue-light)':'var(--red-light)';
         hint.style.color=exact?'var(--blue)':'var(--red)';
@@ -5223,7 +5225,7 @@ function porAdd(){
   const c=porCalc();
   if(!c.valid){alert('Configuration porte incomplète.');return;}
   const piece=(G('por-piece')&&G('por-piece').value||'').trim();
-  if(c.manualUsed){ setMatrixOverride(c.t, qS.rt, c.v2?(c.l+'+'+c.l2):c.l, c.h, c.achat, qS.cf, c.v2); } // mémorise le prix saisi dans la matrice (par durée pour les coupe-feu)
+  if(c.manualUsed||(c.v2&&c.res&&c.res.fromTotal)){ setMatrixOverride(c.t, qS.rt, c.v2?(c.l+'+'+c.l2):c.l, c.h, c.achat, qS.cf, c.v2); } // prix manuel, ou prix repris du total → mémorisé sous « l1+l2xh » // mémorise le prix saisi dans la matrice (par durée pour les coupe-feu)
   const wasEdit=(editIdx!=null&&editType==='por'&&items[editIdx]);
   const ref=wasEdit?(items[editIdx].ref||genRefPor()):genRefPor(); // en modification, on garde la référence d'origine
   const optInsts=(qS.options||[]).map(x=>(x&&typeof x==='object')?{ref:x.ref,faces:x.faces,label:x.label,net:x.net}:{ref:x,faces:1,label:optInstLabel(x),net:optNet(x)});
@@ -5231,7 +5233,7 @@ function porAdd(){
   const it={type:'por',qty:Math.max(1,parseInt(qS.qty)||1),subtype:qS.type,ferr:(qS.ferr==='X'?'':(qS.ferr||'')),ep:qS.ep||'',cf:qS.cf||'',ref,v2:!!c.v2,_l1:c.v2?c.l:undefined,_l2:c.v2?c.l2:undefined,label:`${TL[qS.type]||qS.type}${c.v2?' 2 vantaux':''} — ${c.v2?(c.l+'+'+c.l2):c.l}×${c.h}mm${qS.rt?' '+qS.rt:''}`,meta:[qS.cf?`Coupe-feu ${qS.cf}`:null,(qS.ferr&&qS.ferr!=='X')?`Ferrage ${qS.ferr}`:(HAS_FERR.includes(qS.type)?'Sens à définir':null),qS.ep?`Cadre ${qS.ep}mm`:null,optLabels.length?('Options : '+optLabels.join(', ')):null,piece||null].filter(Boolean).join(' | '),achat:c.achat,pose:c.pose,options:optInsts,optAchat:optInsts.reduce((s,o)=>s+(o.net||0),0),optDetail:optLabels.join(' · '),rauto:c.ra||0,rautoDim:c.raRes?(c.raRes.kl+'×'+c.raRes.kh):'',rideauOn:c.rideauOn,piece:piece,_larg:c.v2?(c.l+c.l2):c.l,_haut:c.h};
   if(wasEdit){ items.splice(editIdx,1,it); editIdx=null; editType=null; }
   else items.push(it);
-  const persist=c.manualUsed;
+  const persist=c.manualUsed||(c.v2&&c.res&&c.res.fromTotal);
   refreshAll();porReset();
   if(wasEdit){ showToast('Porte modifiée'); showPage('devis', navItemFor('devis')); }
   if(persist && typeof sauvegarderParams==='function'){ sauvegarderParams(); } // persiste l'override en base
