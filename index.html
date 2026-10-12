@@ -7056,10 +7056,10 @@ function genDecoupePDF(){ if(porBloque('les cotes de découpe')) return;
     const r=porReservation(it);
     const d=POR_DECOUPE[porDecoupeCode(it)];
     let passage='—', decoupe='—', reserv='—';
-    if(r.statut==='ok'){ passage=r.passL+' × '+r.passH; decoupe='+'+r.addL+' × +'+r.addH; reserv=r.resL+' × '+r.resH; }
+    if(r.statut==='ok'){ passage=((it.v2&&it._l1&&it._l2)?(it._l1+'+'+it._l2+' ('+r.passL+')'):r.passL)+' × '+r.passH; decoupe='+'+r.addL+' × +'+r.addH; reserv=r.resL+' × '+r.resH; }
     else if(r.statut==='rideau'){ reserv='pas de découpe'; }
     else if(r.statut==='dim'){ passage='à saisir'; decoupe='+'+d.l+' × +'+d.h; reserv='saisir les dims'; }
-    else { anyNC=true; passage=(!isNaN(parseFloat(it._larg))&&!isNaN(parseFloat(it._haut)))?(Math.round(it._larg)+' × '+Math.round(it._haut)):'—'; decoupe='?'; reserv='cote à définir'; }
+    else { anyNC=true; passage=(!isNaN(parseFloat(it._larg))&&!isNaN(parseFloat(it._haut)))?(((it.v2&&it._l1&&it._l2)?(it._l1+'+'+it._l2+' ('+Math.round(it._larg)+')'):Math.round(it._larg))+' × '+Math.round(it._haut)):'—'; decoupe='?'; reserv='cote à définir'; }
     const cells=[it.ref||'', it.piece||'—', porTypeName(it), passage, decoupe, reserv];
     const wrapped=cells.map((c,i)=>doc.splitTextToSize(String(c==null?'':c), cw[i]-4));
     const maxLines=Math.max(1,...wrapped.map(w=>w.length));
@@ -7139,10 +7139,10 @@ function genRecapPDF(){ if(porBloque('le récap poseur')) return;
   const porRows=portes.map(it=>{
     const r=porReservation(it), d=POR_DECOUPE[porDecoupeCode(it)];
     let passage='—',decoupe='—',reserv='—';
-    if(r.statut==='ok'){ passage=r.passL+' × '+r.passH; decoupe='+'+r.addL+' × +'+r.addH; reserv=r.resL+' × '+r.resH; }
+    if(r.statut==='ok'){ passage=((it.v2&&it._l1&&it._l2)?(it._l1+'+'+it._l2+' ('+r.passL+')'):r.passL)+' × '+r.passH; decoupe='+'+r.addL+' × +'+r.addH; reserv=r.resL+' × '+r.resH; }
     else if(r.statut==='rideau'){ reserv='pas de découpe'; }
     else if(r.statut==='dim'){ passage='à saisir'; decoupe='+'+d.l+' × +'+d.h; reserv='saisir dims'; }
-    else { passage=(!isNaN(parseFloat(it._larg))&&!isNaN(parseFloat(it._haut)))?(Math.round(it._larg)+' × '+Math.round(it._haut)):'—'; decoupe='?'; reserv='cote à définir'; }
+    else { passage=(!isNaN(parseFloat(it._larg))&&!isNaN(parseFloat(it._haut)))?(((it.v2&&it._l1&&it._l2)?(it._l1+'+'+it._l2+' ('+Math.round(it._larg)+')'):Math.round(it._larg))+' × '+Math.round(it._haut)):'—'; decoupe='?'; reserv='cote à définir'; }
     return [it.ref||'', it.piece||'—', porTypeName(it), passage, decoupe, reserv];
   });
   section('1 — Portes & cotes de découpe', ['Réf.','Pièce','Type','Passage','Découpe','Réservation'], [12,34,42,24,22,48], porRows, 3, 5, 'Aucune porte dans ce devis.');
