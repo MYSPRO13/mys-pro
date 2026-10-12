@@ -954,7 +954,9 @@ select.dx-pill { cursor: pointer; border: none; outline: none; -webkit-appearanc
 .apercu-table tr:last-child td { border-bottom: none; }
 .apercu-devis th:nth-child(n+3), .apercu-devis td:nth-child(n+3) { text-align: right; font-variant-numeric: tabular-nums; }
 .apercu-devis td { vertical-align: top; }
-.apercu-devis .ap-opt td { padding: 1px 8px; border-bottom: none; }
+.apercu-devis tr.has-opt td { border-bottom: none; padding-bottom: 1px; }
+.apercu-devis .ap-opt td { padding: 1px 8px 2px; border-bottom: none; }
+.apercu-devis .ap-opt.last td { border-bottom: 1px solid var(--border2); padding-bottom: 7px; }
 .apercu-devis td:first-child { color: var(--text2); white-space: nowrap; }
 .apercu-devis .ap-sub { color: var(--text2); font-size: 11px; margin-top: 1px; }
 .apercu-devis .ap-sec td { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--text2); background: var(--bg2); padding: 6px 8px; text-align: left; }
@@ -5322,7 +5324,7 @@ function devisDesigAcc(it){ // libellé + détail montrés au CLIENT (aperçu + 
 function apercuDevisRows(items, travaux, p){
   const money=v=>fmt(v)+' €';
   const sec=(t,k)=>`<tr class="ap-sec sec-tog" onclick="togSec('${k}')"><td colspan="5">${secFold[k]?'▾':'▸'} ${t}</td></tr>`;
-  const row=(ref,desig,sub,pu,qte,mont)=>`<tr><td>${ref||''}</td><td><div>${desig}</div>${sub?`<div class="ap-sub">${sub}</div>`:''}</td><td>${pu}</td><td>${qte}</td><td>${mont}</td></tr>`;
+  const row=(ref,desig,sub,pu,qte,mont,cls)=>`<tr${cls?` class="${cls}"`:''}><td>${ref||''}</td><td><div>${desig}</div>${sub?`<div class="ap-sub">${sub}</div>`:''}</td><td>${pu}</td><td>${qte}</td><td>${mont}</td></tr>`;
   const pans=items.filter(i=>i.type==='pan'), pors=items.filter(i=>i.type==='por'), accs=items.filter(i=>i.type==='acc');
   let h='';
   if(pans.length){
@@ -5339,8 +5341,8 @@ function apercuDevisRows(items, travaux, p){
       const rPv=(it.rideauOn!==false && it.rauto)? r2(it.rauto*p.coef) : 0;
       const base=r2(cpv(it,p)/q-optLines.reduce((s,o)=>s+o.price,0)-rPv); // ligne porte (unitaire) = total/q moins options moins rideau
       const sub=[porDims(it), porMetaNoOpt(it)].filter(Boolean).join(' — ');
-      h+=row(it.ref||'', porTypeName(it), sub, money(base), q+' u', money(r2(base*q)));
-      optLines.forEach(o=>{ h+=`<tr class="ap-opt"><td></td><td><div style="font-size:11px;color:var(--text2);padding-left:16px">↳ ${esc(o.label)}</div></td><td style="font-size:11px;color:var(--text2)">${money(o.price)}</td><td style="font-size:11px;color:var(--text2)">${q} u</td><td style="font-size:11px;color:var(--text2)">${money(r2(o.price*q))}</td></tr>`; });
+      h+=row(it.ref||'', porTypeName(it), sub, money(base), q+' u', money(r2(base*q)), optLines.length?'has-opt':'');
+      optLines.forEach((o,k)=>{ h+=`<tr class="ap-opt${k===optLines.length-1?' last':''}"><td></td><td><div style="font-size:11px;color:var(--text2);padding-left:16px">↳ ${esc(o.label)}</div></td><td style="font-size:11px;color:var(--text2)">${money(o.price)}</td><td style="font-size:11px;color:var(--text2)">${q} u</td><td style="font-size:11px;color:var(--text2)">${money(r2(o.price*q))}</td></tr>`; });
       if(it.rideauOn!==false && it.rauto){
         const rDim=porRideauDim(it);
         h+=row(porRideauRef(it), 'Rideau à lanières', rDim?rDim+' mm':'', money(rPv), q+' u', money(r2(rPv*q)));
@@ -5589,7 +5591,7 @@ function genPDF(){
     y+=6.5;
   }
 
-  function drawRow(ref, desig, prix, qte, montant, alt, small){
+  function drawRow(ref, desig, prix, qte, montant, alt, small, noLine){ // noLine : pas de trait sous la ligne (porte suivie de ses options)
     const fs=small?6.2:7.5, ind=small?5:0;
     const maxDesigW=COL_W[1]-4-ind;
     sf(false,fs,small?GREY:DGREY); // police posée AVANT le découpage → largeur de wrap correcte
@@ -5609,8 +5611,7 @@ function genPDF(){
     cx+=COL_W[3];
     sf(false,fs,small?GREY:BLACK);
     doc.text(String(montant||''), cx+COL_W[4]-2, y+by, {align:'right'});
-    doc.setDrawColor(...LGREY); doc.setLineWidth(0.25);
-    doc.line(ML, y+rh, ML+TW, y+rh);
+    if(!noLine){ doc.setDrawColor(...LGREY); doc.setLineWidth(0.25); doc.line(ML, y+rh, ML+TW, y+rh); }
     y+=rh;
   }
 
@@ -5654,9 +5655,10 @@ function genPDF(){
       const dims = porDims(it);
       const line2 = [dims, porMetaNoOpt(it)].filter(Boolean).join(' — ');
       const desig = typeLbl + (line2 ? '\n' + line2 : '');
-      drawRow(it.ref||'P'+String(i+1).padStart(3,'0'), desig, fn(dPv), q+' u', fn(r2(dPv*q)), ri%2===1); ri++;
+      const odd=ri%2===1; // la porte et ses options forment un seul bloc : même fond, trait seulement sous la dernière ligne
+      drawRow(it.ref||'P'+String(i+1).padStart(3,'0'), desig, fn(dPv), q+' u', fn(r2(dPv*q)), odd, false, optLines.length>0); ri++;
       // Une ligne par option, en plus petit (sous-produit), avec son prix (extrait du total de la porte)
-      optLines.forEach(o=>{ drawRow('', '» '+o.label, fn(o.price), q+' u', fn(r2(o.price*q)), ri%2===1, true); ri++; });
+      optLines.forEach((o,k)=>{ drawRow('', '» '+o.label, fn(o.price), q+' u', fn(r2(o.price*q)), odd, true, k<optLines.length-1); });
       // Rideau à lanières auto (porte négative) → ligne séparée, sauf s'il a été retiré
       if(it.rideauOn!==false && it.rauto){
         const rPv=it.rauto*p.coef;
