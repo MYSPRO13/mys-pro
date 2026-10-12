@@ -2390,6 +2390,12 @@ const MXP={PCIP:MX_PCIP,PCIN:MX_PCIN,PPIP:MX_PPIP,PPIN:MX_PPIN,PPSI:MX_PPSI,PVV:
 const CF_DURS=['1/2h','1h','2h'];
 const HAS_CF=['PPSI_CF','PPIP_CF'];
 const MX_CF={PPSI_CF:{'1/2h':{},'1h':{},'2h':{}},PPIP_CF:{'1/2h':{},'1h':{},'2h':{}}};
+// Portes à 2 vantaux (principal + semi-fixe) : PPSI et PPSI coupe-feu seulement — matrices à part, clés « 900+500x2000 »
+const POR_2V=['PPSI','PPSI_CF'];
+const MX_PPSI_2V={}; // rempli par matrices_portes.PPSI_2V (Supabase) et par les prix manuels mémorisés (matrix_overrides)
+const MX_CF_2V={PPSI_CF:{'1/2h':{},'1h':{},'2h':{}}};
+function fc2v(m,l,l2,h){ const k=l+'+'+l2+'x'+h; if(m&&m[k]!==undefined) return {p:m[k],ref:k,exact:true,kl:l+'+'+l2,kh:h}; return null; } // exact uniquement : pas d'approximation entre deux vantaux
+function porDims(it){ const h=it._haut||''; if(it.v2&&it._l1&&it._l2) return `${it._l1}+${it._l2}×${h} mm`; return `${it._larg||''}×${h} mm`; }
 const RPOS=MX_RIDEAU_POS;
 const RNEG=MX_RIDEAU_NEG;
 const TL={PCIP:'PCIP',PCIN:'PCIN',PPIP:'PPIP',PPIN:'PPIN',PPSI:'PPSI',PPSI_CF:'PPSI CF',PPIP_CF:'PPIP CF',PVV:'PVV',PCS:'PCS',PPS:'PPS',CHASSIS:'Châssis fixe PVC',RIDEAU:'Rideau à lanières'};
@@ -2421,11 +2427,11 @@ function porEclaterTout(){
   for(let k=idx.length-1;k>=0;k--){ const i=idx[k]; items.splice(i,1,...porCopies(items[i])); }
   renumberPortes(); refreshAll(); showToast(tot+' portes créées — précise le sens de chacune');
 }
-function porTypeName(it){const code=it.subtype||(String(it.label||'').split(' — ')[0]||'').trim();return TYPE_NAMES[code]||TL[code]||code||'Porte';}
+function porTypeName(it){const code=it.subtype||(String(it.label||'').split(' — ')[0]||'').trim();return (TYPE_NAMES[code]||TL[code]||code||'Porte')+(it.v2?' 2 vantaux':'');}
 function porFerrage(it){const c=it.ferr||(String(it.meta||'').match(/Ferrage ([GD])/)?.[1])||'';return c==='G'?'Gauche':c==='D'?'Droite':(c||'—');}
 function porCadre(it){const e=it.ep||(String(it.meta||'').match(/Cadre (\d+)/)?.[1])||'';return e?e+' mm':'—';}
 function accDetail(it){if(it.cmdDetail)return it.cmdDetail;const s=String(it.meta||'').replace(/^\s*\d+\s+\S+\s*/,'').trim();return it.vol?((s?s+' — ':'')+it.vol+' m³'):s;}
-function porDetails(it){const cf=it.cf||(String(it.meta||'').match(/Coupe-feu (\S+)/)?.[1])||'';const parts=[];if(cf)parts.push('Coupe-feu '+cf);if(it.optDetail)parts.push('Options : '+it.optDetail);if(it.details)parts.push(it.details);return parts.join(' — ');}
+function porDetails(it){const cf=it.cf||(String(it.meta||'').match(/Coupe-feu (\S+)/)?.[1])||'';const parts=[];if(it.v2&&it._l1&&it._l2)parts.push('2 vantaux : principal '+it._l1+' mm + semi-fixe '+it._l2+' mm');if(cf)parts.push('Coupe-feu '+cf);if(it.optDetail)parts.push('Options : '+it.optDetail);if(it.details)parts.push(it.details);return parts.join(' — ');}
 const POSE_P={PCIP:150,PCIN:150,PPIP:120,PPIN:120,PPSI:100,PPSI_CF:100,PPIP_CF:120,PVV:100,PCS:100,PPS:100,CHASSIS:80,RIDEAU:50};
 const HAS_FERR=['PCIP','PCIN','PPIP','PPIN','PPSI','PPSI_CF','PPIP_CF','PCS','PPS','PVV'];
 const HAS_NEG=['PCIN','PPIN'];
@@ -4086,7 +4092,7 @@ function accCatsAll(open){ ACC_CATS.forEach(([c])=>{ accCatOpen[c]=!!open; }); i
 // Prix portes saisis hors matrice (MX_OVERRIDES) : liste lisible dans l'onglet Portes
 function renderMxOverrides(){
   const el=G('mx-ov-list'), cnt=G('mx-ov-count'); if(!el) return;
-  const lab=k=>{ const base=k.split('::')[0], cf=k.indexOf('::')>-1?k.split('::')[1]:''; const t=(typeof POR_TYPES!=='undefined'&&POR_TYPES.find(x=>x[0]===base))||null; const nom=t?(t[1]+' — '+t[2]):(base==='RIDEAU_POS'?'Rideau — positif':base==='RIDEAU_NEG'?'Rideau — négatif':base); return nom+(cf?' · '+cf:''); };
+  const lab=k=>{ const base=k.split('::')[0], cf=k.indexOf('::')>-1?k.split('::')[1]:''; const is2v=base.endsWith('_2V'); const b0=is2v?base.slice(0,-3):base; const t=(typeof POR_TYPES!=='undefined'&&POR_TYPES.find(x=>x[0]===b0))||null; const nom=(t?(t[1]+' — '+t[2]):(b0==='RIDEAU_POS'?'Rideau — positif':b0==='RIDEAU_NEG'?'Rideau — négatif':b0))+(is2v?' 2 vantaux':''); return nom+(cf?' · '+cf:''); };
   const rows=[]; Object.keys(MX_OVERRIDES||{}).forEach(k=>Object.keys(MX_OVERRIDES[k]||{}).forEach(d=>rows.push({k,d,px:MX_OVERRIDES[k][d]})));
   if(cnt) cnt.textContent=rows.length?rows.length+' prix hors matrice':'';
   if(!rows.length){ el.innerHTML='<div class="prm-note" style="font-style:italic;margin:0">Aucun prix hors matrice enregistré pour l\'instant.</div>'; return; }
@@ -4591,7 +4597,7 @@ function editItem(i){
     if(it.cf) qS.cf=it.cf; else if(HAS_CF.includes(it.subtype)){ const m=String(it.meta||'').match(/Coupe-feu (\S+)/); if(m) qS.cf=m[1]; }
     if(it.ferr) qS.ferr=it.ferr;
     qS.options=(it.options||[]).map(x=>(x&&typeof x==='object')?Object.assign({},x):{ref:x,faces:1,label:optInstLabel(x),net:optNet(x)}); qS._optPick=null; if(qS.options.length) qS._optOpen=true;
-    qS._larg=it._larg; qS._haut=it._haut;
+    if(it.v2){ qS.v2=true; qS._larg=it._l1; qS._larg2=it._l2; } else { qS._larg=it._larg; } qS._haut=it._haut;
     if(it.rideauOn===false) qS.rideauOn=false;
     showPage('config', document.querySelector('.nav-item'));
     swCfg('por'); porRender();
@@ -4961,10 +4967,13 @@ function completerPanneau(i){
 const POR_TYPES=[['PCIP','PCIP','Coulissante pos.'],['PCIN','PCIN','Coulissante nég.'],['PPIP','PPIP','Pivotante pos.'],['PPIN','PPIN','Pivotante nég.'],['PPSI','PPSI','Semi-iso.'],['PPSI_CF','PPSI CF','Coupe-feu semi-iso.'],['PPIP_CF','PPIP CF','Coupe-feu pivot. pos.'],['PVV','PVV','Va et Vient'],['PCS','PCS','Coul. service'],['PPS','PPS','Isoplane'],['CHASSIS','Châssis','Fixe PVC'],['RIDEAU','Rideau','Lanières']];
 // Prix portes saisis manuellement pour des dimensions hors matrice (persistés dans les paramètres Supabase)
 let MX_OVERRIDES={};
-function mxKey(t,rt,cf){ if(HAS_CF.includes(t)) return t+'::'+(cf||''); return t==='RIDEAU'?(rt==='positif'?'RIDEAU_POS':'RIDEAU_NEG'):t; }
-function mxObj(key){ if(key.indexOf('::')>-1){ const p=key.split('::'); return (MX_CF[p[0]]&&MX_CF[p[0]][p[1]])||null; } return key==='RIDEAU_POS'?RPOS:key==='RIDEAU_NEG'?RNEG:key==='CHASSIS'?MX_CHASSIS:(MXP[key]||null); }
-function setMatrixOverride(t,rt,l,h,px,cf){
-  const key=mxKey(t,rt,cf), dim=l+'x'+h;
+function mxKey(t,rt,cf,v2){ const base=(v2&&POR_2V.includes(t))?t+'_2V':t; if(HAS_CF.includes(t)) return base+'::'+(cf||''); return t==='RIDEAU'?(rt==='positif'?'RIDEAU_POS':'RIDEAU_NEG'):base; }
+function mxObj(key){
+  if(key.indexOf('::')>-1){ const p=key.split('::'); const is2v=p[0].endsWith('_2V'); const tab=is2v?MX_CF_2V[p[0].slice(0,-3)]:MX_CF[p[0]]; return (tab&&tab[p[1]])||null; }
+  return key==='RIDEAU_POS'?RPOS:key==='RIDEAU_NEG'?RNEG:key==='CHASSIS'?MX_CHASSIS:key==='PPSI_2V'?MX_PPSI_2V:(MXP[key]||null);
+}
+function setMatrixOverride(t,rt,l,h,px,cf,v2){
+  const key=mxKey(t,rt,cf,v2), dim=l+'x'+h;
   if(!MX_OVERRIDES[key]) MX_OVERRIDES[key]={};
   MX_OVERRIDES[key][dim]=px;
   const m=mxObj(key); if(m) m[dim]=px; // fusion en direct → exact la prochaine fois
@@ -5094,6 +5103,9 @@ function porRender(){
       if(HAS_CF.includes(t)){
         h+=cfgBlock('Durée coupe-feu',CF_DURS.map(v=>cfgChoice('porPick','cf',v,v,'',qS.cf===v,false)).join(''));
       }
+      if(POR_2V.includes(t)){
+        h+=cfgBlock('Vantaux',[['1','1 vantail',''],['2','2 vantaux','principal + semi-fixe']].map(([v,l,hint])=>cfgChoice('porPick','v2',v,l,hint,(qS.v2?'2':'1')===v,false)).join(''));
+      }
     }
     const gate1=(t==='RIDEAU')?!!qS.rt:(HAS_CF.includes(t)?(!!qS.ep&&!!qS.cf):!!qS.ep);
     if(gate1){
@@ -5101,7 +5113,12 @@ function porRender(){
         h+=cfgBlock("Sens d'ouverture",[['G','Gauche',''],['D','Droite',''],['X','À définir','à préciser avant la commande']].map(([v,l,hint])=>cfgChoice('porPick','ferr',v,l,hint,qS.ferr===v,false)).join(''));
       }
       h+=`<div class="cfg-block"><div class="step-label">Dimensions <span style="font-size:11px;color:var(--text3);font-weight:400">— ${DIM_INFO[t]||''}</span></div>`;
-      h+=cfgField('Largeur (mm)','por-lg','100','ex: 900',qS._larg!=null?qS._larg:'','porDim()');
+      if(qS.v2&&POR_2V.includes(t)){
+        h+=cfgField('Vantail principal (mm)','por-lg','100','ex: 900',qS._larg!=null?qS._larg:'','porDim()');
+        h+=cfgField('Vantail semi-fixe (mm)','por-lg2','100','ex: 500',qS._larg2!=null?qS._larg2:'','porDim()');
+      } else {
+        h+=cfgField('Largeur (mm)','por-lg','100','ex: 900',qS._larg!=null?qS._larg:'','porDim()');
+      }
       h+=cfgField('Hauteur (mm)','por-ht','100','ex: 2000',qS._haut!=null?qS._haut:'','porDim()');
       h+=cfgField('Quantité','por-qty','1','1',qS.qty!=null?qS.qty:1,'porQtyInput()');
       h+=`<div class="field-hint" id="por-prev-hint"></div>`;
@@ -5118,35 +5135,39 @@ function porRender(){
 function porCalc(){
   const t=qS.type; if(!t) return {valid:false};
   const p=P();
-  const l=parseInt(qS._larg)||0, hh=parseInt(qS._haut)||0;
+  const v2=!!qS.v2&&POR_2V.includes(t);
+  const l=parseInt(qS._larg)||0, l2=v2?(parseInt(qS._larg2)||0):0, hh=parseInt(qS._haut)||0;
   const isCF=HAS_CF.includes(t);
   const gate1=(t==='RIDEAU')?!!qS.rt:(isCF?(!!qS.ep&&!!qS.cf):!!qS.ep);
   const needFerr=HAS_FERR.includes(t);
-  const m=t==='RIDEAU'?(qS.rt==='positif'?RPOS:RNEG):(t==='CHASSIS'?MX_CHASSIS:(isCF?((MX_CF[t]&&MX_CF[t][qS.cf])||{}):(MXP[t]||{})));
-  const res=(l&&hh)?fc(m,l,hh,qS.ferr):null;
+  const m0=t==='RIDEAU'?(qS.rt==='positif'?RPOS:RNEG):(t==='CHASSIS'?MX_CHASSIS:(isCF?((MX_CF[t]&&MX_CF[t][qS.cf])||{}):(MXP[t]||{})));
+  const m=v2?(isCF?((MX_CF_2V[t]&&MX_CF_2V[t][qS.cf])||{}):MX_PPSI_2V):m0; // 2 vantaux : matrice dédiée, clés « 900+500x2000 »
+  const dimsOk=v2?(l>0&&l2>0&&hh>0):(l>0&&hh>0);
+  const res=dimsOk?(v2?fc2v(m,l,l2,hh):fc(m,l,hh,qS.ferr)):null;
   // Dimension hors stock (pas de correspondance exacte) → on invite à saisir le vrai prix
-  const needManual = !!(l&&hh) && (!res || !res.exact);
+  const needManual = dimsOk && (!res || !res.exact);
   const manual = parseFloat(qS._manualPx)||0;
   const manualUsed = needManual && manual>0;
   const achat = manualUsed ? manual : (res?res.p:0);
-  const ref = manualUsed ? (l+'x'+hh) : (res?res.ref:'—');
+  const dimKey=v2?(l+'+'+l2):String(l), dimLabel=dimKey+'×'+hh;
+  const ref = manualUsed ? (dimKey+'x'+hh) : (res?res.ref:'—');
   const pose=POSE_P[t]||0; const opt=optSum(); const pv=(achat+pose+opt)*p.coef;
   let ra=0,raRes=null;
   if(HAS_NEG.includes(t)&&l&&hh){ raRes=fc(RNEG,l,hh); if(raRes) ra=raRes.p; }
   const rideauOn = qS.rideauOn!==false;
   const rideauPv = (HAS_NEG.includes(t)&&rideauOn&&ra)? ra*p.coef : 0;
   const total = pv + rideauPv;
-  const valid=gate1&&l>0&&hh>0&&(!needFerr||!!qS.ferr);
-  return {valid,gate1,needFerr,needManual,manualUsed,t,l,h:hh,res,pose,achat,opt,pv,ra,raRes,rideauOn,rideauPv,total,coef:p.coef,ref};
+  const valid=gate1&&dimsOk&&(!needFerr||!!qS.ferr);
+  return {valid,gate1,needFerr,needManual,manualUsed,t,l,l2,v2,dimsOk,dimKey,dimLabel,h:hh,res,pose,achat,opt,pv,ra,raRes,rideauOn,rideauPv,total,coef:p.coef,ref};
 }
 function porQtyInput(){ const v=parseInt(G('por-qty')?.value); qS.qty=Math.max(1, isNaN(v)?1:v); porPrice(); }
-function porDim(){ const l=G('por-lg'),h=G('por-ht'); if(l)qS._larg=l.value; if(h)qS._haut=h.value; qS._manualPx=''; const mp=G('por-manual-px'); if(mp)mp.value=''; porPrice(); }
+function porDim(){ const l=G('por-lg'),l2=G('por-lg2'),h=G('por-ht'); if(l)qS._larg=l.value; if(l2)qS._larg2=l2.value; if(h)qS._haut=h.value; qS._manualPx=''; const mp=G('por-manual-px'); if(mp)mp.value=''; porPrice(); }
 function porPrice(){
   const t=qS.type; if(!t)return;
   const c=porCalc();
   const hint=G('por-prev-hint');
   if(hint){
-    if(c.l&&c.h){
+    if(c.dimsOk){
       hint.style.display='block';
       if(c.manualUsed){
         hint.textContent=`${fmt(c.achat)} € achat HT — saisi manuellement`;
@@ -5162,7 +5183,7 @@ function porPrice(){
   // Champ prix manuel (dimension hors stock)
   const mw=G('por-manual-wrap');
   if(mw){
-    if(c.needManual){ mw.style.display='flex'; const lb=G('por-manual-lbl'); if(lb) lb.textContent=`Dimension ${c.l}×${c.h} absente du stock — saisis le prix d'achat HT réel (sinon prix approché utilisé). Il sera mémorisé pour la prochaine fois.`; }
+    if(c.needManual){ mw.style.display='flex'; const lb=G('por-manual-lbl'); if(lb) lb.textContent=`Dimension ${c.dimLabel} absente du stock — saisis le prix d'achat HT réel (sinon prix approché utilisé). Il sera mémorisé pour la prochaine fois.`; }
     else mw.style.display='none';
   }
   const sum=G('por-summary'); if(!sum)return;
@@ -5190,7 +5211,8 @@ function porEpChange(v){
   porRender(); // valide (Entrée/clic ailleurs) → déroule ou replie la suite
 }
 function porPick(k,v){
-  if(k==='type'){ if(qS.type!==v){ qS.type=v; delete qS.rt; delete qS.ep; delete qS.cf; delete qS.ferr; delete qS.rideauOn; delete qS._manualPx; qS.options=[]; qS._optPick=null; } }
+  if(k==='type'){ if(qS.type!==v){ qS.type=v; delete qS.rt; delete qS.ep; delete qS.cf; delete qS.ferr; delete qS.rideauOn; delete qS._manualPx; delete qS.v2; delete qS._larg2; qS.options=[]; qS._optPick=null; } }
+  else if(k==='v2'){ const on=(v==='2'); if(!!qS.v2!==on){ qS.v2=on; delete qS._larg2; qS._manualPx=''; } }
   else if(k==='rt'){ qS.rt=v; }
   else if(k==='ep'){ qS.ep=v; }
   else if(k==='cf'){ qS.cf=v; qS._manualPx=''; const mp=G('por-manual-px'); if(mp)mp.value=''; }
@@ -5201,12 +5223,12 @@ function porAdd(){
   const c=porCalc();
   if(!c.valid){alert('Configuration porte incomplète.');return;}
   const piece=(G('por-piece')&&G('por-piece').value||'').trim();
-  if(c.manualUsed){ setMatrixOverride(c.t, qS.rt, c.l, c.h, c.achat, qS.cf); } // mémorise le prix saisi dans la matrice (par durée pour les coupe-feu)
+  if(c.manualUsed){ setMatrixOverride(c.t, qS.rt, c.v2?(c.l+'+'+c.l2):c.l, c.h, c.achat, qS.cf, c.v2); } // mémorise le prix saisi dans la matrice (par durée pour les coupe-feu)
   const wasEdit=(editIdx!=null&&editType==='por'&&items[editIdx]);
   const ref=wasEdit?(items[editIdx].ref||genRefPor()):genRefPor(); // en modification, on garde la référence d'origine
   const optInsts=(qS.options||[]).map(x=>(x&&typeof x==='object')?{ref:x.ref,faces:x.faces,label:x.label,net:x.net}:{ref:x,faces:1,label:optInstLabel(x),net:optNet(x)});
   const optLabels=optInsts.map(o=>o.label);
-  const it={type:'por',qty:Math.max(1,parseInt(qS.qty)||1),subtype:qS.type,ferr:(qS.ferr==='X'?'':(qS.ferr||'')),ep:qS.ep||'',cf:qS.cf||'',ref,label:`${TL[qS.type]||qS.type} — ${c.l}×${c.h}mm${qS.rt?' '+qS.rt:''}`,meta:[qS.cf?`Coupe-feu ${qS.cf}`:null,(qS.ferr&&qS.ferr!=='X')?`Ferrage ${qS.ferr}`:(HAS_FERR.includes(qS.type)?'Sens à définir':null),qS.ep?`Cadre ${qS.ep}mm`:null,optLabels.length?('Options : '+optLabels.join(', ')):null,piece||null].filter(Boolean).join(' | '),achat:c.achat,pose:c.pose,options:optInsts,optAchat:optInsts.reduce((s,o)=>s+(o.net||0),0),optDetail:optLabels.join(' · '),rauto:c.ra||0,rautoDim:c.raRes?(c.raRes.kl+'×'+c.raRes.kh):'',rideauOn:c.rideauOn,piece:piece,_larg:c.l,_haut:c.h};
+  const it={type:'por',qty:Math.max(1,parseInt(qS.qty)||1),subtype:qS.type,ferr:(qS.ferr==='X'?'':(qS.ferr||'')),ep:qS.ep||'',cf:qS.cf||'',ref,v2:!!c.v2,_l1:c.v2?c.l:undefined,_l2:c.v2?c.l2:undefined,label:`${TL[qS.type]||qS.type}${c.v2?' 2 vantaux':''} — ${c.v2?(c.l+'+'+c.l2):c.l}×${c.h}mm${qS.rt?' '+qS.rt:''}`,meta:[qS.cf?`Coupe-feu ${qS.cf}`:null,(qS.ferr&&qS.ferr!=='X')?`Ferrage ${qS.ferr}`:(HAS_FERR.includes(qS.type)?'Sens à définir':null),qS.ep?`Cadre ${qS.ep}mm`:null,optLabels.length?('Options : '+optLabels.join(', ')):null,piece||null].filter(Boolean).join(' | '),achat:c.achat,pose:c.pose,options:optInsts,optAchat:optInsts.reduce((s,o)=>s+(o.net||0),0),optDetail:optLabels.join(' · '),rauto:c.ra||0,rautoDim:c.raRes?(c.raRes.kl+'×'+c.raRes.kh):'',rideauOn:c.rideauOn,piece:piece,_larg:c.v2?(c.l+c.l2):c.l,_haut:c.h};
   if(wasEdit){ items.splice(editIdx,1,it); editIdx=null; editType=null; }
   else items.push(it);
   const persist=c.manualUsed;
@@ -5220,7 +5242,7 @@ function porRideauRef(it){ return (it.ref||'')+'-R'; }
 // Lignes de commande d'une porte : la porte elle-même + son rideau à lanières attaché (s'il est inclus).
 // Même format de cellules pour l'écran « Cmd portes » et le PDF : [Réf, Type, Dimensions, Ferrage, Ép. cadre, Qté, Détails]
 function porCmdRows(it){
-  const rows=[[it.ref||'',porTypeName(it),`${it._larg||''}×${it._haut||''} mm`,porFerrage(it),porCadre(it),String(porQty(it)),porDetails(it)]];
+  const rows=[[it.ref||'',porTypeName(it),porDims(it),porFerrage(it),porCadre(it),String(porQty(it)),porDetails(it)]];
   if(it.rideauOn!==false && it.rauto){
     const dim=porRideauDim(it);
     rows.push([porRideauRef(it),'Rideau à lanières',dim?dim+' mm':'—','—','—',String(porQty(it)),'Pour la porte '+(it.ref||'')]);
@@ -5320,7 +5342,7 @@ function apercuDevisRows(items, travaux, p){
       const q=porQty(it);
       const rPv=(it.rideauOn!==false && it.rauto)? r2(it.rauto*p.coef) : 0;
       const base=r2(cpv(it,p)/q-optLines.reduce((s,o)=>s+o.price,0)-rPv); // ligne porte (unitaire) = total/q moins options moins rideau
-      const sub=[`${it._larg||''}×${it._haut||''} mm`, porMetaNoOpt(it)].filter(Boolean).join(' — ');
+      const sub=[porDims(it), porMetaNoOpt(it)].filter(Boolean).join(' — ');
       h+=row(it.ref||'', porTypeName(it), sub, money(base), q+' u', money(r2(base*q)));
       optLines.forEach(o=>{ h+=`<tr class="ap-opt"><td></td><td><div style="font-size:11px;color:var(--text2);padding-left:16px">↳ ${esc(o.label)}</div></td><td style="font-size:11px;color:var(--text2)">${money(o.price)}</td><td style="font-size:11px;color:var(--text2)">${q} u</td><td style="font-size:11px;color:var(--text2)">${money(r2(o.price*q))}</td></tr>`; });
       if(it.rideauOn!==false && it.rauto){
@@ -5633,7 +5655,7 @@ function genPDF(){
       const dPv=r2(cpv(it,p)/q-optLines.reduce((s,o)=>s+o.price,0)-rPv0); // ligne porte (unitaire) = total/q moins options moins rideau
       // Désignation : type abrégé — dimensions — ferrage — pièce (options en lignes séparées)
       const typeLbl = porTypeName(it);
-      const dims = `${it._larg||''}×${it._haut||''} mm`;
+      const dims = porDims(it);
       const line2 = [dims, porMetaNoOpt(it)].filter(Boolean).join(' — ');
       const desig = typeLbl + (line2 ? '\n' + line2 : '');
       drawRow(it.ref||'P'+String(i+1).padStart(3,'0'), desig, fn(dPv), q+' u', fn(r2(dPv*q)), ri%2===1); ri++;
@@ -6002,12 +6024,12 @@ async function upsertParam(cle,valeur){
   else await sbFetch('/rest/v1/parametres',{method:'POST',body:{cle,valeur},prefer:'return=minimal'});
 }
 function collectMatrices(){
-  return {PCIP:MX_PCIP,PCIN:MX_PCIN,PPIP:MX_PPIP,PPIN:MX_PPIN,PPSI:MX_PPSI,PVV:MX_PVV,PCS:MX_PCS,PPS:MX_PPS,CHASSIS:MX_CHASSIS,RIDEAU_POS:RPOS,RIDEAU_NEG:RNEG};
+  return {PCIP:MX_PCIP,PCIN:MX_PCIN,PPIP:MX_PPIP,PPIN:MX_PPIN,PPSI:MX_PPSI,PVV:MX_PVV,PCS:MX_PCS,PPS:MX_PPS,CHASSIS:MX_CHASSIS,RIDEAU_POS:RPOS,RIDEAU_NEG:RNEG,PPSI_2V:MX_PPSI_2V};
 }
 function applyMatrices(mx){
   if(!mx||typeof mx!=='object') return;
   Object.keys(mx).forEach(k=>{
-    const target=k==='RIDEAU_POS'?RPOS:(k==='RIDEAU_NEG'?RNEG:MXP[k]);
+    const target=k==='RIDEAU_POS'?RPOS:(k==='RIDEAU_NEG'?RNEG:(k==='PPSI_2V'?MX_PPSI_2V:MXP[k]));
     if(target&&mx[k]&&typeof mx[k]==='object'){
       Object.keys(target).forEach(kk=>delete target[kk]); // remplace intégralement (les objets existants restent référencés partout)
       Object.assign(target,mx[k]);
