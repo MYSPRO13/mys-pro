@@ -2480,6 +2480,7 @@ function poseGlobale(){
       if(it.accId==='bastaing'){ total+=(it.poseUnit!=null?it.poseUnit:(BASTAING[it.mode]||BASTAING.sh).pose)*(it.qty||0); }
       else if(it.accId==='iso_sol'){ total+=ISO_SOL.pose*(it.qty||0); }
       else if(it.accId==='sol_phen'){ total+=solPhenPx().poseTot*(it.qty||0); } // pose du sol + pose des chevrons
+      else if(it.accId==='lisse'){ const pose=getAccPx('lisse').pose; if(pose>0) total+=pose*(it.qty||0)*(it.niv||1); } // pose au ml de lisse : ml de paroi × niveaux
       else { const pose=getAccPx(it.accId||it._accId||it.id||'').pose;if(pose>0)total+=pose*(it.qty||1); }
     }
   });
@@ -3045,7 +3046,7 @@ function cpv(it,p){
     if(it.accId==='te_reprise') return teReprisePrix(it.ml||0, it.hauteur||0, p).total;
     if(it.accId==='lisse'){ const px=getAccPx('lisse');
       // Lisse PVC : achat par BARRE de 3 m, pose par ML. Chiffrée au ml (unit='ml') ; anciens items = à la barre.
-      if(it.unit==='ml') return r2(r2((px.achat/3 + px.pose)*p.coef)*(it.qty||0));
+      if(it.unit==='ml') return r2(r2(r2((px.achat/3 + px.pose)*p.coef)*(it.niv||1))*(it.qty||0)); // prix au ml de paroi : haute + basse = × 2 (anciens items sans niv : qty = ml de lisse)
       return r2(r2(px.achat*p.coef)*(it.qty||1));
     }
     if(it.accId==='bastaing'){ const v=(it.pxUnit!=null?it.pxUnit:(BASTAING[it.mode]||BASTAING.sh).vente); return r2(v*(it.qty||0)); }
@@ -3079,7 +3080,7 @@ function calcMarge(p, remiseMontant){
         else { vFlou+=v; flou.push('Té de reprise (prix accessoires non renseignés)'); }
       } else if(it.accId==='lisse'){
         const px=getAccPx('lisse');
-        if(px.achat>0){ vFerme+=v; cFerme += (it.unit==='ml' ? (px.achat/3 + px.pose)*(it.qty||0) : px.achat*(it.qty||1)); }
+        if(px.achat>0){ vFerme+=v; cFerme += (it.unit==='ml' ? (px.achat/3 + px.pose)*(it.qty||0)*(it.niv||1) : px.achat*(it.qty||1)); }
         else { vFlou+=v; flou.push('Lisse de protection (achat non renseigné)'); }
       } else if(it.accId==='bastaing'){
         const b=BASTAING[it.mode]||BASTAING.sh;
@@ -3388,7 +3389,7 @@ function calcIsoSol(){
   const puVente=r2((ISO_SOL.achat+ISO_SOL.pose)*((P().coef)||1.5));
   r.innerHTML=`${fmt(surf)} m² sol × 2 couches = ${fmt(boardM2)} m² isolant → ${colis} colis (${colis*ISO_SOL.plaquesParColis} plaques 80 mm) | ${fmt(puVente)} €/m² → <b>${fmt(r2(puVente*surf))} € HT</b>`;
 }
-function calcLisse(){const ml=parseFloat(G('af-ml')?.value)||0;const niv=parseInt(G('af-niv')?.value)||1;const totMl=ml*niv;const nb=Math.ceil(totMl/3);const px=getAccPx('lisse');const puMl=r2((px.achat/3+px.pose)*((P().coef)||1.5));const r=G('af-res-lisse');if(r)r.innerHTML=`${fmt(totMl)} ml${niv>1?` (${ml} × ${niv} niv.)`:''} → ${nb} barre${nb>1?'s':''} 3m | ~${fmt(puMl)} €/ml | ${nb*2} cache-vis + ${nb*2} embouts`;}
+function calcLisse(){const ml=parseFloat(G('af-ml')?.value)||0;const niv=parseInt(G('af-niv')?.value)||1;const totMl=ml*niv;const nb=Math.ceil(totMl/3);const px=getAccPx('lisse');const puMl=r2((px.achat/3+px.pose)*((P().coef)||1.5));const r=G('af-res-lisse');if(r)r.innerHTML=`${niv>1?`${fmt(ml)} ml de paroi × ${niv} niveaux = ${fmt(totMl)} ml de lisse`:`${fmt(totMl)} ml`} → ${nb} barre${nb>1?'s':''} 3m | ${fmt(puMl)} €/ml de lisse${niv>1?` → ${fmt(r2(puMl*niv))} €/ml de paroi`:''} | ${nb*2} cache-vis + ${nb*2} embouts`;}
 // ══ SOL PHÉNOLIQUE — optimiseur de plaques (1,2 m de large × 2/2,2/2,4/2,6/2,8/3 m) ══
 // Modèle ruban : chaque rangée fait 1,2 m de large ; on couvre la longueur avec un mélange
 // de plaques, chute mini, réutilisation d'une chute uniquement si elle fait ≥ 1 m (Clément).
@@ -3637,7 +3638,7 @@ function accAdd(){
   if(pid==='soupape'){qty=parseInt(G('af-qty')?.value)||1;vol=parseFloat(G('af-soup-vol')?.value)||0;meta=`${qty} unité${qty>1?'s':''}`;}
   else if(pid==='ecrou_pom'){qty=parseInt(G('af-qty')?.value)||1;unit='u';label='Pose écrou POM pour reprise plafond';meta=`${qty} point${qty>1?'s':''} de suspension — tige filetée + écrou POM traversant`;}
   else if(['trappe','silicone'].includes(pid)){qty=parseInt(G('af-qty')?.value)||1;meta=`${qty} unité${qty>1?'s':''}`;}
-  else if(pid==='lisse'){const ml=parseFloat(G('af-ml')?.value)||0;const niv=parseInt(G('af-niv')?.value)||1;const totMl=ml*niv;const barres=Math.ceil(totMl/3);qty=totMl;unit='ml';nbU=barres;meta=`${fmt(totMl)} ml${niv>1?` (${ml} × ${niv} niv.)`:''} — ${barres} barre${barres>1?'s':''} 3m`;}
+  else if(pid==='lisse'){const ml=parseFloat(G('af-ml')?.value)||0;const niv=parseInt(G('af-niv')?.value)||1;const totMl=ml*niv;const barres=Math.ceil(totMl/3);qty=ml;unit='ml';nbU=barres;extra.niv=niv;extra.mlLisse=totMl;if(niv>1)label+=' haute et basse';meta=niv>1?`${fmt(ml)} ml de paroi × ${niv} niveaux = ${fmt(totMl)} ml de lisse — ${barres} barre${barres>1?'s':''} 3m`:`${fmt(totMl)} ml — ${barres} barre${barres>1?'s':''} 3m`;} // qty = ml de PAROI ; le prix au ml est multiplié par le nombre de niveaux dans cpv
   else if(pid==='sol_phen'){const out=solResult();if(!out){alert((G('af-sol-mode')?.value)==='surf'?'Saisir la surface.':'Saisir la longueur et la largeur.');return;}qty=out.qty;nbU=out.nb;unit='m²';meta=out.meta;cmdDetail=out.cmdDetail;extra.solMix=(out.mode==='dim'&&out.res)?Object.assign({},out.res.plaques):{3:out.nb};extra.solMode=out.mode;extra.solL=out.L||0;extra.solW=out.l||0;}
   else if(pid==='brio'){const ml=parseFloat(G('af-brio-ml')?.value)||0;const ep=G('af-brio-ep')?.value;const h=G('af-brio-h')?.value;qty=Math.ceil(Math.round(ml/1.22*1e10)/1e10);meta=`${qty} panneaux BRIO ${ep}mm × ${(parseInt(h)/1000).toFixed(2)}m`;}
   else if(pid==='tole'){const out=toleResult();if(!out){alert((G('af-tole-mode')?.value)==='surf'?'Saisir la surface.':'Saisir la longueur et la largeur.');return;}qty=out.qty;nbU=out.nb;unit='m²';meta=out.meta;cmdDetail=out.cmdDetail;extra.toleFmt=out.fmt.k;extra.toleMode=out.mode;extra.toleL=out.L||0;extra.toleW=out.l||0;}
