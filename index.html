@@ -5596,8 +5596,12 @@ function genPDF(){
     const maxDesigW=COL_W[1]-4-ind;
     sf(false,fs,small?GREY:DGREY); // police posée AVANT le découpage → largeur de wrap correcte
     const desigLines=String(desig||'').split('\n').flatMap(l=>doc.splitTextToSize(l, maxDesigW));
-    const rh=Math.max(small?4.6:6.5, desigLines.length*(small?3.3:4.2)+(small?1.2:2));
-    const by=small?3.4:4.3; // ligne de base du texte
+    // Hauteur de ligne : une porte suivie d'options (noLine) perd son marge basse, et l'option vient se coller juste dessous ;
+    // la dernière option (trait dessous) reprend la marge basse d'une ligne normale pour fermer le bloc.
+    const rh = small
+      ? Math.max(noLine?3.9:5.2, desigLines.length*3.3+(noLine?0.6:1.9))
+      : (noLine ? desigLines.length*4.2+1.0 : Math.max(6.5, desigLines.length*4.2+2));
+    const by=small?2.8:4.3; // ligne de base du texte
     if(y>265){doc.addPage();y=15;drawTableHeader();}
     if(alt) fillR(ML, y, TW, rh, ROWALT);
     sf(false,6.5,GREY); doc.text(String(ref||''), ML+2, y+by);
