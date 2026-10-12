@@ -5320,7 +5320,7 @@ function apercuDevisRows(items, travaux, p){
       const base=r2(cpv(it,p)/q-optLines.reduce((s,o)=>s+o.price,0)-rPv); // ligne porte (unitaire) = total/q moins options moins rideau
       const sub=[`${it._larg||''}×${it._haut||''} mm`, porMetaNoOpt(it)].filter(Boolean).join(' — ');
       h+=row(it.ref||'', porTypeName(it), sub, money(base), q+' u', money(r2(base*q)));
-      optLines.forEach(o=>{ h+=`<tr class="ap-opt"><td></td><td><div style="font-size:11px;color:var(--text2);padding-left:16px">↳ ${esc(o.label)}</div></td><td style="font-size:11px;color:var(--text2)">${money(o.price)}</td><td style="font-size:11px;color:var(--text2)">1 u</td><td style="font-size:11px;color:var(--text2)">${money(o.price)}</td></tr>`; });
+      optLines.forEach(o=>{ h+=`<tr class="ap-opt"><td></td><td><div style="font-size:11px;color:var(--text2);padding-left:16px">↳ ${esc(o.label)}</div></td><td style="font-size:11px;color:var(--text2)">${money(o.price)}</td><td style="font-size:11px;color:var(--text2)">${q} u</td><td style="font-size:11px;color:var(--text2)">${money(r2(o.price*q))}</td></tr>`; });
       if(it.rideauOn!==false && it.rauto){
         const rDim=porRideauDim(it);
         h+=row(porRideauRef(it), 'Rideau à lanières', rDim?rDim+' mm':'', money(rPv), q+' u', money(r2(rPv*q)));
