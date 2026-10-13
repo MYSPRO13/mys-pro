@@ -3814,8 +3814,12 @@ function metreCalc(){
     if(ml>0) add('chevron_pvc',Math.ceil(ml/3),`${ml.toFixed(1)} ml (périmètre + rangées tous les ${f.chevronEsp||40} cm) ÷ 3`,{cond:'barre'}); }
   // Soupapes (par volume) + tampons
   const vInf=[], vSup=[]; metreAllChambres().forEach((c,i)=>{ const v=c.vol||0; if(v<=0) return; (v<75?vInf:vSup).push(`chambre ${i+1} : ${fmt(v)} m³`); });
-  add('soupape_inf75',vInf.length,`${vInf.join(' · ')} (< 75 m³, 1 soupape par chambre)`,{noMarge:true});
-  add('soupape_sup75',vSup.length,`${vSup.join(' · ')} (75 m³ et plus, 1 soupape par chambre)`,{noMarge:true});
+  // Soupapes déjà saisies au devis (Produits complémentaires › Équipements) : elles remplacent l'automatique, pas de doublon
+  let mInf=0, mSup=0; items.forEach(it=>{ if(it.type==='acc'&&it.accId==='soupape'){ const q=parseInt(it.qty)||1; if((parseFloat(it.vol)||0)>=75) mSup+=q; else mInf+=q; } });
+  let nInf=vInf.length-mInf, nSup=vSup.length-mSup; if(nInf<0){ nSup+=nInf; nInf=0; } if(nSup<0){ nInf+=nSup; nSup=0; } nInf=Math.max(0,nInf); nSup=Math.max(0,nSup);
+  const mTot=mInf+mSup, mTxt=mTot?` − ${mTot} saisie${mTot>1?'s':''} au devis`:'';
+  add('soupape_inf75',nInf,`${vInf.join(' · ')} (< 75 m³, 1 soupape par chambre)${mTxt}`,{noMarge:true});
+  add('soupape_sup75',nSup,`${vSup.join(' · ')} (75 m³ et plus, 1 soupape par chambre)${mTxt}`,{noMarge:true});
   if(d.nbPortes>10) add('tampon_porte',d.nbPivot,`${d.nbPivot} portes pivotantes (projet > 10 portes)`,{noMarge:true});
   // Arrondi + marge
   const lines=L.map(x=>{ let q=x.noMarge?x.theo:x.theo*(1+marge), finale, cl='';
