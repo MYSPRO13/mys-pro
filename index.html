@@ -869,6 +869,15 @@ body {
 .cmdacc-fou-name { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--blue); }
 .cmdacc-fou-count { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; }
 .cmdacc-warn-fou { font-size: 10px; color: var(--orange); margin-left: 8px; font-weight: 500; text-transform: none; letter-spacing: 0; }
+.cmdacc-fou.drop-ok { outline: 2px dashed var(--magenta); outline-offset: 2px; background: var(--magenta-light); }
+.cmdacc-dropzone { display: none; font-size: 10px; color: var(--magenta); font-family: 'DM Sans', sans-serif; margin-left: 6px; }
+.cmdacc-fou.drop-ok .cmdacc-dropzone { display: inline; }
+.cmdacc-table tr[draggable] { cursor: grab; }
+.cmdacc-table tr.dragging { opacity: .45; }
+.cmdacc-grip { color: var(--text3); font-size: 11px; margin-right: 6px; letter-spacing: -2px; cursor: grab; user-select: none; }
+.cmdacc-move { margin-left: 6px; font-size: 10.5px; padding: 1px 2px; border: 1px solid transparent; border-radius: 4px; background: transparent; color: var(--text3); cursor: pointer; max-width: 28px; font-family: 'DM Sans', sans-serif; vertical-align: middle; }
+.cmdacc-move:hover, .cmdacc-move:focus { border-color: var(--border); color: var(--blue); max-width: none; background: var(--surface); outline: none; }
+.cmdacc-moved { font-size: 9.5px; font-weight: 600; color: var(--orange); background: var(--orange-light); border-radius: 999px; padding: 1px 6px; margin-left: 6px; white-space: nowrap; }
 .me-missing td { font-size: 12px; color: var(--text2); background: rgba(245,158,11,.06); }
 .cmdacc-table { background: var(--surface); border-radius: var(--radius-sm); }
 .cmdacc-table td, .cmdacc-table th { padding: 5px 8px; }
@@ -3684,13 +3693,13 @@ function accQtyChange(i,d){if(items[i]){items[i].qty=Math.max(1,(items[i].qty||1
 // Déduit les quantités de consommables/finitions du contenu du devis + quelques
 // mesures de chantier saisies au passage en commande. Sert UNIQUEMENT à la
 // commande (jamais facturé — le coût est dans le paramètre « Accessoires €/m² »).
-let METRE={ sepa:0, cornFinH:0, angIntPos:0, angIntNeg:0, angExt:0, margeOverride:'', chevronEsp:40, chambres:[], overrides:{}, volDevis:{} };
+let METRE={ sepa:0, cornFinH:0, angIntPos:0, angIntNeg:0, angExt:0, margeOverride:'', chevronEsp:40, chambres:[], overrides:{}, volDevis:{}, fouOverride:{} }; // fouOverride : ligne du métré → fournisseur choisi pour ce devis
 // Le métré chantier (+ regroupement des commandes + supports bastaing) est PROPRE AU DEVIS : enregistré dans params.metre,
 // rechargé avec le devis, remis à zéro sur un nouveau devis, mémorisé dans le brouillon local.
-function metreDefaults(){ return { sepa:0, cornFinH:0, angIntPos:0, angIntNeg:0, angExt:0, margeOverride:'', chevronEsp:40, chambres:[], overrides:{}, volDevis:{} }; }
+function metreDefaults(){ return { sepa:0, cornFinH:0, angIntPos:0, angIntNeg:0, angExt:0, margeOverride:'', chevronEsp:40, chambres:[], overrides:{}, volDevis:{}, fouOverride:{} }; }
 function metrePayload(){
   return { sepa:METRE.sepa, cornFinH:METRE.cornFinH, angIntPos:METRE.angIntPos, angIntNeg:METRE.angIntNeg, angExt:METRE.angExt,
-    margeOverride:METRE.margeOverride, chevronEsp:METRE.chevronEsp, chambres:METRE.chambres||[], overrides:METRE.overrides||{}, volDevis:METRE.volDevis||{},
+    margeOverride:METRE.margeOverride, chevronEsp:METRE.chevronEsp, chambres:METRE.chambres||[], overrides:METRE.overrides||{}, volDevis:METRE.volDevis||{}, fouOverride:METRE.fouOverride||{},
     bast:{nbH:(typeof BAST_CMD!=='undefined')?BAST_CMD.nbH:'', nbU:(typeof BAST_CMD!=='undefined')?BAST_CMD.nbU:''}, cmdMode:(typeof CMDACC_MODE!=='undefined')?CMDACC_MODE:'auto' };
 }
 function metreLoad(m){
@@ -3702,6 +3711,7 @@ function metreLoad(m){
     d.chambres=Array.isArray(m.chambres)?m.chambres.map(c=>({l:parseFloat(c.l)||0,w:parseFloat(c.w)||0,vol:parseFloat(c.vol)||0})):[];
     d.overrides=(m.overrides&&typeof m.overrides==='object')?Object.assign({},m.overrides):{};
     d.volDevis=(m.volDevis&&typeof m.volDevis==='object')?Object.assign({},m.volDevis):{};
+    d.fouOverride=(m.fouOverride&&typeof m.fouOverride==='object')?Object.assign({},m.fouOverride):{};
   }
   METRE=d;
   if(typeof BAST_CMD!=='undefined'){ BAST_CMD.nbH=(m&&m.bast&&m.bast.nbH!=null)?m.bast.nbH:''; BAST_CMD.nbU=(m&&m.bast&&m.bast.nbU!=null)?m.bast.nbU:''; }
@@ -3829,7 +3839,7 @@ function metreCalc(){
     else { finale=Math.ceil(q); cl=''; }
     const def=accById(x.id)||{};
     const ov=f.overrides[x.id];
-    return {id:x.id, nom:def.nom||x.id, fou:def.fou||'(non attribué)', u:def.u||'', theo:x.theo, finale, affiche:(ov!=null&&ov!=='')?parseFloat(ov):finale, cond:cl, formule:x.formule, noMarge:x.noMarge, override:(ov!=null&&ov!=='')};
+    return {id:x.id, nom:def.nom||x.id, fou:(METRE.fouOverride&&METRE.fouOverride[x.id])||def.fou||'(non attribué)', fouDef:def.fou||'(non attribué)', u:def.u||'', theo:x.theo, finale, affiche:(ov!=null&&ov!=='')?parseFloat(ov):finale, cond:cl, formule:x.formule, noMarge:x.noMarge, override:(ov!=null&&ov!=='')};
   });
   return {marge, data:d, lines};
 }
@@ -3897,7 +3907,8 @@ function fouFind(nom){
   const k=fouNorm(nom); if(!k) return null;
   return FOU.find(f=>fouNorm(f.nom)===k) || FOU.find(f=>{ const m=fouNorm(f.nom); return m.length>=3&&k.length>=3&&(m.startsWith(k)||k.startsWith(m)); }) || null;
 }
-function accCmdFou(it){ const id=it.accId; if(id==='te_reprise') return 'Fixone'; if(id==='iso_sol') return 'Roofmart'; const def=accById(id)||{}; return def.fou||'(non attribué)'; }
+function accCmdFou(it){ if(it&&it.fouOverride) return it.fouOverride; return accCmdFouDef(it); } // réaffectation propre au devis (glisser-déposer en Commandes › Accessoires)
+function accCmdFouDef(it){ const id=it.accId; if(id==='te_reprise') return 'Fixone'; if(id==='iso_sol') return 'Roofmart'; const def=accById(id)||{}; return def.fou||'(non attribué)'; }
 // Lignes de commande d'un complément : [désignation, quantité, détail]. Plusieurs lignes quand il faut détailler :
 // Té de reprise pièce par pièce, panneaux de sol par longueur, tôle larmée avec son format.
 function accCmdLines(it){
@@ -3928,6 +3939,27 @@ function accCmdLines(it){
   return [[it.label, cmdAccQty(it), (it.cmdDetail||accDetail(it)||'')]];
 }
 function cmdAccQty(it){ return it.accId==='te_reprise'?((it.ml||0)+' ml'):it.accId==='sol_phen'?((it.nbU||0)+' unité'+((it.nbU||0)>1?'s':'')):it.accId==='iso_sol'?((it.nbU||0)+' colis'):it.accId==='lisse'?((it.nbU||0)+' barre'+((it.nbU||0)>1?'s':'')+' 3m'):String(it.nbU||it.qty||1); }
+// ── Réaffectation d'une ligne à un autre fournisseur, pour ce devis seulement ──
+// clé 'm:<id de ligne du métré>' ou 'd:<index de l'article du devis>' ; fou vide = retour au fournisseur du catalogue
+// Nom canonique d'un fournisseur : celui du catalogue (ex. « Celtek ») même si la base Fournisseurs l'écrit « CELTEK »
+function cmdAccCanon(name){ name=String(name||'').trim(); if(!name) return ''; const n=fouNorm(name); const known=[...new Set(ACC_DEFAULTS.map(a=>a.fou).filter(Boolean).concat(['Fixone','Roofmart']))]; return known.find(k=>fouNorm(k)===n)||name; }
+function cmdAccSetFou(key, fou){
+  fou=cmdAccCanon(fou);
+  if(key.startsWith('m:')){ const id=key.slice(2); METRE.fouOverride=METRE.fouOverride||{}; if(!fou) delete METRE.fouOverride[id]; else METRE.fouOverride[id]=fou; }
+  else if(key.startsWith('d:')){ const it=items[parseInt(key.slice(2))]; if(!it) return; if(!fou) delete it.fouOverride; else it.fouOverride=fou; }
+  metreTouched(); refreshAll(); showToast(fou?('Ligne déplacée chez '+fou):'Ligne remise chez son fournisseur');
+}
+function cmdAccFouOptions(current, def){
+  const names=new Set(); (typeof FOU!=='undefined'?FOU:[]).forEach(f=>{ if(f&&f.nom) names.add(f.nom); });
+  ['Celtek','Fixone','Sil3tec','FIC','Plastiques des Neiges','Arcelor','Acora','MDE','Roofmart'].forEach(n=>names.add(n));
+  const seen=new Set(); const list=[...names].map(cmdAccCanon).filter(n=>{ const k=fouNorm(n); if(seen.has(k)||k===fouNorm(current)) return false; seen.add(k); return true; }).sort((a,b)=>a.localeCompare(b));
+  return `<option value="">⇄</option>`+(def&&def!==current?`<option value="">↺ remettre chez ${esc(def)}</option>`:'')+list.map(n=>`<option value="${esc(n)}">→ ${esc(n)}</option>`).join('');
+}
+function cmdAccDragStart(ev,key){ try{ ev.dataTransfer.setData('text/plain',key); ev.dataTransfer.effectAllowed='move'; }catch(e){} ev.currentTarget.classList.add('dragging'); }
+function cmdAccDragEnd(ev){ ev.currentTarget.classList.remove('dragging'); document.querySelectorAll('.cmdacc-fou.drop-ok').forEach(e=>e.classList.remove('drop-ok')); }
+function cmdAccDragOver(ev){ ev.preventDefault(); try{ ev.dataTransfer.dropEffect='move'; }catch(e){} ev.currentTarget.classList.add('drop-ok'); }
+function cmdAccDragLeave(ev){ if(!ev.currentTarget.contains(ev.relatedTarget)) ev.currentTarget.classList.remove('drop-ok'); }
+function cmdAccDrop(ev,fou){ ev.preventDefault(); ev.currentTarget.classList.remove('drop-ok'); let key=''; try{ key=ev.dataTransfer.getData('text/plain'); }catch(e){} if(key) cmdAccSetFou(key,fou); }
 function metreRenderResults(){
   const el=G('metre-results'); if(!el) return;
   const r=metreCalc(), bd=bastCmdData();
@@ -3941,15 +3973,18 @@ function metreRenderResults(){
   const nbLignes=r.lines.length+manual.reduce((t,it)=>t+accCmdLines(it).length,0)+(bd.has?4:0);
   const fouConnu=f=>f==='(non attribué)'||!!fouFind(f);
   let h=`<section class="dep-step">
-    <div class="dep-step-head"><span class="dep-step-n">2</span><div><div class="dep-step-title">Quantités à commander</div><div class="dep-step-hint">Calculées depuis le devis et le métré, regroupées par fournisseur. Une quantité se corrige à la main (bord orange = corrigée).</div></div><span class="dep-step-total">${nbLignes} ligne${nbLignes>1?'s':''}</span></div>`;
+    <div class="dep-step-head"><span class="dep-step-n">2</span><div><div class="dep-step-title">Quantités à commander</div><div class="dep-step-hint">Calculées depuis le devis et le métré, regroupées par fournisseur. Une quantité se corrige à la main (bord orange = corrigée). Pour commander une ligne ailleurs, glisse-la dans le bloc d'un autre fournisseur ou utilise le menu ⇄ : le choix ne vaut que pour ce devis.</div></div><span class="dep-step-total">${nbLignes} ligne${nbLignes>1?'s':''}</span></div>`;
   if(!fous.length && !bd.has) h+=`<div class="trv-empty">Rien à commander pour l'instant : ajoute des panneaux ou des compléments au devis.</div>`;
   const thead=`<thead><tr><th>Désignation</th><th>Calcul</th><th class="c-q">Quantité</th><th>Cond.</th></tr></thead>`;
   fous.forEach(fou=>{
     const g=groups[fou]; const n=g.metre.length+g.devis.reduce((t,it)=>t+accCmdLines(it).length,0);
     const alerte=fouConnu(fou)?'':`<span class="cmdacc-warn-fou" title="Ce nom n'existe pas dans Fournisseurs : ajoute-le avec cette orthographe pour que son adresse sorte sur la fiche">⚠ absent de Fournisseurs</span>`;
-    h+=`<div class="cmdacc-fou"><div class="cmdacc-fou-head"><span class="cmdacc-fou-name">${esc(fou)}${alerte}</span><span class="cmdacc-fou-count">${n} ligne${n>1?'s':''}</span></div><table class="dep-table cmdacc-table">${thead}<tbody>`;
-    g.metre.forEach(L=>{ h+=`<tr><td class="cmdacc-nom">${esc(L.nom)}</td><td class="cmdacc-calc">${esc(L.formule)}${L.noMarge?'':' · +marge'} → ${L.finale}</td><td class="c-q"><input type="number" class="dep-in cmdacc-q${L.override?' is-ov':''}" value="${L.affiche}" oninput="metreOverride('${L.id}',this.value);metreBadge('${L.id}',this)"></td><td class="cmdacc-cond">${esc(L.cond||L.u)}</td></tr>`; });
-    g.devis.forEach(it=>{ accCmdLines(it).forEach((c,ci)=>{ h+=`<tr><td class="cmdacc-nom">${esc(c[0])}${ci===0?' <span class="cmdacc-src">devis</span>':''}</td><td class="cmdacc-calc">${esc(c[2])}</td><td class="c-q cmdacc-fixed">${esc(c[1])}</td><td></td></tr>`; }); });
+    const fouAttr=esc(fou).replace(/'/g,'&#39;');
+    h+=`<div class="cmdacc-fou" data-fou="${fouAttr}" ondragover="cmdAccDragOver(event)" ondragleave="cmdAccDragLeave(event)" ondrop="cmdAccDrop(event,'${fouAttr}')"><div class="cmdacc-fou-head"><span class="cmdacc-fou-name">${esc(fou)}${alerte}</span><span class="cmdacc-fou-count">${n} ligne${n>1?'s':''} <span class="cmdacc-dropzone">glisser ici</span></span></div><table class="dep-table cmdacc-table">${thead}<tbody>`;
+    const moveCtl=(key,cur,def)=>`<select class="cmdacc-move" title="Déplacer cette ligne chez un autre fournisseur (pour ce devis)" onchange="cmdAccSetFou('${key}',this.value)">${cmdAccFouOptions(cur,def)}</select>`;
+    const movedTag=(cur,def)=>(def&&def!==cur)?`<span class="cmdacc-moved" title="Fournisseur habituel : ${esc(def)}">déplacé · ex ${esc(def)}</span>`:'';
+    g.metre.forEach(L=>{ const key='m:'+L.id; h+=`<tr draggable="true" ondragstart="cmdAccDragStart(event,'${key}')" ondragend="cmdAccDragEnd(event)"><td class="cmdacc-nom"><span class="cmdacc-grip" title="Glisser vers un autre fournisseur">⋮⋮</span>${esc(L.nom)}${movedTag(L.fou,L.fouDef)}${moveCtl(key,L.fou,L.fouDef)}</td><td class="cmdacc-calc">${esc(L.formule)}${L.noMarge?'':' · +marge'} → ${L.finale}</td><td class="c-q"><input type="number" class="dep-in cmdacc-q${L.override?' is-ov':''}" value="${L.affiche}" oninput="metreOverride('${L.id}',this.value);metreBadge('${L.id}',this)"></td><td class="cmdacc-cond">${esc(L.cond||L.u)}</td></tr>`; });
+    g.devis.forEach(it=>{ const key='d:'+items.indexOf(it), def=accCmdFouDef(it); accCmdLines(it).forEach((c,ci)=>{ h+=`<tr${ci===0?` draggable="true" ondragstart="cmdAccDragStart(event,'${key}')" ondragend="cmdAccDragEnd(event)"`:''}><td class="cmdacc-nom">${ci===0?'<span class="cmdacc-grip" title="Glisser vers un autre fournisseur">⋮⋮</span>':''}${esc(c[0])}${ci===0?' <span class="cmdacc-src">devis</span>'+movedTag(fou,def)+moveCtl(key,fou,def):''}</td><td class="cmdacc-calc">${esc(c[2])}</td><td class="c-q cmdacc-fixed">${esc(c[1])}</td><td></td></tr>`; }); });
     h+=`</tbody></table></div>`;
   });
   if(bd.has){
