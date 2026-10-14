@@ -3774,13 +3774,15 @@ function metreDevisData(){
   const pans=items.filter(i=>i.type==='pan'), pors=items.filter(i=>i.type==='por');
   const clois=pans.filter(p=>p.paroi==='Cloison'), plaf=pans.filter(p=>p.paroi==='Plafond'), sols=pans.filter(p=>p.paroi==='Sol négatif');
   const sum=(a,f)=>a.reduce((s,x)=>s+(parseFloat(f(x))||0),0);
-  const mlByEp={}; clois.forEach(p=>{ const e=parseInt(p.ep)||0; mlByEp[e]=(mlByEp[e]||0)+(parseFloat(p._ml)||0); });
-  const mlPos=Object.keys(mlByEp).filter(e=>+e<100).reduce((s,e)=>s+mlByEp[e],0);
+  // mlByEp alimente le U de sol / la cornière galva : le BRIO (collé) en est exclu — pas de U ni de chevilles (règle Clément 14/10/2026)
+  const mlByEp={}; clois.filter(p=>p.mousse!=='BRIO').forEach(p=>{ const e=parseInt(p.ep)||0; mlByEp[e]=(mlByEp[e]||0)+(parseFloat(p._ml)||0); });
+  const mlBrio=sum(clois.filter(p=>p.mousse==='BRIO'),p=>p._ml); // compté dans le pourtour positif : plinthe, congé d'angle, supports
+  const mlPos=Object.keys(mlByEp).filter(e=>+e<100).reduce((s,e)=>s+mlByEp[e],0)+mlBrio;
   const mlNeg=Object.keys(mlByEp).filter(e=>+e>=100).reduce((s,e)=>s+mlByEp[e],0);
   const PIVOT=['PPIP','PPIN','PPSI','PPSI_CF','PPIP_CF'];
   return {
     surfCloison:sum(clois,p=>p.surf), surfPlafond:sum(plaf,p=>p.surf), surfSol:sum(sols,p=>p.surf), surfTot:sum(pans,p=>p.surf),
-    nbPan:sum(pans,p=>p.nbPan), mlByEp, mlPos, mlNeg,
+    nbPan:sum(pans,p=>p.nbPan), mlByEp, mlPos, mlNeg, mlBrio,
     hMax:Math.max(2.5,...clois.map(p=>parseFloat(p._h)||0)),
     epMax:Math.max(0,...clois.map(p=>parseInt(p.ep)||0)),
     surfBrio:sum(pans.filter(p=>p.mousse==='BRIO'),p=>p.surf),
