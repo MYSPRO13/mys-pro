@@ -2956,7 +2956,9 @@ const ACC_PX_MAP={te_systeme:'te', mousse_pu:'mousse', usol:'u_sol', ecrou_pom:'
 const ACC_PX_STORE={};
 function accPxRead(pref,id){ const v=ACC_PX_STORE[pref+'_'+id]; return v==null?'':v; }
 function accPxWrite(pref,id,val){ ACC_PX_STORE[pref+'_'+id]=(val===''||val==null)?'':val; }
-function accPxNum(pref,id){ const v=parseFloat(ACC_PX_STORE[pref+'_'+id]); if(!isNaN(v)) return v; const a=ACC_DEFAULTS.find(x=>x.id===id); const d=a?(pref==='a'?a.defA:a.defP):null; return (d!=null&&!isNaN(parseFloat(d)))?parseFloat(d):0; } // vide dans Paramètres → défaut du catalogue (defA/defP) s'il existe
+function accPxNum(pref,id){ // vide OU 0 dans Paramètres → défaut du catalogue (defA/defP) quand la ligne en a un ; sinon la valeur saisie (0 compris)
+  const a=ACC_DEFAULTS.find(x=>x.id===id); const d=a?(pref==='a'?a.defA:a.defP):null; const hasDef=(d!=null&&!isNaN(parseFloat(d)));
+  const v=parseFloat(ACC_PX_STORE[pref+'_'+id]); if(!isNaN(v)&&(v>0||!hasDef)) return v; return hasDef?parseFloat(d):0; }
 function getAccPx(id){ id=ACC_PX_MAP[id]||id; return { achat: accPxNum('a',id), pose: accPxNum('p',id) }; }
 
 // Familles repliées par défaut, sauf celles où il reste des prix à saisir
@@ -2997,7 +2999,7 @@ function initAccPrices(){
         const inp=document.createElement('input');
         inp.type='number'; inp.id='acc-'+pref+'-'+a.id; inp.step='0.01';
         inp.value = accPxRead(pref,a.id);
-        { const d=(pref==='a'?a.defA:a.defP); if(d!=null){ inp.placeholder=String(d); inp.title='Vide = défaut '+d+' €'; } }
+        { const d=(pref==='a'?a.defA:a.defP); if(d!=null){ inp.placeholder=String(d); inp.title='Vide = défaut '+d+' €'; if(!(parseFloat(inp.value)>0)) inp.value=''; } } // un 0 enregistré par erreur s'affiche vide : c'est le défaut qui s'applique
         inp.className='sr-input'; inp.style.cssText='width:68px;font-size:11px';
         inp.oninput=()=>{ accPxWrite(pref,a.id,inp.value); refreshAll(); };
         td.appendChild(inp); return td;
