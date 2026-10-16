@@ -1039,6 +1039,17 @@ select.dx-pill { cursor: pointer; border: none; outline: none; -webkit-appearanc
 }
 .sort-btn.active { background: var(--blue-light); color: var(--blue); border-color: var(--blue-mid); }
 .clients-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; margin-bottom: 1.25rem; }
+.cli-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: .75rem; }
+.cli-chip { border: 1px solid var(--border); background: var(--surface); color: var(--text2); border-radius: 999px; padding: 4px 11px; font-size: 12px; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all .15s; }
+.cli-chip:hover { border-color: var(--blue); color: var(--blue); }
+.cli-chip.active { background: var(--blue); border-color: var(--blue); color: #fff; font-weight: 500; }
+.cli-chip .n { font-size: 10px; opacity: .75; margin-left: 4px; }
+.cli-hint { font-size: 11px; color: var(--text3); margin: -4px 0 10px; }
+.cc-btn.fav { padding: 3px 7px; font-size: 13px; line-height: 1; color: var(--text3); }
+.cc-btn.fav:hover { color: #C98A00; border-color: #E6B84A; }
+.cc-btn.fav.on { color: #C98A00; border-color: #E6B84A; background: rgba(230,184,74,.15); }
+.tag-grp { background: var(--orange-light); color: #7A4C0E; margin-left: 4px; }
+.tag-fav { background: rgba(230,184,74,.22); color: #7A5200; }
 .client-card {
   background: var(--surface);
   border: 1px solid var(--border2);
@@ -1972,11 +1983,12 @@ function togglePwd(){
 
     <div class="c-panel active" id="cp-cli">
       <div class="section-header">
-        <div><div class="section-title">Clients récurrents</div><div class="section-sub">Cliquer "Utiliser" pour pré-remplir l'en-tête du devis</div></div>
+        <div><div class="section-title">Clients</div><div class="section-sub">☆ épingle un client en favori · « Utiliser » pré-remplit l'en-tête du devis</div></div>
         <button class="btn btn-primary" onclick="openModal('client')">+ Ajouter</button>
       </div>
+      <div class="cli-chips" id="cli-chips"></div>
       <div class="search-bar">
-        <input class="search-input" type="text" id="s-cli" placeholder="Rechercher un client..." oninput="renCli()">
+        <input class="search-input" type="text" id="s-cli" placeholder="Rechercher dans tous les clients..." oninput="renCli()">
         <button class="sort-btn active" id="sort-btn" onclick="togSort()">A → Z</button>
       </div>
       <div class="clients-grid" id="grid-cli"></div>
@@ -2358,6 +2370,7 @@ function togglePwd(){
     <div class="form-grid">
       <div class="form-field full" id="m-ens-field" style="display:none"><label>Enseigne / établissement <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3)">— ce que tu vois dans les listes</span></label><input type="text" id="m-ens" placeholder="Ex : Intermarché - St Ambroix"></div>
       <div class="form-field"><label>Raison sociale / Nom *</label><input type="text" id="m-nom" placeholder="Ex : SAS SAMIRE"></div>
+      <div class="form-field" id="m-grp-field" style="display:none"><label>Groupe <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3)">— enseigne commune (Intermarché est détecté tout seul)</span></label><input type="text" id="m-grp" list="cli-groupes" placeholder="Ex : Intermarché"><datalist id="cli-groupes"></datalist></div>
       <div class="form-field"><label>Contact</label><input type="text" id="m-cont"></div>
       <div class="form-field full"><label>Adresse</label><input type="text" id="m-adr"></div>
       <div class="form-field"><label>Code postal</label><input type="text" id="m-cp"></div>
@@ -4794,14 +4807,37 @@ function syncTravauxTotals(){
 }
 
 // ══ CONTACTS ══════════════════════════════════════════════
+// ── Favoris & groupes de clients (règle Clément 16/10/2026) ──
+// Vue par défaut = favoris seuls (les clients avec qui se font 80 % des chantiers) ; les autres restent accessibles par la recherche, les groupes ou « Tous ».
+// Groupe = champ « groupe » de la fiche, sinon détection automatique sur l'enseigne / la raison sociale (Intermarché, ITM) → les prochains Intermarché tombent dedans tout seuls.
+let cliView=(function(){ try{ return localStorage.getItem('mys_cli_view')||'fav'; }catch(e){ return 'fav'; } })();
+const CLI_GRP_AUTO=[['Intermarché',/intermarch[eé]|\bITM\b/i]];
+function cliGroupe(c){ if(!c) return ''; if(c.groupe) return String(c.groupe).trim(); const t=(c.enseigne||'')+' '+(c.nom||''); const g=CLI_GRP_AUTO.find(([,rx])=>rx.test(t)); return g?g[0]:''; }
+function cliGroupes(){ const set=new Set(); CLI.forEach(c=>{ const g=cliGroupe(c); if(g) set.add(g); }); CLI_GRP_AUTO.forEach(([g])=>set.add(g)); return [...set].sort((a,b)=>a.localeCompare(b)); }
+function cliSetView(v){ cliView=v; try{ localStorage.setItem('mys_cli_view',v); }catch(e){} renCli(); }
+function cliFav(i){ const c=CLI[i]; if(!c) return; c.fav=!c.fav; renCli(); sauvegarderContacts(); showToast(c.fav?(cliLabel(c)+' épinglé en favori'):(cliLabel(c)+' retiré des favoris')); }
+function renCliChips(){
+  const box=G('cli-chips'); if(!box) return;
+  const nFav=CLI.filter(c=>c.fav).length;
+  const chips=[['fav','★ Favoris',nFav]];
+  cliGroupes().forEach(g=>chips.push(['g:'+g,g,CLI.filter(c=>cliGroupe(c)===g).length]));
+  chips.push(['tous','Tous',CLI.length]);
+  box.innerHTML=chips.map(([k,lab,n])=>`<button class="cli-chip${cliView===k?' active':''}" onclick="cliSetView('${k.replace(/'/g,"\\'")}')">${esc(lab)}<span class="n">${n}</span></button>`).join('');
+  const dl=G('cli-groupes'); if(dl) dl.innerHTML=cliGroupes().map(g=>`<option value="${esc(g)}">`).join('');
+}
 function renCli(){
   const q=(G('s-cli').value||'').toLowerCase();
-  let l=[...CLI];
-  if(q)l=l.filter(c=>cliLabel(c).toLowerCase().includes(q)||(c.nom||'').toLowerCase().includes(q)||(c.ville||'').toLowerCase().includes(q));
+  renCliChips();
+  const nFav=CLI.filter(c=>c.fav).length;
+  let l=[...CLI], hint='';
+  if(q){ l=l.filter(c=>cliLabel(c).toLowerCase().includes(q)||(c.nom||'').toLowerCase().includes(q)||(c.ville||'').toLowerCase().includes(q)||cliGroupe(c).toLowerCase().includes(q)); hint='Recherche dans tous les clients'; }
+  else if(cliView==='fav'){ if(nFav){ l=l.filter(c=>c.fav); } else { hint='Aucun favori pour l\'instant : clique ☆ sur une fiche pour l\'épingler ici. En attendant, tous les clients sont affichés.'; } }
+  else if(cliView.startsWith('g:')){ const g=cliView.slice(2); l=l.filter(c=>cliGroupe(c)===g); hint=`Groupe ${g} : fiches dont l'enseigne ou la raison sociale contient « ${g} », ou tagguées « ${g} » dans la fiche.`; }
   l.sort((a,b)=>sortAZ?cliLabel(a).localeCompare(cliLabel(b)):cliLabel(b).localeCompare(cliLabel(a)));
   const grid=G('grid-cli');
-  if(!l.length){grid.innerHTML='<div class="no-results">Aucun résultat pour cette recherche</div>';return;}
-  grid.innerHTML=l.map(c=>{const i=CLI.indexOf(c);return`<div class="client-card"><div class="cc-top"><div class="cc-avatar">${ini(cliLabel(c))}</div><div class="cc-actions"><button class="cc-btn use" onclick="setClient(CLI[${i}])">Utiliser</button><button class="cc-btn" title="Modifier" onclick="openModal('client',${i})">✎</button><button class="cc-btn del" onclick="delCli(${i})">×</button></div></div><div class="cc-name">${cliLabel(c)}</div>${cliSub(c)?`<div class="cc-sub">${cliSub(c)}</div>`:''}<div class="cc-detail">${[c.adresse,c.cp&&c.ville?c.cp+' '+c.ville:''].filter(Boolean).join('<br>')}${c.tel?'<br>'+c.tel:''}</div><span class="cc-tag tag-rec">Récurrent</span></div>`;}).join('');
+  const hintHtml=hint?`<div class="cli-hint" style="grid-column:1/-1">${hint}</div>`:'';
+  if(!l.length){grid.innerHTML=hintHtml+'<div class="no-results" style="grid-column:1/-1">'+(q?'Aucun résultat pour cette recherche':'Aucun client dans cette vue')+'</div>';G('cnt-cli').textContent=CLI.length;return;}
+  grid.innerHTML=hintHtml+l.map(c=>{const i=CLI.indexOf(c); const g=cliGroupe(c);return`<div class="client-card"><div class="cc-top"><div class="cc-avatar">${ini(cliLabel(c))}</div><div class="cc-actions"><button class="cc-btn fav${c.fav?' on':''}" title="${c.fav?'Retirer des favoris':'Épingler en favori'}" onclick="cliFav(${i})">${c.fav?'★':'☆'}</button><button class="cc-btn use" onclick="setClient(CLI[${i}])">Utiliser</button><button class="cc-btn" title="Modifier" onclick="openModal('client',${i})">✎</button><button class="cc-btn del" onclick="delCli(${i})">×</button></div></div><div class="cc-name">${cliLabel(c)}</div>${cliSub(c)?`<div class="cc-sub">${cliSub(c)}</div>`:''}<div class="cc-detail">${[c.adresse,c.cp&&c.ville?c.cp+' '+c.ville:''].filter(Boolean).join('<br>')}${c.tel?'<br>'+c.tel:''}</div>${c.fav?'<span class="cc-tag tag-fav">★ Favori</span>':''}${g?`<span class="cc-tag tag-grp">${esc(g)}</span>`:''}</div>`;}).join('');
   G('cnt-cli').textContent=CLI.length;
 }
 function togSort(){sortAZ=!sortAZ;G('sort-btn').textContent=sortAZ?'A → Z':'Z → A';G('sort-btn').classList.toggle('active',sortAZ);renCli();}
@@ -4853,12 +4889,15 @@ function openModal(t, idx){
   modType=t; modIdx=(idx==null)?null:idx;
   const T={client:['Ajouter un client récurrent','Modifier le client'],poseur:['Ajouter un poseur','Modifier le poseur'],apporteur:["Ajouter un apporteur d'affaires","Modifier l'apporteur"],fournisseur:['Ajouter un fournisseur','Modifier le fournisseur']};
   G('modal-title').textContent=(T[t]||['Ajouter','Modifier'])[modIdx==null?0:1];
-  ['m-nom','m-ens','m-cont','m-adr','m-cp','m-vil','m-tel'].forEach(id=>G(id).value='');
+  ['m-nom','m-ens','m-cont','m-adr','m-cp','m-vil','m-tel','m-grp'].forEach(id=>{ if(G(id)) G(id).value=''; });
   const ef=G('m-ens-field'); if(ef) ef.style.display=(t==='client')?'':'none'; // enseigne : clients seulement
+  const gf=G('m-grp-field'); if(gf) gf.style.display=(t==='client')?'':'none'; // groupe : clients seulement
+  if(t==='client') renCliChips(); // alimente la datalist des groupes
   const list=(t==='client'?CLI:t==='poseur'?POS:t==='apporteur'?APP:FOU);
   const src=(modIdx!=null)?list[modIdx]:null;
   if(src){
     G('m-nom').value=src.nom||''; G('m-ens').value=src.enseigne||''; G('m-cont').value=(t==='fournisseur'?(src.note||''):(src.contact||''));
+    if(G('m-grp')) G('m-grp').value=src.groupe||'';
     G('m-adr').value=src.adresse||''; G('m-cp').value=src.cp||''; G('m-vil').value=src.ville||''; G('m-tel').value=src.tel||'';
     // Ancien fournisseur sans champs séparés : son bloc « det » est proposé dans Adresse pour être retravaillé
     if(t==='fournisseur' && !src.adresse && !src.cp && !src.ville && !src.tel && src.det) G('m-adr').value=src.det;
@@ -4880,7 +4919,7 @@ function confModal(){
   } else {
     list=(modType==='client'?CLI:modType==='poseur'?POS:APP);
     e=Object.assign({},base,{contact:cont});
-    if(modType==='client') e.enseigne=G('m-ens').value.trim(); // enseigne / établissement (facultatif)
+    if(modType==='client'){ e.enseigne=G('m-ens').value.trim(); e.groupe=(G('m-grp')?.value||'').trim(); } // enseigne / établissement + groupe (facultatifs)
   }
   if(modIdx!=null && list[modIdx]) Object.assign(list[modIdx],e); // modification en place
   else list.push(e);
