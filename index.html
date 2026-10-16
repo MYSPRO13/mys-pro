@@ -865,6 +865,9 @@ body {
 .cmdacc-warn { font-size: 12px; color: var(--orange); margin: -2px 0 8px; }
 .cmdacc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 10px 18px; margin-bottom: 12px; }
 .cmdacc-fld { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--text3); }
+.cmd-asap { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; color: var(--text2); cursor: pointer; text-transform: none; letter-spacing: 0; font-weight: 500; }
+.cmd-asap input { accent-color: var(--magenta); width: 14px; height: 14px; margin: 0; }
+input[type="date"]:disabled { opacity: .45; }
 .cmdacc-fld > span:first-child { font-weight: 600; text-transform: uppercase; letter-spacing: .05em; font-size: 10px; }
 .cmdacc-fld .dep-in { width: 88px; }
 .cmdacc-sub { font-size: 12px; font-weight: 600; margin: 10px 0 6px; }
@@ -1740,6 +1743,7 @@ function togglePwd(){
           <div>
             <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Date de livraison souhaitée</label>
             <input type="date" id="cmd-pan-date" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text)">
+            <label class="cmd-asap"><input type="checkbox" id="cmd-pan-asap" onchange="cmdAsapToggle('pan')"> Dès que possible</label>
           </div>
           <div style="grid-column:1/-1">
             <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Observations</label>
@@ -1790,6 +1794,7 @@ function togglePwd(){
           <div>
             <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Date de livraison souhaitée</label>
             <input type="date" id="cmd-por-date" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text)">
+            <label class="cmd-asap"><input type="checkbox" id="cmd-por-asap" onchange="cmdAsapToggle('por')"> Dès que possible</label>
           </div>
           <div style="grid-column:1/-1">
             <label style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Observations</label>
@@ -1820,7 +1825,7 @@ function togglePwd(){
                 <option value="Commande">Commande</option>
                 <option value="Devis">Devis</option>
               </select></label>
-            <label class="cmdacc-fld"><span>Date de livraison souhaitée</span><input type="date" id="cmd-acc-date" class="dep-in cmdacc-sel"></label>
+            <div class="cmdacc-fld"><span>Date de livraison souhaitée</span><input type="date" id="cmd-acc-date" class="dep-in cmdacc-sel"><label class="cmd-asap"><input type="checkbox" id="cmd-acc-asap" onchange="cmdAsapToggle('acc')"> Dès que possible</label></div>
             <div class="cmdacc-fld cmdacc-span"><span>Adresse de livraison <a class="cmd-adr-link" onclick="cmdAdrFromClient('acc')">↓ reprendre l'adresse du client</a></span>
               <div class="cmd-adr-grid">
                 <input type="text" class="cmd-inp full" id="cmd-acc-adr-bat" placeholder="Bâtiment / complément (facultatif)">
@@ -6929,6 +6934,8 @@ function initCmdSelects(){
   });
 }
 // Reprend l'adresse du client du devis comme adresse de livraison (le chantier, en général)
+// Case « Dès que possible » des fiches de commande : vide et grise la date, la fiche affiche « Dès que possible »
+function cmdAsapToggle(t){ const cb=G('cmd-'+t+'-asap'), d=G('cmd-'+t+'-date'); if(!cb||!d) return; d.disabled=cb.checked; if(cb.checked) d.value=''; }
 function cmdAdrFromClient(t){
   if(!curClient){ showToast('Aucun client sélectionné sur le devis', true); return; }
   const set=(sfx,v)=>{ const e=G('cmd-'+t+'-adr-'+sfx); if(e) e.value=v||''; };
@@ -7056,7 +7063,8 @@ function genCmdPDF(type, ov){ if(type==='por'&&porBloque('la commande des portes
   // Adresse de livraison structurée : bâtiment / rue / CP + ville → une ligne chacun
   const adrV = sfx => (G('cmd-'+type+'-adr-'+sfx)?.value||'').trim();
   const adrLines = [adrV('bat'), adrV('rue'), [adrV('cp'), adrV('ville')].filter(Boolean).join(' ')].filter(Boolean);
-  const dateStr = G('cmd-'+type+'-date')?.value||'';
+  const asap = !!(G('cmd-'+type+'-asap')?.checked); // « Dès que possible » : remplace la date sur la fiche
+  const dateStr = asap ? 'ASAP' : (G('cmd-'+type+'-date')?.value||'');
   const obs = G('cmd-'+type+'-obs')?.value||'';
   const projetNom = G('projet-nom')?.value||'';
   const devisNum = G('devis-num')?.textContent||'';
@@ -7135,7 +7143,7 @@ function genCmdPDF(type, ov){ if(type==='por'&&porBloque('la commande des portes
     lines.forEach((l,i)=>doc.text(l, ML+bpad, y+10+i*4));
     if(dateStr){
       const d=new Date(dateStr);
-      const df=isNaN(d.getTime())?String(dateStr):d.toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+      const df=asap?'Dès que possible':(isNaN(d.getTime())?String(dateStr):d.toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'}));
       doc.text(df, dx, y+10);
     }
     y+=livH+4;
