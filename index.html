@@ -3352,6 +3352,7 @@ function renderAccForm(pid){
       </div></div>
       <input type="hidden" id="af-sol-mode" value="dim">
       <div id="af-sol-dimfields">
+        <div class="acc-field"><label>Disposition</label><select id="af-sol-dispo" onchange="calcSolPhen()"><option value="rangees">Rangées identiques (joints alignés)</option><option value="eco">Chutes réemployées (joints décalés)</option></select></div>
         <div class="acc-field"><label>Longueur (L)</label><input type="number" id="af-sol-L" value="0" min="0" step="0.05" oninput="calcSolPhen()"><span class="acc-unit">m</span></div>
         <div class="acc-field"><label>Largeur (l)</label><input type="number" id="af-sol-w" value="0" min="0" step="0.05" oninput="calcSolPhen()"><span class="acc-unit">m</span></div>
       </div>
@@ -3440,83 +3441,115 @@ function calcLisse(){const ml=parseFloat(G('af-ml')?.value)||0;const niv=parseIn
 // ══ SOL PHÉNOLIQUE — optimiseur de plaques (1,2 m de large × 2/2,2/2,4/2,6/2,8/3 m) ══
 // Modèle ruban : chaque rangée fait 1,2 m de large ; on couvre la longueur avec un mélange
 // de plaques, chute mini, réutilisation d'une chute uniquement si elle fait ≥ 1 m (Clément).
-const SOL_LENGTHS=[2.0,2.2,2.4,2.6,2.8,3.0], SOL_W=1.2, SOL_MINREUSE=0.30;
+const SOL_LENGTHS=[2.0,2.2,2.4,2.6,2.8,3.0], SOL_W=1.2, SOL_MINREUSE=0.40; // règle Clément 19/10/2026 : pas de chute de sol réemployée ni de bande tournée sous 0,40 × 1,20 m (avant : 0,30)
 const m2fr=v=>String(+(+v).toFixed(2)).replace('.',','); // 1.71 → « 1,71 » pour l'affichage // chute réemployée en début de rangée suivante seulement si elle fait au moins 0,30 m de long (règle Clément 07/10/2026 ; avant : 1,00 m)
 const SOL_COLORS={2:'#8ecae6',2.2:'#a3c4a8',2.4:'#ffd166',2.6:'#f4a261',2.8:'#e07a5f',3:'#7f77dd'};
+// Plaques recoupées dont la chute ressert (repères 1A, 2A…) : une couleur propre par numéro (règle Clément 19/10/2026) ; la plaque NA est pleine, ses morceaux NB, NC… sont hachurés de la même couleur
+const CALEP_REP_COLORS=['#f28b82','#fdd663','#81c995','#f6ae2d','#8ab4f8','#c58af9','#ff8bcb','#78d9ec','#c5a46d','#a8dab5'];
+function calepColor(src,lab,isSol){ if(lab){ const n=parseInt(lab,10)||1; return CALEP_REP_COLORS[(n-1)%CALEP_REP_COLORS.length]; } return isSol?(SOL_COLORS[src]||'#cccccc'):'#cfd8e3'; }
+function calepHatched(lab){ return !!lab && !/A$/.test(lab); } // NB, NC… = découpé dans la plaque N
 function solPick(rem){ for(const L of SOL_LENGTHS){ if(L>=rem-1e-9) return L; } return SOL_LENGTHS[SOL_LENGTHS.length-1]; }
 function solLabNext(lab){ return lab ? lab.slice(0,-1)+String.fromCharCode(lab.charCodeAt(lab.length-1)+1) : ''; } // 1B → 1C
 // Pièces de calepinage : [a,b,src,off,rot,lab] — a/b = position dans la rangée, src = longueur de la plaque d'origine,
 // off = chute réemployée (true) ou morceau suivant d'une plaque tournée ('same'), rot = bande tournée, lab = repère (1A plaque recoupée, 1B sa chute, 1C le reste de 1B…)
-function solBands(w,rowLen,nBands,ctr){ // bandes de 1,20 m remplies en longueur ; chute ≥ 0,30 m réemployée en début de bande suivante
+function solBands(w,rowLen,nBands,ctr){ // joints décalés : chaque bande = chute de la bande précédente (si ≥ SOL_MINREUSE) + combinaison exacte pour le reste ; la chute éventuelle démarre la bande suivante
   const rows=[]; let carry=0.0, carryLab=''; const newpl=[];
   for(let r=0;r<nBands;r++){
-    let pos=0.0; const pieces=[]; let guard=0;
-    while(rowLen-pos>1e-6 && guard++<400){
-      const rem=rowLen-pos;
-      if(carry>=SOL_MINREUSE){
-        const use=Math.min(carry,rem); pieces.push([pos,pos+use,carry,true,false,carryLab]); pos+=use;
-        const rest=+(carry-use).toFixed(3);
-        if(pos>=rowLen-1e-6 && rest>=SOL_MINREUSE){ carry=rest; carryLab=solLabNext(carryLab); } else { carry=0.0; carryLab=''; }
-      } else {
-        carry=0.0; carryLab='';
-        const pl=solPick(rem); newpl.push(pl); const end=pos+pl;
-        if(end>=rowLen-1e-6){
-          const rest=+(end-rowLen).toFixed(3); let lab='';
-          if(rest>=SOL_MINREUSE){ ctr.n++; lab=ctr.n+'A'; carry=rest; carryLab=ctr.n+'B'; }
-          pieces.push([pos,rowLen,pl,false,false,lab]); pos=rowLen;
-        } else { pieces.push([pos,end,pl,false,false,'']); pos=end; }
-      }
+    let pos=0.0; const pieces=[];
+    if(carry>=SOL_MINREUSE){
+      const use=Math.min(carry,rowLen); pieces.push([0,use,carry,true,false,carryLab]); pos=use; const rest=+(carry-use).toFixed(3);
+      if(pos>=rowLen-1e-6){ if(rest>=SOL_MINREUSE){ carry=rest; carryLab=solLabNext(carryLab); } else { carry=0.0; carryLab=''; } rows.push(pieces); continue; }
     }
+    carry=0.0; carryLab='';
+    const pat=solRowPattern(+(rowLen-pos).toFixed(3));
+    pat.list.forEach((L,k)=>{ newpl.push(L); const last=(k===pat.list.length-1); const end=last?rowLen:+(pos+L).toFixed(3); let lab='';
+      if(last&&pat.chute>=SOL_MINREUSE-1e-9){ ctr.n++; lab=ctr.n+'A'; carry=pat.chute; carryLab=ctr.n+'B'; }
+      pieces.push([pos,end,L,false,false,lab]); pos=end; });
     rows.push(pieces);
   }
   return {rows,newpl,carry,carryLab};
 }
-// Dernière bande (largeur restante lastW < 1,20) en plaques TOURNÉES à 90° : chaque morceau fait 1,20 m dans le sens de la rangée
-// et lastW en travers, découpé dans une plaque de longueur pl (⌊pl/lastW⌋ morceaux par plaque, repères NA, NB, NC…). Longueurs choisies = minimum de m² achetés, puis de plaques.
-function solRotBand(rowLen,lastW,head,ctr){
-  const need=Math.ceil(Math.round(rowLen/SOL_W*1e6)/1e6);
-  const pieces=[]; let pos=0, n=need;
-  const push=(src,off,lab)=>{ const end=Math.min(+(pos+SOL_W).toFixed(3),rowLen); pieces.push([pos,end,src,off,true,lab]); pos=end; n--; };
-  if(head.carry>=SOL_MINREUSE){ const k=Math.floor((head.carry+1e-9)/lastW); let lab=head.carryLab; for(let i=0;i<k&&n>0;i++){ push(head.carry,true,lab); lab=solLabNext(lab); } }
-  const kOf=pl=>Math.max(1,Math.floor((pl+1e-9)/lastW));
-  const best=[{len:0,cnt:0,pl:0}];
-  for(let i=1;i<=n;i++){ let b=null;
-    SOL_LENGTHS.forEach(pl=>{ const k=kOf(pl), prev=best[Math.max(0,i-k)]; const c={len:+(prev.len+pl).toFixed(3),cnt:prev.cnt+1,pl};
-      if(!b||c.len<b.len-1e-9||(Math.abs(c.len-b.len)<1e-9&&c.cnt<b.cnt)) b=c; });
+// Combinaison de longueurs d'une rangée : longueur totale minimale ≥ rowLen (idéalement exacte : 4,6 = 2 + 2,6), puis le moins de plaques ; posées de la plus longue à la plus courte, la dernière coupée
+function solRowPattern(rowLen){
+  const T=Math.max(1,Math.ceil(rowLen*10-1e-9)); const best=[{len:0,cnt:0,list:[]}];
+  for(let t=1;t<=T;t++){ let b=null;
+    SOL_LENGTHS.forEach(L=>{ const d=Math.round(L*10); const prev=best[Math.max(0,t-d)]; const c={len:prev.len+d,cnt:prev.cnt+1,list:prev.list.concat([L])};
+      if(!b||c.len<b.len||(c.len===b.len&&c.cnt<b.cnt)) b=c; });
     best.push(b); }
-  const newpl=[]; let i=n;
-  while(i>0){ const pl=best[i].pl, k=kOf(pl); newpl.push(pl); const kk=Math.min(k,n); let lab=''; if(kk>1){ ctr.n++; lab=ctr.n+'A'; }
-    for(let j=0;j<kk;j++){ push(pl,j>0?'same':false,lab); lab=solLabNext(lab); } i=Math.max(0,i-k); }
+  const r=best[T]||{len:0,cnt:0,list:[]}; const list=r.list.slice().sort((a,b)=>b-a);
+  return {list, total:+(r.len/10).toFixed(3), chute:+(r.len/10-rowLen).toFixed(3)};
+}
+// Rangées identiques (règle Clément 19/10/2026 : « des rangées du même type de panneaux », ex. 4,6 m = 2 + 2,6 répété jusqu'au bout) :
+// même combinaison dans chaque bande, joints alignés. La chute de chaque bande ne ressert que dans la dernière bande coupée dans la longueur (si elle y tient), sinon elle est perdue.
+function solBandsAligned(w,rowLen,nBands,ctr,ripNeed,lastW){
+  const pat=solRowPattern(rowLen); const rows=[], newpl=[], chutes=[];
+  const k=solRipStrips(lastW); // bandes de largeur lastW tirées d'une chute de 1,20 de large
+  const per=(ripNeed>0&&pat.chute>=SOL_MINREUSE-1e-9)?k*pat.chute:0; // longueur de dernière bande couverte par une chute
+  const nUse=per>0?Math.min(nBands,Math.ceil(ripNeed/per-1e-9)):0; // bandes dont la chute est utilisée
+  for(let r=0;r<nBands;r++){ let pos=0; const pieces=[];
+    pat.list.forEach((L,q)=>{ newpl.push(L); const last=(q===pat.list.length-1); const end=last?rowLen:+(pos+L).toFixed(3); let lab='';
+      if(last&&r<nUse){ ctr.n++; lab=ctr.n+'A'; chutes.push({len:pat.chute,lab:ctr.n+'B'}); }
+      pieces.push([pos,end,L,false,false,lab]); pos=end; });
+    rows.push(pieces); }
+  return {rows,newpl,chutes};
+}
+// Dernière bande (largeur restante lastW < 1,20) : plaques coupées DANS LA LONGUEUR à lastW (règle Clément 19/10/2026, plus de plaques tournées).
+// Quand lastW ≤ 0,60 m, l'autre côté de la coupe fait aussi au moins lastW : une plaque donne 2 bandes (NA pleine, NB hachurée de la même couleur), posées bout à bout ; 3 ou 4 bandes pour une dernière bande encore plus étroite.
+// chutes = [{len,lab}] disponibles (chute de la bande précédente en joints décalés, chutes de chaque bande en rangées identiques) : coupées de la même façon et utilisées d'abord.
+function solRipStrips(lastW){ return Math.max(1,Math.min(4,Math.floor((SOL_W+1e-9)/lastW))); } // 0,50 → 2 bandes par plaque, 0,40 → 3, 0,30 → 4 ; au-delà de 0,60 une seule
+function solRipBand(rowLen,lastW,chutes,ctr){
+  const k=solRipStrips(lastW); const pieces=[]; const newpl=[]; let pos=0;
+  const push=(src,off,lab)=>{ const end=Math.min(+(pos+src).toFixed(3),rowLen); pieces.push([pos,end,src,off,'rip',lab]); pos=end; };
+  (chutes||[]).forEach(ch=>{ if(rowLen-pos<=1e-6) return; let lab=ch.lab; for(let i=0;i<k&&rowLen-pos>1e-6;i++){ push(ch.len,i===0?true:'same',lab); lab=solLabNext(lab); } });
+  const rem=+(rowLen-pos).toFixed(3);
+  if(rem>1e-6){ // plaques : longueur totale minimale couvrant rem, chaque plaque couvrant k × L
+    const T=Math.max(1,Math.ceil(rem*10-1e-9)); const best=[{len:0,cnt:0,list:[]}];
+    for(let t=1;t<=T;t++){ let b=null; SOL_LENGTHS.forEach(L=>{ const d=Math.round(L*10)*k; const prev=best[Math.max(0,t-d)]; const c={len:prev.len+Math.round(L*10),cnt:prev.cnt+1,list:prev.list.concat([L])}; if(!b||c.len<b.len||(c.len===b.len&&c.cnt<b.cnt)) b=c; }); best.push(b); }
+    best[T].list.slice().sort((a,b)=>b-a).forEach(L=>{ newpl.push(L); let lab=''; const nStrips=Math.min(k,Math.ceil((rowLen-pos)/L-1e-9)); if(nStrips>1){ ctr.n++; lab=ctr.n+'A'; }
+      for(let i=0;i<nStrips&&rowLen-pos>1e-6;i++){ push(L,i===0?false:'same',lab); lab=solLabNext(lab); } });
+  }
   return {pieces,newpl};
 }
 function calepChutes(rows){ return rows.flat().filter(p=>p[3]===true&&!p[4]&&p[5]).map(p=>({lab:p[5],len:p[2]})); } // chutes réemployées (repère + longueur), pour la liste du plan
-function solSimulate(L,l){
-  let best=null;
+function solSimulate(L,l,dispo){
+  dispo=dispo||'rangees'; let best=null;
   for(const [w,rowLen,sens] of [[l,L,'L'],[L,l,'l']]){
     const nrows=Math.ceil(Math.round(w/SOL_W*1e6)/1e6);
     const lastW=Math.round((w-(nrows-1)*SOL_W)*1000)/1000;
-    const cands=[];
-    const nor=solBands(w,rowLen,nrows,{n:0}); cands.push({rows:nor.rows,newpl:nor.newpl,rotLast:false});
-    if(lastW<SOL_W-1e-6){ const ctr={n:0}; const head=solBands(w,rowLen,nrows-1,ctr); const rb=solRotBand(rowLen,lastW,head,ctr); cands.push({rows:head.rows.concat([rb.pieces]),newpl:head.newpl.concat(rb.newpl),rotLast:true}); }
-    cands.forEach(c=>{
-      const cnt={}; c.newpl.forEach(p=>cnt[p]=(cnt[p]||0)+1);
-      const boughtM2=+(c.newpl.reduce((a,b)=>a+b,0)*SOL_W).toFixed(2);
-      const res={sens,w,rowLen,nrows,lastW,rows:c.rows,rotLast:c.rotLast,plaques:cnt,nb:c.newpl.length,boughtM2,chute:+(boughtM2-L*l).toFixed(2),chutes:calepChutes(c.rows)};
-      // à m² achetés égaux : d'abord la pose sans plaques tournées (moins de coupes), puis le moins de plaques
-      if(!best || res.boughtM2<best.boughtM2-1e-9 || (Math.abs(res.boughtM2-best.boughtM2)<1e-9 && ((!res.rotLast&&best.rotLast) || (res.rotLast===best.rotLast && res.nb<best.nb)))) best=res;
-    });
+    const ripLast=lastW<SOL_W-1e-6; // dernière bande plus étroite qu'une plaque → coupée dans la longueur
+    let rows, newpl; const ctr={n:0};
+    if(dispo==='eco'){
+      const head=solBands(w,rowLen,ripLast?nrows-1:nrows,ctr); rows=head.rows; newpl=head.newpl;
+      if(ripLast){ const rb=solRipBand(rowLen,lastW,head.carry>=SOL_MINREUSE?[{len:head.carry,lab:head.carryLab}]:[],ctr); rows=rows.concat([rb.pieces]); newpl=newpl.concat(rb.newpl); }
+    } else {
+      const head=solBandsAligned(w,rowLen,ripLast?nrows-1:nrows,ctr,ripLast?rowLen:0,lastW); rows=head.rows; newpl=head.newpl;
+      if(ripLast){ const rb=solRipBand(rowLen,lastW,head.chutes,ctr); rows=rows.concat([rb.pieces]); newpl=newpl.concat(rb.newpl); }
+    }
+    const cnt={}; newpl.forEach(p=>cnt[p]=(cnt[p]||0)+1);
+    const boughtM2=+(newpl.reduce((a,b)=>a+b,0)*SOL_W).toFixed(2);
+    const res={dispo,sens,w,rowLen,nrows,lastW,rows,ripLast,rotLast:false,plaques:cnt,nb:newpl.length,boughtM2,chute:+(boughtM2-L*l).toFixed(2),chutes:calepChutes(rows)};
+    // à m² achetés égaux : le moins de plaques (moins de joints et de manutention)
+    if(!best || res.boughtM2<best.boughtM2-1e-9 || (Math.abs(res.boughtM2-best.boughtM2)<1e-9 && res.nb<best.nb)) best=res;
   }
   return best;
 }
 function solFmtMix(cnt){ return Object.keys(cnt).map(Number).sort((a,b)=>a-b).map(k=>`${cnt[k]}×${String(+k).replace('.',',')} m`).join(' + '); }
 // ── Calepinage : rendu commun sol / tôle ──
 // Lignes d'étiquette d'une pièce (f = formateur de nombre) : plaque entière « 3 m » ; plaque recoupée « 3 m / 1A / coupe 2,6 » ; chute réemployée « 1B / 0,4 m » ; bande tournée « 2,8 m / 6A » puis « 6B »…
-function calepPieceLines(src,len,off,rot,lab,f){
-  if(rot) return (off?[lab]:[f(src)+' m',lab]).filter(Boolean);
-  if(off) return [lab,f(len)+' m'];
-  return (len<src-1e-6)?[f(src)+' m',lab||'','coupe '+f(len)].filter(Boolean):[f(src)+' m'];
+function calepPieceLines(src,len,off,rot,lab,f){ // (compat) premier niveau de calepPieceCands
+  return calepPieceCands(src,len,off,rot,lab,f,null)[0];
 }
-function calepIsCut(a,b,src,off,rot,rowLen,bw){ const len=b-a; return rot ? (b<rowLen-1e-6 || len<bw-1e-6) : (len<src-1e-6); }
+// Candidats d'étiquette d'une pièce, du plus complet au plus court : le rendu prend le premier qui tient dans la pièce.
+// bw = largeur de la plaque / tôle (1,20 m pour le sol) → chaque plaque affiche « longueur × largeur ».
+function calepPieceCands(src,len,off,rot,lab,f,bw){
+  const dim=(L)=>bw?f(L)+' × '+f(bw)+' m':f(L)+' m';
+  if(rot===true) return off?[[lab]]:[[dim(src),lab].filter(Boolean),[f(src)+' m',lab].filter(Boolean),[lab||f(src)+' m']];
+  if(off==='same') return [[lab,dim(len)],[lab,f(len)+' m'],[lab]]; // 2e bande tirée de la même plaque
+  if(off) return [[lab,dim(len)],[lab,f(len)+' m'],[lab]];
+  if(len<src-1e-6) return [[dim(src),lab||'','coupe '+f(len)].filter(Boolean),[f(src)+' m',lab||'','c. '+f(len)].filter(Boolean),[lab||f(src)+' m']];
+  return [[dim(src)],[f(src)+' m']];
+}
+function calepIsCut(a,b,src,off,rot,rowLen,bw){ const len=b-a; return rot===true ? (b<rowLen-1e-6 || len<bw-1e-6) : (len<src-1e-6); }
 // Liste de débit : une ligne par coupe, dans l'ordre de pose (bande 1, 2, …)
 function calepDebit(res,isSol){
   const f=v=>String(+(+v).toFixed(2)).replace('.',','); const unit=isSol?'plaque':'tôle'; const bw=isSol?SOL_W:res.sw;
@@ -3525,6 +3558,13 @@ function calepDebit(res,isSol){
   const srcChute=lab=>{ const pl=prevLab(lab); return pl.endsWith('A')?`chute de ${pl}`:`reste de ${pl}`; };
   res.rows.forEach((pieces,bi)=>{ const band='bande '+(bi+1); let i=0;
     while(i<pieces.length){ const [a,b,src,off,rot,lab]=pieces[i]; const len=b-a;
+      if(rot==='rip'){ let j=i+1; while(j<pieces.length&&pieces[j][3]==='same') j++;
+        const grp=pieces.slice(i,j), k=grp.length, last=grp[k-1], lastLen=last[1]-last[0];
+        const rp=k>1?(grp[0][5]+'–'+last[5]):(grp[0][5]||'·');
+        const what=off===true?`${srcChute(lab)} (${f(src)} m)`:`${unit} ${f(src)} m`;
+        const coupe=(lastLen<src-1e-6)?`, la dernière coupée à ${f(lastLen)} m`:'';
+        out.push({rep:rp, txt:`${what}, ${band} : coupée dans la longueur à ${f(res.lastW)} m de large${k>1?`, ${k} bandes posées bout à bout`:''}${coupe}`});
+        i=j; continue; }
       if(rot){ let j=i+1; if(off===true){ while(j<pieces.length&&pieces[j][3]===true&&pieces[j][2]===src) j++; } else { while(j<pieces.length&&pieces[j][3]==='same') j++; }
         const grp=pieces.slice(i,j), k=grp.length, last=grp[k-1], lastLen=last[1]-last[0];
         const rp=k>1?(grp[0][5]+'–'+last[5]):(grp[0][5]||'·');
@@ -3549,8 +3589,8 @@ function calepSchemaSVG(L,l,res,isSol){
   const mx=34,my=30; const Wpx=w*PX, Hpx=rl*PX;
   const mix=isSol?Object.keys(res.plaques).map(Number).sort((a,b)=>a-b):[];
   const lgW=mix.reduce((s,k)=>s+18+String(res.plaques[k]+'×'+f(k)+'m').length*5.4+8,0);
-  const lgd=(isSol?62:50)+(res.rotLast?12:0);
-  const vbW=Math.max(Wpx+2*mx+14, lgW+2*mx, 400);
+  const lgd=(isSol?62:50)+(res.ripLast?12:0);
+  const vbW=Math.max(Wpx+2*mx+14, lgW+2*mx, 560);
   const pid=isSol?'calepHatchSol':'calepHatchTole';
   const strokeC='#1A1917', textC='#6e7278', cutC='#A2185B';
   let s=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${vbW.toFixed(0)} ${(Hpx+my+16+lgd).toFixed(0)}" style="width:100%;max-width:1200px;height:auto;font-family:'DM Sans',sans-serif">`;
@@ -3558,18 +3598,26 @@ function calepSchemaSVG(L,l,res,isSol){
   let x=0;
   res.rows.forEach((pieces,bi)=>{
     const stripW=Math.min(bw, w-x); const X=mx+x*PX, PW=stripW*PX;
-    const rotBand=pieces.length&&pieces[0][4];
-    s+=`<text x="${(X+PW/2).toFixed(1)}" y="${(my-3).toFixed(1)}" font-size="8" font-weight="600" text-anchor="middle" fill="${textC}">B${bi+1}${rotBand?' ↻':''}</text>`;
+    s+=`<text x="${(X+PW/2).toFixed(1)}" y="${(my-3).toFixed(1)}" font-size="8" font-weight="600" text-anchor="middle" fill="${textC}">B${bi+1}</text>`;
     pieces.forEach(([a,b,src,off,rot,lab])=>{
       const Y=my+a*PX, PH=(b-a)*PX, len=b-a;
-      const col=isSol?(SOL_COLORS[src]||'#cccccc'):'#cfd8e3';
-      s+=`<rect x="${X.toFixed(1)}" y="${Y.toFixed(1)}" width="${PW.toFixed(1)}" height="${PH.toFixed(1)}" fill="${col}" fill-opacity="${off?0.4:0.9}" stroke="${strokeC}" stroke-width="0.7"/>`;
-      if(off) s+=`<rect x="${X.toFixed(1)}" y="${Y.toFixed(1)}" width="${PW.toFixed(1)}" height="${PH.toFixed(1)}" fill="url(#${pid})" stroke="none"/>`;
-      const ln=calepPieceLines(src,len,off,rot,lab,f); const cx=(X+PW/2).toFixed(1), fs=PW<30?8:9, lh=fs+1;
-      if(PH>12&&PW>16&&ln.length){ const n=PH>lh*ln.length+4?ln.length:(PH>lh*2+4?Math.min(2,ln.length):1); const use=n===ln.length?ln:(n===1?[ln.join(' ')]:[ln[0],ln.slice(1).join(' ')]);
-        const y0=Y+PH/2-(use.length-1)*lh/2+fs*0.35;
-        use.forEach((t,k)=>{ if(off){ const tw=t.length*fs*0.58+4; s+=`<rect x="${(X+PW/2-tw/2).toFixed(1)}" y="${(y0+k*lh-fs*0.85).toFixed(1)}" width="${tw.toFixed(1)}" height="${(fs+1.5).toFixed(1)}" rx="1.5" fill="#ffffff" fill-opacity="0.82"/>`; }
-          s+=`<text x="${cx}" y="${(y0+k*lh).toFixed(1)}" font-size="${fs}" text-anchor="middle" fill="#1A1917"${/^\d+[A-Z]/.test(t)?' font-weight="700"':''}>${t}</text>`; }); }
+      const col=calepColor(src,lab,isSol), hat=calepHatched(lab);
+      s+=`<rect x="${X.toFixed(1)}" y="${Y.toFixed(1)}" width="${PW.toFixed(1)}" height="${PH.toFixed(1)}" fill="${col}" fill-opacity="${hat?0.55:0.9}" stroke="${strokeC}" stroke-width="0.7"/>`;
+      if(hat) s+=`<rect x="${X.toFixed(1)}" y="${Y.toFixed(1)}" width="${PW.toFixed(1)}" height="${PH.toFixed(1)}" fill="url(#${pid})" stroke="none"/>`;
+      const cands=calepPieceCands(src,len,off,rot,lab,f,stripW); const est=(t,fs)=>t.length*fs*0.56;
+      if(rot===true){ // bande tournée : la longueur de la plaque est en travers → texte horizontal
+        const cx=(X+PW/2).toFixed(1), fs=PW<30?8:9, lh=fs+1;
+        const use=cands.find(c=>c.length*lh<=PH-4&&Math.max(...c.map(t=>est(t,fs)))<=PW-3)||(PH>12&&PW>16?[cands[cands.length-1][0]]:null);
+        if(use){ const y0=Y+PH/2-(use.length-1)*lh/2+fs*0.35;
+          use.forEach((t,k)=>{ if(hat){ const tw=est(t,fs)+4; s+=`<rect x="${(X+PW/2-tw/2).toFixed(1)}" y="${(y0+k*lh-fs*0.85).toFixed(1)}" width="${tw.toFixed(1)}" height="${(fs+1.5).toFixed(1)}" rx="1.5" fill="#ffffff" fill-opacity="0.82"/>`; }
+            s+=`<text x="${cx}" y="${(y0+k*lh).toFixed(1)}" font-size="${fs}" text-anchor="middle" fill="#1A1917"${/^\d+[A-Z]$/.test(t)?' font-weight="700"':''}>${t}</text>`; }); }
+      } else { // plaque dans le sens de la bande : texte écrit dans le sens de la longueur, lignes empilées dans la largeur
+        const fs=PW<24?7:(PW<34?8:9), lh=fs+1.5;
+        const use=cands.find(c=>c.length*lh<=PW-2&&Math.max(...c.map(t=>est(t,fs)))<=PH-4);
+        if(use){ use.forEach((t,k)=>{ const cx=X+PW/2+(k-(use.length-1)/2)*lh, cy=Y+PH/2; const bold=/^\d+[A-Z]$/.test(t);
+          if(hat){ const tw=est(t,fs)+4; s+=`<rect x="${(cx-lh/2).toFixed(1)}" y="${(cy-tw/2).toFixed(1)}" width="${lh.toFixed(1)}" height="${tw.toFixed(1)}" rx="1.5" fill="#ffffff" fill-opacity="0.82"/>`; }
+          s+=`<text x="${cx.toFixed(1)}" y="${cy.toFixed(1)}" font-size="${fs}" text-anchor="middle" dominant-baseline="central" fill="#1A1917"${bold?' font-weight="700"':''} transform="rotate(-90 ${cx.toFixed(1)} ${cy.toFixed(1)})">${t}</text>`; }); }
+      }
       if(calepIsCut(a,b,src,off,rot,rl,bw)) s+=`<line x1="${X.toFixed(1)}" y1="${(Y+PH).toFixed(1)}" x2="${(X+PW).toFixed(1)}" y2="${(Y+PH).toFixed(1)}" stroke="${cutC}" stroke-width="2" stroke-dasharray="4 2"/>`;
     });
     x+=stripW;
@@ -3593,12 +3641,13 @@ function calepSchemaSVG(L,l,res,isSol){
   } else {
     s+=`<text x="${mx}" y="${ly.toFixed(1)}" font-size="9" fill="${textC}">${res.nb} tôle${res.nb>1?'s':''} ${res.fmt.lab}${res.rot?' posées en travers':''}</text>`;
   }
-  s+=`<rect x="${mx}" y="${(ly+4).toFixed(1)}" width="12" height="9" fill="#cfd8e3" fill-opacity="0.4" stroke="#1A1917" stroke-width="0.5"/><rect x="${mx}" y="${(ly+4).toFixed(1)}" width="12" height="9" fill="url(#${pid})"/>`;
-  s+=`<text x="${mx+15}" y="${(ly+12).toFixed(1)}" font-size="9" fill="${textC}">chute réemployée</text>`;
-  s+=`<line x1="${mx+104}" y1="${(ly+9).toFixed(1)}" x2="${mx+118}" y2="${(ly+9).toFixed(1)}" stroke="${cutC}" stroke-width="2" stroke-dasharray="4 2"/><text x="${mx+121}" y="${(ly+12).toFixed(1)}" font-size="9" fill="${textC}">coupe</text>`;
-  s+=`<text x="${mx+160}" y="${(ly+12).toFixed(1)}" font-size="9" fill="${textC}">B1, B2… = bandes dans l'ordre de pose</text>`;
+  const rc=CALEP_REP_COLORS[0];
+  s+=`<rect x="${mx}" y="${(ly+4).toFixed(1)}" width="12" height="9" fill="${rc}" fill-opacity="0.9" stroke="#1A1917" stroke-width="0.5"/><text x="${mx+15}" y="${(ly+12).toFixed(1)}" font-size="9" fill="${textC}">1A plaque dont la chute ressert</text>`;
+  s+=`<rect x="${mx+160}" y="${(ly+4).toFixed(1)}" width="12" height="9" fill="${rc}" fill-opacity="0.55" stroke="#1A1917" stroke-width="0.5"/><rect x="${mx+160}" y="${(ly+4).toFixed(1)}" width="12" height="9" fill="url(#${pid})"/><text x="${mx+175}" y="${(ly+12).toFixed(1)}" font-size="9" fill="${textC}">1B sa chute, même couleur</text>`;
+  s+=`<line x1="${mx+300}" y1="${(ly+9).toFixed(1)}" x2="${mx+314}" y2="${(ly+9).toFixed(1)}" stroke="${cutC}" stroke-width="2" stroke-dasharray="4 2"/><text x="${mx+317}" y="${(ly+12).toFixed(1)}" font-size="9" fill="${textC}">coupe</text>`;
+  s+=`<text x="${mx+352}" y="${(ly+12).toFixed(1)}" font-size="9" fill="${textC}">B1, B2… = bandes dans l'ordre de pose</text>`;
   s+=`<text x="${mx}" y="${(ly+25).toFixed(1)}" font-size="9" fill="${textC}">surface ${f(L*l)} m² · acheté ${f(res.boughtM2)} m² · chutes perdues ${f(res.chute)} m² (${res.boughtM2>0?Math.round(res.chute/res.boughtM2*100):0} %)</text>`;
-  if(res.rotLast) s+=`<text x="${mx}" y="${(ly+37).toFixed(1)}" font-size="9" fill="${textC}">B${res.rows.length} : plaques tournées à 90°, coupées à ${f(res.lastW)} m de large (même numéro = même plaque)</text>`;
+  if(res.ripLast) s+=`<text x="${mx}" y="${(ly+37).toFixed(1)}" font-size="9" fill="${textC}">B${res.rows.length} : plaques coupées dans la longueur à ${f(res.lastW)} m de large${solRipStrips(res.lastW)>1?' (les deux côtés de la coupe servent : même numéro = même plaque)':''}</text>`;
   s+=`</svg>`;
   return s+calepDebitHTML(res,isSol);
 }
@@ -3626,9 +3675,12 @@ function solResult(){
   }
   const L=parseFloat(G('af-sol-L')?.value)||0, l=parseFloat(G('af-sol-w')?.value)||0;
   if(L<=0||l<=0) return null;
-  const res=solSimulate(L,l);
-  return {mode,nb:res.nb,qty:res.boughtM2,L,l,res,
-    meta:`${res.nb} plaque${res.nb>1?'s':''} : ${solFmtMix(res.plaques)}${res.rotLast?' · dernière bande tournée à 90°':''} — acheté ${m2fr(res.boughtM2)} m² · chute ${m2fr(res.chute)} m² (${res.boughtM2>0?Math.round(res.chute/res.boughtM2*100):0} %) · chevrons PVC de calage inclus`,
+  const dispo=(G('af-sol-dispo')?.value)||'rangees';
+  const res=solSimulate(L,l,dispo);
+  const autre=solSimulate(L,l,dispo==='eco'?'rangees':'eco'); // pour information : ce que donnerait l'autre disposition
+  const cmp=(Math.abs(autre.boughtM2-res.boughtM2)>0.005)?` · en ${dispo==='eco'?'rangées identiques':'joints décalés'} : ${autre.nb} plaques, ${m2fr(autre.boughtM2)} m²`:'';
+  return {mode,nb:res.nb,qty:res.boughtM2,L,l,res,dispo,
+    meta:`${res.nb} plaque${res.nb>1?'s':''} : ${solFmtMix(res.plaques)}${dispo==='eco'?' · joints décalés, chutes réemployées':' · rangées identiques'}${res.ripLast?' · dernière bande coupée dans la longueur ('+m2fr(res.lastW)+' m)':''} — acheté ${m2fr(res.boughtM2)} m² · chute ${m2fr(res.chute)} m² (${res.boughtM2>0?Math.round(res.chute/res.boughtM2*100):0} %)${cmp} · chevrons PVC de calage inclus`,
     cmdDetail:`${solFmtMix(res.plaques)} — plaques ×1,2 m (sol ${String(L).replace('.',',')}×${String(l).replace('.',',')} m)`};
 }
 function calcSolPhen(){
@@ -3778,7 +3830,7 @@ function accAdd(){
   else if(pid==='ecrou_pom'){qty=parseInt(G('af-qty')?.value)||1;unit='u';label='Pose écrou POM pour reprise plafond';meta=`${qty} point${qty>1?'s':''} de suspension — tige filetée + écrou POM traversant`;}
   else if(['trappe','silicone'].includes(pid)){qty=parseInt(G('af-qty')?.value)||1;meta=`${qty} unité${qty>1?'s':''}`;}
   else if(pid==='lisse'){const ml=parseFloat(G('af-ml')?.value)||0;const niv=parseInt(G('af-niv')?.value)||1;const totMl=ml*niv;const barres=Math.ceil(totMl/3);qty=ml;unit='ml';nbU=barres;extra.niv=niv;extra.mlLisse=totMl;label+=niv>1?` — ${niv} niveaux (haute et basse)`:' — 1 niveau';meta=niv>1?`${fmt(ml)} ml de paroi × ${niv} niveaux = ${fmt(totMl)} ml de lisse — ${barres} barre${barres>1?'s':''} 3m`:`${fmt(totMl)} ml — ${barres} barre${barres>1?'s':''} 3m`;} // qty = ml de PAROI ; le prix au ml est multiplié par le nombre de niveaux dans cpv
-  else if(pid==='sol_phen'){const out=solResult();if(!out){alert((G('af-sol-mode')?.value)==='surf'?'Saisir la surface.':'Saisir la longueur et la largeur.');return;}qty=out.qty;nbU=out.nb;unit='m²';meta=out.meta;cmdDetail=out.cmdDetail;extra.solMix=(out.mode==='dim'&&out.res)?Object.assign({},out.res.plaques):{3:out.nb};extra.solMode=out.mode;extra.solL=out.L||0;extra.solW=out.l||0;}
+  else if(pid==='sol_phen'){const out=solResult();if(!out){alert((G('af-sol-mode')?.value)==='surf'?'Saisir la surface.':'Saisir la longueur et la largeur.');return;}qty=out.qty;nbU=out.nb;unit='m²';meta=out.meta;cmdDetail=out.cmdDetail;extra.solMix=(out.mode==='dim'&&out.res)?Object.assign({},out.res.plaques):{3:out.nb};extra.solMode=out.mode;extra.solL=out.L||0;extra.solW=out.l||0;extra.solDispo=out.dispo||'rangees';}
   else if(pid==='brio'){const ml=parseFloat(G('af-brio-ml')?.value)||0;const ep=G('af-brio-ep')?.value;const h=G('af-brio-h')?.value;qty=Math.ceil(Math.round(ml/1.22*1e10)/1e10);meta=`${qty} panneaux BRIO ${ep}mm × ${(parseInt(h)/1000).toFixed(2)}m`;}
   else if(pid==='tole'){const out=toleResult();if(!out){alert((G('af-tole-mode')?.value)==='surf'?'Saisir la surface.':'Saisir la longueur et la largeur.');return;}qty=out.qty;nbU=out.nb;unit='m²';meta=out.meta;cmdDetail=out.cmdDetail;extra.toleFmt=out.fmt.k;extra.toleMode=out.mode;extra.toleL=out.L||0;extra.toleW=out.l||0;}
   else if(pid==='te_systeme'){const ml=parseFloat(G('af-te-ml')?.value)||0;const cable=parseFloat(G('af-te-cable')?.value)||2;const nb=Math.ceil(ml/4);const mlFact=nb*4;const clRep=Math.ceil(ml);const clCont=nb;const tot=clRep+clCont;qty=mlFact;nbU=nb;unit='ML';meta=`${nb} barres Té 4m (${mlFact} ML) | ${clRep} cl.rep. | ${clCont} cl.cont. | ${tot} zip+oeillet | ~${Math.ceil(tot*cable)}m câble`;}
@@ -6949,7 +7001,7 @@ const PDF_INK=[26,25,23], PDF_ACCENT=[199,42,118];
 // ── Plans de calepinage (dossier poseur) : sol phénolique et tôle larmée saisis en dimensions ──
 function planDims(it){
   const fv=it.formVals||{};
-  if(it.accId==='sol_phen'){ const mode=it.solMode||fv['af-sol-mode']||'dim'; const L=parseFloat(it.solL!=null?it.solL:fv['af-sol-L'])||0, l=parseFloat(it.solW!=null?it.solW:fv['af-sol-w'])||0; return {isSol:true, ok:mode!=='surf'&&L>0&&l>0, L, l}; }
+  if(it.accId==='sol_phen'){ const mode=it.solMode||fv['af-sol-mode']||'dim'; const L=parseFloat(it.solL!=null?it.solL:fv['af-sol-L'])||0, l=parseFloat(it.solW!=null?it.solW:fv['af-sol-w'])||0; return {isSol:true, ok:mode!=='surf'&&L>0&&l>0, L, l, dispo:it.solDispo||fv['af-sol-dispo']||'rangees'}; }
   if(it.accId==='tole'){ const mode=it.toleMode||fv['af-tole-mode']||'dim'; const L=parseFloat(it.toleL!=null?it.toleL:fv['af-tole-L'])||0, l=parseFloat(it.toleW!=null?it.toleW:fv['af-tole-w'])||0; return {isSol:false, ok:mode!=='surf'&&L>0&&l>0, L, l, fmt:toleFormat(it.toleFmt||fv['af-tole-fmt'])||TOLE_FORMATS[0]}; }
   return {ok:false};
 }
@@ -6973,13 +7025,13 @@ function genPlansPDF(){
     { const pr=projet||'—'; sf(true,8.5,DGREY); const w2=doc.getTextWidth(pr); doc.text(pr, MR, y+21, {align:'right'}); sf(false,8.5,GREY); doc.text('Chantier :', MR-w2-2, y+21, {align:'right'}); }
     y+=26.9+5; doc.setDrawColor(228,226,222); doc.setLineWidth(0.4); doc.line(ML,y,MR,y); y+=8;
     const d=planDims(it); const L=d.L, l=d.l;
-    const res=d.isSol?solSimulate(L,l):toleSimulateFmt(L,l,d.fmt);
+    const res=d.isSol?solSimulate(L,l,d.dispo):toleSimulateFmt(L,l,d.fmt);
     const titre=(d.isSol?'Sol phénolique 100 mm':'Tôle larmée 4 mm — format '+res.fmt.lab)+' — pièce '+fm(L)+' × '+fm(l)+' m';
     sf(true,11,BLACK); doc.text(titre, ML, y); y+=6;
     const l1=d.isSol
-      ? `${res.nb} plaque${res.nb>1?'s':''} : ${solFmtMix(res.plaques)}${res.rotLast?' — dernière bande tournée à 90°, coupée à '+fm(res.lastW)+' m de large':''}`
+      ? `${res.nb} plaque${res.nb>1?'s':''} : ${solFmtMix(res.plaques)}${res.dispo==='eco'?' — chutes réemployées, joints décalés':' — rangées identiques'}${res.ripLast?' — dernière bande coupée dans la longueur à '+fm(res.lastW)+' m':''}`
       : `${res.nb} tôle${res.nb>1?'s':''} ${res.fmt.lab}${res.rot?' — posées en travers':''}`;
-    sf(true,9,DGREY); doc.text(l1, ML, y, {maxWidth:TW}); y+=5;
+    sf(true,9,DGREY); { const l1s=doc.splitTextToSize(l1,TW); doc.text(l1s, ML, y); y+=4.2*l1s.length+0.8; } // sous-titre sur plusieurs lignes sans chevaucher la suivante
     sf(false,9,DGREY); doc.text(`Surface ${fm(L*l)} m² · chutes perdues ${fm(res.chute)} m²`, ML, y); y+=6;
     // Zone de dessin : x = largeur couverte par les bandes, y = longueur des bandes (sens de pose du haut vers le bas)
     const w=res.w, rl=res.rowLen, bw=d.isSol?SOL_W:res.sw;
@@ -6992,17 +7044,25 @@ function genPlansPDF(){
     const hatch=(X,Y,PW,PH)=>{ doc.setDrawColor(26,25,23); doc.setLineWidth(0.18); for(let t=-PH;t<PW;t+=2.2){ const u0=Math.max(0,-t), u1=Math.min(PH,PW-t); if(u1>u0) doc.line(X+t+u0,Y+u0,X+t+u1,Y+u1); } };
     let x=0;
     res.rows.forEach((pieces,bi)=>{
-      const stripW=Math.min(bw, w-x); const X=ox+x*sc, PW=stripW*sc; const rotBand=pieces.length&&pieces[0][4];
-      sf(true,7,DGREY); doc.text('B'+(bi+1)+(rotBand?' (tournée)':''), X+PW/2, oy-1.5, {align:'center', maxWidth:PW});
+      const stripW=Math.min(bw, w-x); const X=ox+x*sc, PW=stripW*sc;
+      sf(true,7,DGREY); doc.text('B'+(bi+1), X+PW/2, oy-1.5, {align:'center'});
       pieces.forEach(([a,b,src,off,rot,lab])=>{
         const Y=oy+a*sc, PH=(b-a)*sc, len=b-a;
-        const c=d.isSol?hex(SOL_COLORS[src]||'#cccccc'):[207,216,227];
-        doc.setFillColor(...(off?c.map(v=>Math.round(v+(255-v)*0.6)):c)); doc.setDrawColor(26,25,23); doc.setLineWidth(0.3); doc.rect(X,Y,PW,PH,'FD');
-        if(off) hatch(X,Y,PW,PH);
-        const ln=calepPieceLines(src,len,off,rot,lab,fm); const fs=PW<16?6:7, lh=fs*0.42;
-        if(PH>5&&PW>9&&ln.length){ const n=PH>lh*ln.length+2?ln.length:(PH>lh*2+2?Math.min(2,ln.length):1); const use=n===ln.length?ln:(n===1?[ln.join(' ')]:[ln[0],ln.slice(1).join(' ')]);
-          const y0=Y+PH/2-(use.length-1)*lh/2+fs*0.12;
-          use.forEach((t,k)=>{ sf(/^\d+[A-Z]/.test(t),fs,BLACK); if(off){ const tw=Math.min(doc.getTextWidth(t),PW-1); doc.setFillColor(255,255,255); doc.rect(X+PW/2-tw/2-0.7, y0+k*lh-lh*0.78, tw+1.4, lh*0.98, 'F'); } doc.text(t, X+PW/2, y0+k*lh, {align:'center', maxWidth:PW-1}); }); }
+        const c=hex(calepColor(src,lab,d.isSol)), hat=calepHatched(lab);
+        doc.setFillColor(...(hat?c.map(v=>Math.round(v+(255-v)*0.45)):c)); doc.setDrawColor(26,25,23); doc.setLineWidth(0.3); doc.rect(X,Y,PW,PH,'FD');
+        if(hat) hatch(X,Y,PW,PH);
+        const cands=calepPieceCands(src,len,off,rot,lab,fm,stripW); const fs=PW<9?6:7, lh=fs*0.42;
+        const wOf=t=>{ sf(/^\d+[A-Z]$/.test(t),fs,BLACK); return doc.getTextWidth(t); };
+        if(rot===true){ // bande tournée : texte horizontal
+          const use=cands.find(c=>c.length*lh<=PH-1&&Math.max(...c.map(wOf))<=PW-1);
+          if(use){ const y0=Y+PH/2-(use.length-1)*lh/2+fs*0.12;
+            use.forEach((t,k)=>{ sf(/^\d+[A-Z]$/.test(t),fs,BLACK); if(hat){ const tw=doc.getTextWidth(t); doc.setFillColor(255,255,255); doc.rect(X+PW/2-tw/2-0.7, y0+k*lh-lh*0.78, tw+1.4, lh*0.98, 'F'); } doc.text(t, X+PW/2, y0+k*lh, {align:'center'}); }); }
+        } else { // texte dans le sens de la longueur (tourné de 90°), lignes empilées dans la largeur
+          const use=cands.find(c=>c.length*lh<=PW-1&&Math.max(...c.map(wOf))<=PH-2);
+          if(use){ use.forEach((t,k)=>{ const bold=/^\d+[A-Z]$/.test(t); sf(bold,fs,BLACK); const tw=doc.getTextWidth(t); const xk=X+PW/2+(k-(use.length-1)/2)*lh, yk=Y+PH/2+tw/2;
+            if(hat){ doc.setFillColor(255,255,255); doc.rect(xk-lh/2, yk-tw-0.7, lh, tw+1.4, 'F'); }
+            doc.text(t, xk+fs*0.13, yk, {angle:90}); }); }
+        }
         if(calepIsCut(a,b,src,off,rot,rl,bw)){ doc.setDrawColor(162,24,91); doc.setLineWidth(0.7); doc.setLineDashPattern([1.3,0.9],0); doc.line(X,Y+PH,X+PW,Y+PH); doc.setLineDashPattern([],0); }
       });
       x+=stripW;
@@ -7021,10 +7081,12 @@ function genPlansPDF(){
       let lx=ML; Object.keys(res.plaques).map(Number).sort((a,b)=>a-b).forEach(k=>{ const c=hex(SOL_COLORS[k]||'#cccccc'); doc.setFillColor(...c); doc.setDrawColor(26,25,23); doc.setLineWidth(0.3); doc.rect(lx,y-3,5,3.5,'FD'); sf(false,8,DGREY); const lab=`${res.plaques[k]} × ${fm(k)} m`; doc.text(lab,lx+7,y); lx+=7+doc.getTextWidth(lab)+8; });
       y+=7;
     }
-    { let lx=ML; doc.setFillColor(235,235,235); doc.setDrawColor(26,25,23); doc.setLineWidth(0.3); doc.rect(lx,y-3,5,3.5,'FD'); hatch(lx,y-3,5,3.5); sf(false,8,DGREY); doc.text('chute réemployée',lx+7,y); lx+=7+doc.getTextWidth('chute réemployée')+8;
+    { let lx=ML; const rc=hex(CALEP_REP_COLORS[0]); sf(false,8,DGREY);
+      doc.setFillColor(...rc); doc.setDrawColor(26,25,23); doc.setLineWidth(0.3); doc.rect(lx,y-3,5,3.5,'FD'); doc.text('1A plaque dont la chute ressert',lx+7,y); lx+=7+doc.getTextWidth('1A plaque dont la chute ressert')+8;
+      doc.setFillColor(...rc.map(v=>Math.round(v+(255-v)*0.45))); doc.rect(lx,y-3,5,3.5,'FD'); hatch(lx,y-3,5,3.5); doc.text('1B sa chute, même couleur',lx+7,y); lx+=7+doc.getTextWidth('1B sa chute, même couleur')+8;
       doc.setDrawColor(162,24,91); doc.setLineWidth(0.7); doc.setLineDashPattern([1.3,0.9],0); doc.line(lx,y-1.2,lx+6,y-1.2); doc.setLineDashPattern([],0); doc.text('coupe',lx+8,y); lx+=8+doc.getTextWidth('coupe')+8;
-      doc.text('B1, B2… = bandes dans l\'ordre de pose, du haut vers le bas',lx,y); y+=5;
-      if(res.rotLast){ doc.text('B'+res.rows.length+' : plaques tournées à 90°, coupées à '+fm(res.lastW)+' m de large ; les morceaux d\'une même plaque portent le même numéro', ML, y, {maxWidth:TW}); y+=5; }
+      y+=5; doc.text('B1, B2… = bandes dans l\'ordre de pose, du haut vers le bas', ML, y); y+=5;
+      if(res.ripLast){ doc.text('B'+res.rows.length+' : plaques coupées dans la longueur à '+fm(res.lastW)+' m de large'+(solRipStrips(res.lastW)>1?' ; les deux côtés de la coupe servent, les bandes d\'une même plaque portent le même numéro':''), ML, y, {maxWidth:TW}); y+=5; }
       y+=3; }
     // Liste de débit
     if(debit.length){
