@@ -2527,7 +2527,7 @@ function poseGlobale(){
       else if(it.accId==='iso_sol'){ total+=ISO_SOL.pose*(it.qty||0); }
       else if(it.accId==='sol_phen'){ total+=solPhenPx().poseTot*(it.qty||0); } // pose du sol + pose des chevrons
       else if(it.accId==='lisse'){ const pose=getAccPx('lisse').pose; if(pose>0) total+=pose*(it.qty||0)*(it.niv||1); } // pose au ml de lisse : ml de paroi × niveaux
-      else { const pose=getAccPx(it.accId||it._accId||it.id||'').pose;if(pose>0)total+=pose*(it.qty||1); }
+      else { const pose=accPxFor(it).pose;if(pose>0)total+=pose*(it.qty||1); }
     }
   });
   total+=calcDepose().costTotal; // dépose = main d'œuvre → budget poseur au COÛT (tarif ÷ coef), pas au prix de vente
@@ -2979,6 +2979,13 @@ function accPxNum(pref,id){ // vide OU 0 dans Paramètres → défaut du catalog
   const a=ACC_DEFAULTS.find(x=>x.id===id); const d=a?(pref==='a'?a.defA:a.defP):null; const hasDef=(d!=null&&!isNaN(parseFloat(d)));
   const v=parseFloat(ACC_PX_STORE[pref+'_'+id]); if(!isNaN(v)&&(v>0||!hasDef)) return v; return hasDef?parseFloat(d):0; }
 function getAccPx(id){ id=ACC_PX_MAP[id]||id; return { achat: accPxNum('a',id), pose: accPxNum('p',id) }; }
+// Prix d'un complément du devis : la soupape dépend du volume de sa chambre (< 75 m³ / 75 m³ et plus), repli sur l'ancienne ligne « soupape » tant que les deux modèles n'ont pas de prix
+function soupapeId(vol){ return (parseFloat(vol)||0)>=75?'soupape_sup75':'soupape_inf75'; }
+function accPxFor(it){ const id=it.accId||it._accId||it.id||''; if(id==='soupape'){ const px=getAccPx(soupapeId(it.vol)); return (px.achat>0||px.pose>0)?px:getAccPx('soupape'); } return getAccPx(id); }
+function calcSoupape(){ const v=parseFloat(G('af-soup-vol')?.value)||0; const r=G('af-res-soup'); if(!r) return;
+  if(v<=0){ r.textContent='Saisir le volume de la chambre'; return; }
+  const px=accPxFor({accId:'soupape',vol:v}); const pu=r2((px.achat+px.pose)*((P().coef)||1.5));
+  r.innerHTML=`Soupape ${v>=75?'75 m³ et plus':'moins de 75 m³'} — chambre de ${fmt(v)} m³ → <b>${pu>0?fmt(pu)+' € HT':'À chiffrer'}</b>`; }
 
 // Familles repliées par défaut, sauf celles où il reste des prix à saisir
 let accCatOpen={};
@@ -3100,7 +3107,7 @@ function cpv(it,p){
     if(it.accId==='bastaing'){ const v=(it.pxUnit!=null?it.pxUnit:(BASTAING[it.mode]||BASTAING.sh).vente); return r2(v*(it.qty||0)); }
     if(it.accId==='iso_sol'){ return r2(r2((ISO_SOL.achat+ISO_SOL.pose)*p.coef)*(it.qty||0)); }
     if(it.accId==='sol_phen'){ const sp=solPhenPx(); return r2(r2((sp.achatTot+sp.poseTot)*p.coef)*(it.qty||0)); } // chevrons PVC inclus
-    const px = getAccPx(it.accId||it._accId||it.id||'');
+    const px = accPxFor(it);
     return r2(r2((px.achat+px.pose)*p.coef)*(it.qty||1));
   }
   return 0;
@@ -3141,7 +3148,7 @@ function calcMarge(p, remiseMontant){
         if(sp.achat>0){ vFerme+=v; cFerme+=(sp.achatTot+sp.poseTot)*(it.qty||0); }
         else { vFlou+=v; flou.push('Sol phénolique (achat non renseigné)'); }
       } else {
-        const px=getAccPx(it.accId||it._accId||it.id||'');
+        const px=accPxFor(it);
         if(px.achat>0){ vFerme+=v; cFerme+=(px.achat+px.pose)*(it.qty||1); }
         else { vFlou+=v; flou.push('Complément — '+(it.label||'')+(v>0?' (achat non renseigné)':' (à chiffrer)')); }
       }
@@ -3316,7 +3323,6 @@ function renderAccForm(pid){
   const nbPan=items.filter(i=>i.type==='pan').reduce((s,i)=>s+(i.nbPan||0),0);
   const nbPor=items.filter(i=>i.type==='por').reduce((t,i)=>t+porQty(i),0);
   const forms={
-    soupape:`<div class="acc-note">1 soupape par chambre négative.</div><div class="acc-field"><label>Quantité</label><input type="number" id="af-qty" value="1" min="1" step="1"><span class="acc-unit">unité(s)</span></div>`,
     ecrou_pom:`<div class="acc-note">Reprise des plafonds existants après dépose des cloisons qui les portent : suspension à la structure par tige filetée et écrou POM ø10 mm traversant, posée avant la dépose. Prix par point (fourniture + pose) : Paramètres › Accessoires › Plafond &amp; suspension.</div><div class="acc-field"><label>Points de suspension</label><input type="number" id="af-qty" value="1" min="1" step="1"><span class="acc-unit">unité(s)</span></div>`,
     trappe:`<div class="acc-note">1 trappe par plafond isotherme.</div><div class="acc-field"><label>Quantité</label><input type="number" id="af-qty" value="1" min="1" step="1"><span class="acc-unit">unité(s)</span></div>`,
     lisse:`<div class="acc-field"><label>Longueur totale (ML)</label><input type="number" id="af-ml" value="0" min="0" step="0.5" oninput="calcLisse()"><span class="acc-unit">m</span></div>
@@ -3344,8 +3350,9 @@ function renderAccForm(pid){
         <div class="acc-field"><label>Surface à isoler</label><input type="number" id="af-iso-surf" value="0" min="0" step="0.1" oninput="calcIsoSol()"><span class="acc-unit">m²</span></div>
       </div>
       <div class="acc-result" id="af-res-iso">Saisir la surface</div>`,
-    soupape:`<div class="acc-field"><label>Quantité</label><input type="number" id="af-qty" value="1" min="1" step="1"><span class="acc-unit">unité(s)</span></div>
-      <div class="acc-field"><label>Volume chambre</label><input type="number" id="af-soup-vol" value="0" min="0" step="0.5"><span class="acc-unit">m³</span></div>`,
+    soupape:`<div class="acc-note">Une soupape par chambre négative : le volume de la chambre choisit le modèle (moins de 75 m³ ou 75 m³ et plus). Pour une autre chambre, ajoute une autre soupape avec son volume.</div>
+      <div class="acc-field"><label>Volume de la chambre</label><input type="number" id="af-soup-vol" value="" min="0" step="0.5" placeholder="L × l × h" oninput="calcSoupape()"><span class="acc-unit">m³</span></div>
+      <div class="acc-result" id="af-res-soup">Saisir le volume de la chambre</div>`,
     sol_phen:`<div class="acc-field"><label>Mode de saisie</label>
       <div style="display:flex;gap:6px">
         <button type="button" id="af-sol-btn-dim" onclick="solSetMode('dim')" style="font-size:12px;padding:5px 11px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif">Dimensions L × l</button>
@@ -3827,7 +3834,7 @@ function accAdd(){
     renderAccList();refreshAll();accReset();
     return;
   }
-  if(pid==='soupape'){qty=parseInt(G('af-qty')?.value)||1;vol=parseFloat(G('af-soup-vol')?.value)||0;meta=`${qty} unité${qty>1?'s':''}`;}
+  if(pid==='soupape'){vol=parseFloat(G('af-soup-vol')?.value)||0;if(vol<=0){alert('Saisir le volume de la chambre pour cette soupape.');return;}qty=1;label=`Soupape d'équilibrage de pression — chambre de ${fmt(vol)} m³`;meta=`modèle ${vol>=75?'75 m³ et plus':'moins de 75 m³'}`;cmdDetail=`modèle ${vol>=75?'75 m³ et plus':'moins de 75 m³'}`;}
   else if(pid==='ecrou_pom'){qty=parseInt(G('af-qty')?.value)||1;unit='u';label='Pose écrou POM pour reprise plafond';meta=`${qty} point${qty>1?'s':''} de suspension — tige filetée + écrou POM traversant`;}
   else if(['trappe','silicone'].includes(pid)){qty=parseInt(G('af-qty')?.value)||1;meta=`${qty} unité${qty>1?'s':''}`;}
   else if(pid==='lisse'){const ml=parseFloat(G('af-ml')?.value)||0;const niv=parseInt(G('af-niv')?.value)||1;const totMl=ml*niv;const barres=Math.ceil(totMl/3);qty=ml;unit='ml';nbU=barres;extra.niv=niv;extra.mlLisse=totMl;label+=niv>1?` — ${niv} niveaux (haute et basse)`:' — 1 niveau';meta=niv>1?`${fmt(ml)} ml de paroi × ${niv} niveaux = ${fmt(totMl)} ml de lisse — ${barres} barre${barres>1?'s':''} 3m`:`${fmt(totMl)} ml — ${barres} barre${barres>1?'s':''} 3m`;} // qty = ml de PAROI ; le prix au ml est multiplié par le nombre de niveaux dans cpv
@@ -3842,7 +3849,12 @@ function accAdd(){
   else if(pid==='usol'){const eps=['40','60','80','100'];const usols=eps.map(ep=>({ep,nb:parseInt(G('af-usol-'+ep)?.value)||0})).filter(u=>u.nb>0);qty=usols.reduce((s,u)=>s+u.nb,0);meta=usols.map(u=>`${u.nb} barres ${u.ep}mm`).join(' + ');}
   const px=getAccPx(pid).achat; // prix d'achat canonique (le calcul réel passe de toute façon par cpv → getAccPx)
   accPush(Object.assign({type:'acc',label,meta,qty,vol,nbU,unit,px,achat:px,pose:0,rauto:0,surf:0,ep:'',piece:'',accId:pid,cmdDetail,formVals},extra));
-  renderAccList();refreshAll();accReset();
+  renderAccList();refreshAll();
+  if(pid==='soupape'&&accEditIdx==null){ // une soupape par chambre : on repropose aussitôt une autre soupape avec un nouveau volume
+    accReset(); accPickCat('equipements'); accPickProd('soupape');
+    const r=G('af-res-soup'); if(r) r.innerHTML=`<b>Soupape ajoutée</b> (chambre de ${fmt(vol)} m³). Une autre chambre ? Saisis son volume, sinon « Retour ».`;
+    showToast('Soupape ajoutée — chambre de '+fmt(vol)+' m³'); return; }
+  accReset();
 }
 function renderAccList(){
   const wrap=G('acc-list-wrap');const list=G('acc-list');if(!wrap||!list)return;
@@ -3853,6 +3865,7 @@ function renderAccList(){
     // Té de reprise : quantité = ml, non ajustable par +/- (le prix dépend des ml ET de la hauteur → supprimer/re-créer pour modifier)
     const qtyBlock = it.accId==='te_reprise'
       ? `<span class="acc-qty-val" style="min-width:auto">${it.qty||0} ${it.unit||'ml'}</span>`
+      : (it.accId==='soupape'&&(parseFloat(it.vol)||0)>0) ? `<span class="acc-qty-val" style="min-width:auto" title="Une soupape par chambre : pour une autre chambre, ajoute une autre soupape">1 u</span>`
       : `<button class="acc-qty-btn" onclick="accQtyChange(${gi},-1)">−</button><span class="acc-qty-val">${it.qty||1}${it.unit?' '+it.unit:''}</span><button class="acc-qty-btn" onclick="accQtyChange(${gi},1)">+</button>`;
     return `<div class="acc-item-row"><div class="acc-item-left"><div class="acc-item-name">${it.label}</div><div class="acc-item-meta">${it.meta||''}</div></div>
       <div class="acc-item-right">
@@ -4113,6 +4126,7 @@ function accCmdLines(it){
     const f=it.toleFmt?toleFormat(it.toleFmt):null;
     return [[f?('Tôle larmée 4mm - '+Math.round(f.L*1000)+' x '+Math.round(f.l*1000)+' mm'):it.label, (it.nbU||0)+' unité'+((it.nbU||0)>1?'s':''), it.cmdDetail||accDetail(it)||'']];
   }
+  if(id==='soupape'&&(parseFloat(it.vol)||0)>0){ const v=parseFloat(it.vol)||0; return [[`Soupape d'équilibrage de pression (${v>=75?'75 m³ et plus':'< 75 m³'}) — chambre de ${fmt(v)} m³`, '1 unité', '']]; }
   if(id==='ecrou_pom'){ const q=parseInt(it.qty)||1; return [['Écrou POM ø10 mm sans rondelle', q+' unité'+(q>1?'s':''), 'reprise de plafond — '+q+' point'+(q>1?'s':'')+' de suspension (tiges filetées et rondelles à prévoir)']]; }
   return [[it.label, cmdAccQty(it), (it.cmdDetail||accDetail(it)||'')]];
 }
@@ -4745,7 +4759,7 @@ function refreshAll(){
           rows+=`<tr><td>Sol phénolique 100 mm — pose des panneaux + chevrons PVC de calage</td><td style="text-align:right">${fmt(qtyS)} m²</td><td style="text-align:right">${fmt(sp.poseTot)} €/m²</td><td style="text-align:right;font-weight:600">${fmt(montantS)} €</td></tr>`;
           return;
         }
-        const pose=getAccPx(it.accId||it._accId||it.id||'').pose;
+        const pose=accPxFor(it).pose;
         if(pose<=0) return;
         const qty=it.qty||1;
         const montant=pose*qty;
@@ -7597,7 +7611,7 @@ function genMissionPDF(){ if(porBloque('l’ordre de mission')) return;
       drawMRow('Sol phénolique 100 mm — pose des panneaux + chevrons PVC de calage', fn(qtyS).replace(' €','')+'m²', fn(sp.poseTot)+'/m²', fn(mntS));
       return;
     }
-    const pose=getAccPx(it.accId||it._accId||it.id||'').pose;
+    const pose=accPxFor(it).pose;
     if(pose<=0) return;
     const qty=it.qty||1;
     const mnt=pose*qty;
