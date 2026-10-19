@@ -366,7 +366,7 @@ body {
 .prm-row input:focus, .prm-table input:focus, .prm-field input:focus, .prm-field select:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(41,35,92,.08); }
 .prm-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 14px 16px; }
 .prm-field { display: flex; flex-direction: column; gap: 4px; }
-.calep-debit { width: 100%; max-width: 400px; border-collapse: collapse; font-size: 11px; margin-top: 6px; }
+.calep-debit { width: 100%; max-width: 760px; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
 .calep-debit th { text-align: left; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--text3); padding: 4px 0 3px; border-bottom: 1px solid var(--border); }
 .calep-debit td { padding: 3px 8px 3px 0; border-bottom: 1px solid var(--border); color: var(--text2); vertical-align: top; line-height: 1.35; }
 .calep-debit td:first-child { font-weight: 700; color: var(--text); white-space: nowrap; width: 1%; }
@@ -3553,7 +3553,7 @@ function calepSchemaSVG(L,l,res,isSol){
   const vbW=Math.max(Wpx+2*mx+14, lgW+2*mx, 400);
   const pid=isSol?'calepHatchSol':'calepHatchTole';
   const strokeC='#1A1917', textC='#6e7278', cutC='#A2185B';
-  let s=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${vbW.toFixed(0)} ${(Hpx+my+16+lgd).toFixed(0)}" style="width:100%;max-width:400px;height:auto;font-family:'DM Sans',sans-serif">`;
+  let s=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${vbW.toFixed(0)} ${(Hpx+my+16+lgd).toFixed(0)}" style="width:100%;max-width:1200px;height:auto;font-family:'DM Sans',sans-serif">`;
   s+=`<defs><pattern id="${pid}" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="5" stroke="#1A1917" stroke-width="0.9" stroke-opacity="0.38"/></pattern></defs>`;
   let x=0;
   res.rows.forEach((pieces,bi)=>{
@@ -3598,7 +3598,7 @@ function calepSchemaSVG(L,l,res,isSol){
   s+=`<line x1="${mx+104}" y1="${(ly+9).toFixed(1)}" x2="${mx+118}" y2="${(ly+9).toFixed(1)}" stroke="${cutC}" stroke-width="2" stroke-dasharray="4 2"/><text x="${mx+121}" y="${(ly+12).toFixed(1)}" font-size="9" fill="${textC}">coupe</text>`;
   s+=`<text x="${mx+160}" y="${(ly+12).toFixed(1)}" font-size="9" fill="${textC}">B1, B2… = bandes dans l'ordre de pose</text>`;
   s+=`<text x="${mx}" y="${(ly+25).toFixed(1)}" font-size="9" fill="${textC}">surface ${f(L*l)} m² · acheté ${f(res.boughtM2)} m² · chutes perdues ${f(res.chute)} m² (${res.boughtM2>0?Math.round(res.chute/res.boughtM2*100):0} %)</text>`;
-  if(res.rotLast) s+=`<text x="${mx}" y="${(ly+37).toFixed(1)}" font-size="9" fill="${textC}">B${res.rows.length} : plaques tournées à 90°, coupées à ${f(res.lastW)} m de large (6A, 6B, 6C… = même plaque)</text>`;
+  if(res.rotLast) s+=`<text x="${mx}" y="${(ly+37).toFixed(1)}" font-size="9" fill="${textC}">B${res.rows.length} : plaques tournées à 90°, coupées à ${f(res.lastW)} m de large (même numéro = même plaque)</text>`;
   s+=`</svg>`;
   return s+calepDebitHTML(res,isSol);
 }
@@ -7024,7 +7024,7 @@ function genPlansPDF(){
     { let lx=ML; doc.setFillColor(235,235,235); doc.setDrawColor(26,25,23); doc.setLineWidth(0.3); doc.rect(lx,y-3,5,3.5,'FD'); hatch(lx,y-3,5,3.5); sf(false,8,DGREY); doc.text('chute réemployée',lx+7,y); lx+=7+doc.getTextWidth('chute réemployée')+8;
       doc.setDrawColor(162,24,91); doc.setLineWidth(0.7); doc.setLineDashPattern([1.3,0.9],0); doc.line(lx,y-1.2,lx+6,y-1.2); doc.setLineDashPattern([],0); doc.text('coupe',lx+8,y); lx+=8+doc.getTextWidth('coupe')+8;
       doc.text('B1, B2… = bandes dans l\'ordre de pose, du haut vers le bas',lx,y); y+=5;
-      if(res.rotLast){ doc.text('B'+res.rows.length+' : plaques tournées à 90°, coupées à '+fm(res.lastW)+' m de large ; les morceaux d\'une même plaque portent le même numéro (6A, 6B, 6C…)', ML, y, {maxWidth:TW}); y+=5; }
+      if(res.rotLast){ doc.text('B'+res.rows.length+' : plaques tournées à 90°, coupées à '+fm(res.lastW)+' m de large ; les morceaux d\'une même plaque portent le même numéro', ML, y, {maxWidth:TW}); y+=5; }
       y+=3; }
     // Liste de débit
     if(debit.length){
