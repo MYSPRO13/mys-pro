@@ -2514,6 +2514,42 @@ function valOr(id,def){ const r=G(id)?.value; return (r===''||r==null||isNaN(par
 let travaux=[], travauxSeq=0; // lignes libres « Travaux spécifiques »
 let trManual=false; // transport : résultat forcé à la main (override)
 function travauxHT(){return travaux.reduce((s,l)=>s+((parseFloat(l.qty)||0)*(parseFloat(l.pu)||0)),0);}
+// ── Ordre de mission : lignes regroupées (règles Clément 21/10/2026 : une ligne par type, sol phénolique en une ligne, tôle en m², soupapes regroupées,
+//    dépose = ordre de mission séparé car confiée en général à une autre entreprise) ──
+// kind = 'pose' (panneaux, portes, accessoires) ou 'depose' (lignes de dépose au coût poseur = tarif ÷ coef)
+function missionLignes(kind){
+  const rows=[]; const add=(desig,qty,unit,pu)=>{ if(!(qty>0)||!(pu>0)) return; rows.push({desig,qty,unit,pu,montant:r2(pu*qty)}); };
+  if(kind==='depose'){
+    const dep=calcDepose(); if(dep.on) dep.lines.forEach(L=>rows.push({desig:L.label,qty:L.qty,unit:L.unit,pu:L.puCost,montant:L.costMontant}));
+    return {rows,total:r2(rows.reduce((t,r)=>t+r.montant,0)),journee:false};
+  }
+  const pJ=P(); const journee=(pJ.mode==='journee');
+  if(journee) return {rows:[{desig:"Forfait main d'œuvre & déplacement — journée simple",qty:1,unit:'forfait',pu:pJ.journeePx,montant:pJ.journeePx}],total:pJ.journeePx,journee:true};
+  const pans=items.filter(i=>i.type==='pan'), pors=items.filter(i=>i.type==='por'), accs=items.filter(i=>i.type==='acc');
+  // Panneaux : Cloisons / Plafonds / Sol de congélation (pose au m²)
+  { const posePx=parseFloat(G('pp')?.value)||18, cats={};
+    pans.forEach(it=>{ const cat=it.paroi==='Plafond'?'Plafonds':(it.paroi==='Sol négatif'?'Sol de congélation':'Cloisons'); cats[cat]=(cats[cat]||0)+(it.surf||0); });
+    ['Cloisons','Plafonds','Sol de congélation'].forEach(cat=>add(cat,cats[cat]||0,'m²',posePx)); }
+  // Portes : regroupées par type (même pose)
+  { const g={}; pors.forEach(it=>{ const key=(it.subtype||porTypeName(it))+'|'+(it.pose||0); if(!g[key]) g[key]={desig:porTypeName(it),pose:it.pose||0,n:0}; g[key].n+=porQty(it); });
+    Object.values(g).forEach(x=>add(x.desig,x.n,'u',x.pose)); }
+  // Accessoires : une ligne par produit (quantités additionnées), unité réelle (m², ml, u)
+  { const g={};
+    accs.forEach(it=>{ let key, desig, qty, pu, unit;
+      if(it.accId==='sol_phen'){ const sp=solPhenPx(); pu=sp.poseTot; key='sol_phen'; desig='Sol phénolique 100 mm — pose des panneaux + chevrons PVC de calage'; qty=it.qty||0; unit='m²'; }
+      else if(it.accId==='lisse'){ pu=getAccPx('lisse').pose; key='lisse|'+pu; desig='Lisse de protection PVC — pose'; qty=(it.qty||0)*(it.niv||1); unit='ml'; }
+      else if(it.accId==='bastaing'){ pu=(it.poseUnit!=null?it.poseUnit:(BASTAING[it.mode]||BASTAING.sh).pose); key='bastaing|'+pu; desig='Bastaing de protection — pose'; qty=it.qty||0; unit='ml'; }
+      else if(it.accId==='iso_sol'){ pu=ISO_SOL.pose; key='iso_sol'; desig='Isolant de sol CF négative — pose'; qty=it.qty||0; unit='m²'; }
+      else if(it.accId==='te_reprise'){ pu=accPxNum('p','ter_pose'); key='te_reprise'; desig='Té de reprise — pose'; qty=it.ml||0; unit='ml'; }
+      else { pu=accPxFor(it).pose; const soup=it.accId==='soupape'; key=soup?('soupape|'+pu):(it.accId+'|'+it.label+'|'+pu); desig=soup?"Soupape d'équilibrage de pression":it.label; qty=it.qty||1; unit=(it.unit==='m²'||it.unit==='ml')?it.unit:'u'; }
+      if(!(pu>0)||!(qty>0)) return;
+      if(!g[key]) g[key]={desig,qty:0,unit,pu}; g[key].qty+=qty; });
+    Object.values(g).forEach(x=>add(x.desig,r2(x.qty),x.unit,x.pu)); }
+  return {rows,total:r2(rows.reduce((t,r)=>t+r.montant,0)),journee:false};
+}
+function missionQte(r){ return r.unit==='forfait'?'1 forfait':(r.unit==='u'?(r.qty+' u'):(String(+(+r.qty).toFixed(2)).replace('.',',')+' '+r.unit)); }
+function missionPU(r){ return r.unit==='forfait'?(fmt(r.pu)+' €'):(fmt(r.pu)+' €/'+r.unit); }
+function initMissionSelectDepose(){ const sel=G('mission-poseur-depose'); if(!sel) return; const v=sel.value; sel.innerHTML='<option value="">— Sélectionner —</option>'+POS.map(p=>`<option value="${p.nom}">${p.nom}</option>`).join(''); if(v) sel.value=v; }
 // Prix de pose global (main d'œuvre) — même logique que la page Ordre de mission
 function poseGlobale(){
   const pm=P(); if(pm.mode==='journee') return pm.journeePx; // journée : le forfait remplace les montants de pose
@@ -4727,59 +4763,26 @@ function refreshAll(){
       const pans=items.filter(i=>i.type==='pan');
       const pors=items.filter(i=>i.type==='por');
       const accs=items.filter(i=>i.type==='acc');
-      let total=0;
-      let rows='';
-      const pJ=P(); const journee=(pJ.mode==='journee');
-      if(journee){ // mode journée : le poseur est payé au forfait, pas aux montants de pose par produit
-        total=pJ.journeePx;
-        rows=`<tr><td>Forfait main d'œuvre & déplacement — journée simple</td><td style="text-align:right">1 forfait</td><td style="text-align:right">${fmt(pJ.journeePx)} €</td><td style="text-align:right;font-weight:600">${fmt(pJ.journeePx)} €</td></tr>`;
-      } else {
-
-      // Panneaux regroupés : Cloisons / Plafonds (pose au m², même taux)
-      {
-        const posePx=parseFloat(G('pp')?.value)||18, cats={};
-        pans.forEach(it=>{ const cat=it.paroi==='Plafond'?'Plafonds':(it.paroi==='Sol négatif'?'Sol de congélation':'Cloisons'); cats[cat]=(cats[cat]||0)+(it.surf||0); });
-        ['Cloisons','Plafonds','Sol de congélation'].forEach(cat=>{ const s=cats[cat]; if(s>0){ const montant=s*posePx; total+=montant; rows+=`<tr><td>${cat}</td><td style="text-align:right">${fmt(s)} m²</td><td style="text-align:right">${fmt(posePx)} €/m²</td><td style="text-align:right;font-weight:600">${fmt(montant)} €</td></tr>`; } });
-      }
-
-      // Portes
-      // Portes regroupées par type similaire (même pose)
-      const porG={};
-      pors.forEach(it=>{ const key=(it.subtype||porTypeName(it))+'|'+(it.pose||0); if(!porG[key]) porG[key]={desig:porTypeName(it),pose:it.pose||0,n:0}; porG[key].n+=porQty(it); });
-      Object.values(porG).forEach(g=>{
-        const montant=g.pose*g.n; total+=montant;
-        rows+=`<tr><td>${g.desig}</td><td style="text-align:right">${g.n} u</td><td style="text-align:right">${fmt(g.pose)} €/u</td><td style="text-align:right;font-weight:600">${fmt(montant)} €</td></tr>`;
-      });
-
-      // Accessoires (uniquement ceux avec prix de pose > 0)
-      accs.forEach(it=>{
-        if(it.accId==='sol_phen'){ // sol phénolique : pose au m² = pose du sol + pose des chevrons PVC de calage
-          const sp=solPhenPx(); if(sp.poseTot<=0) return;
-          const qtyS=it.qty||0, montantS=r2(sp.poseTot*qtyS); total+=montantS;
-          rows+=`<tr><td>Sol phénolique 100 mm — pose des panneaux + chevrons PVC de calage</td><td style="text-align:right">${fmt(qtyS)} m²</td><td style="text-align:right">${fmt(sp.poseTot)} €/m²</td><td style="text-align:right;font-weight:600">${fmt(montantS)} €</td></tr>`;
-          return;
-        }
-        const pose=accPxFor(it).pose;
-        if(pose<=0) return;
-        const qty=it.qty||1;
-        const montant=pose*qty;
-        total+=montant;
-        rows+=`<tr><td>${it.label}</td><td style="text-align:right">${it.meta||(qty+' u')}</td><td style="text-align:right">${fmt(pose)} €/u</td><td style="text-align:right;font-weight:600">${fmt(montant)} €</td></tr>`;
-      });
-
-      // Dépose de l'existant (main d'œuvre exécutée par le poseur)
-      const depM=calcDepose();
-      if(depM.on) depM.lines.forEach(L=>{
-        total+=L.costMontant;
-        rows+=`<tr><td>${L.label}</td><td style="text-align:right">${String(L.qty).replace('.',',')} ${L.unit}</td><td style="text-align:right">${fmt(L.puCost)} €/${L.unit}</td><td style="text-align:right;font-weight:600">${fmt(L.costMontant)} €</td></tr>`;
-      });
-
-      }
+      const ML_=missionLignes('pose'); const journee=ML_.journee; const total=ML_.total;
+      const rows=ML_.rows.map(r=>`<tr><td>${esc(r.desig)}</td><td style="text-align:right">${missionQte(r)}</td><td style="text-align:right">${missionPU(r)}</td><td style="text-align:right;font-weight:600">${fmt(r.montant)} €</td></tr>`).join('');
+      const DEP=missionLignes('depose');
+      const depHtml=DEP.rows.length?`
+        <div style="margin-top:1.25rem;padding-top:1rem;border-top:1px dashed var(--border)">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:.625rem">
+            <div><div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Dépose de l'existant — ordre de mission séparé</div><div style="font-size:11px;color:var(--text3);margin-top:2px">La dépose est confiée en général à une autre entreprise : elle a son propre ordre de mission.${journee?' En mode journée, vérifie qu’elle n’est pas déjà comprise dans le forfait du poseur.':''}</div></div>
+            <div style="display:flex;gap:8px;align-items:center"><select id="mission-poseur-depose" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:12px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text)"><option value="">— Prestataire dépose —</option></select><button class="btn por-gate" onclick="genMissionPDF('depose')" style="font-size:12px;padding:6px 14px">PDF ordre de mission dépose</button></div>
+          </div>
+          <table class="cmd-table">
+            <thead><tr><th>Désignation</th><th style="text-align:right">Quantité</th><th style="text-align:right">Prix unitaire</th><th style="text-align:right">Montant HT</th></tr></thead>
+            <tbody>${DEP.rows.map(r=>`<tr><td>${esc(r.desig)}</td><td style="text-align:right">${missionQte(r)}</td><td style="text-align:right">${missionPU(r)}</td><td style="text-align:right;font-weight:600">${fmt(r.montant)} €</td></tr>`).join('')}</tbody>
+            <tfoot><tr style="background:var(--navy,#2E3192);color:white"><td colspan="3" style="padding:8px 10px;font-weight:700;font-size:13px">TOTAL DÉPOSE HT</td><td style="padding:8px 10px;text-align:right;font-weight:700;font-size:14px">${fmt(DEP.total)} €</td></tr></tfoot>
+          </table>
+        </div>`:'';
       ms.innerHTML=`
         <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.625rem">Montant de la mission</div>
         <table class="cmd-table">
           <thead><tr><th>Désignation</th><th style="text-align:right">Quantité</th><th style="text-align:right">Prix unitaire</th><th style="text-align:right">Montant HT</th></tr></thead>
-          <tbody>${rows}${journee?`<tr><td colspan="4" style="font-size:11px;color:var(--text3);font-style:italic">Mode journée : le forfait couvre la pose des panneaux, portes, accessoires et la dépose. Il se règle dans « Mode de pose » (barre latérale).</td></tr>`:''}</tbody>
+          <tbody>${rows}${journee?`<tr><td colspan="4" style="font-size:11px;color:var(--text3);font-style:italic">Mode journée : le forfait couvre la pose des panneaux, portes et accessoires. Il se règle dans « Mode de pose » (barre latérale).</td></tr>`:''}</tbody>
           <tfoot><tr style="background:var(--navy,#2E3192);color:white">
             <td colspan="3" style="padding:8px 10px;font-weight:700;font-size:13px">TOTAL MISSION HT</td>
             <td style="padding:8px 10px;text-align:right;font-weight:700;font-size:14px">${fmt(total)} €</td>
@@ -4787,7 +4790,8 @@ function refreshAll(){
         </table>
         <div style="margin-top:.875rem;padding:.625rem .875rem;background:var(--bg2);border-radius:var(--radius-sm);font-size:11px;color:var(--text3)">
           Conditions de règlement : Virement à 30 jours fin de mois
-        </div>`;
+        </div>${depHtml}`;
+      try{ initMissionSelectDepose(); }catch(e){}
     }
   }
 }
@@ -7479,18 +7483,18 @@ function genRecapPDF(){ if(porBloque('le récap poseur')) return;
   doc.save('Recap_chantier_'+safe+'.pdf');
 }
 
-function genMissionPDF(){ if(porBloque('l’ordre de mission')) return;
+function genMissionPDF(kind){ kind=(kind==='depose')?'depose':'pose'; const K=(kind==='depose'); if(porBloque('l’ordre de mission')) return;
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
   const W=210,ML=14,MR=196,TW=MR-ML;
   const NAVY=[26,25,23],FUCHSIA=[26,25,23],GREY=[110,114,120],LGREY=[240,239,237],DGREY=[60,63,70],BLACK=[26,25,23],WHITE=[255,255,255],BLUEL=[240,239,237];
 
-  const poseurNom=G('mission-poseur')?.value||'';
+  const poseurNom=(K?G('mission-poseur-depose'):G('mission-poseur'))?.value||'';
   const ref=G('mission-ref')?.value||G('projet-nom')?.value||'';
   const adresse=G('mission-adresse')?.value||'';
   const debut=G('mission-debut')?.value||'';
   const fin=G('mission-fin')?.value||'';
-  const desc=G('mission-desc')?.value||'Réalisation de chambres froides isothermes — Installation de menuiseries isothermes — Finitions et habillages';
+  const desc=K?"Dépose de l'existant : cloisons, plafonds et portes isothermes, selon les quantités ci-dessous — évacuation des gravats selon accord":(G('mission-desc')?.value||'Réalisation de chambres froides isothermes — Installation de menuiseries isothermes — Finitions et habillages');
   const devisNum=G('devis-num')?.textContent||'';
 
   function sf(bold,size,color){doc.setFont('helvetica',bold?'bold':'normal');doc.setFontSize(size);doc.setTextColor(...(color||BLACK));}
@@ -7505,7 +7509,7 @@ function genMissionPDF(){ if(porBloque('l’ordre de mission')) return;
   // Logo
   try{doc.addImage(LOGO_B64,'PNG',ML,y,38,26.9);}catch(e){sf(true,14,NAVY);doc.text('MYS Pro',ML,y+14);}
 
-  pdfTitleAccent(doc, MR, y+7, 'ORDRE DE MISSION');
+  pdfTitleAccent(doc, MR, y+7, K?'ORDRE DE MISSION — DÉPOSE':'ORDRE DE MISSION');
   { sf(true,8.5,DGREY); const w1=doc.getTextWidth(devisNum); doc.text(devisNum, MR, y+16, {align:'right'}); sf(false,8.5,GREY); doc.text('N° Devis :', MR-w1-2, y+16, {align:'right'}); }
   { const dVal=new Date().toLocaleDateString('fr-FR'); sf(true,8.5,DGREY); const w2=doc.getTextWidth(dVal); doc.text(dVal, MR, y+21, {align:'right'}); sf(false,8.5,GREY); doc.text('Date :', MR-w2-2, y+21, {align:'right'}); }
 
@@ -7522,7 +7526,7 @@ function genMissionPDF(){ if(porBloque('l’ordre de mission')) return;
   sf(false,7.5,GREY);
   ['9 Avenue de l\'Europe — Module 6','34830 Clapiers','Tél. : 06 26 31 92 37','Siret : 977 511 237 00017'].forEach((l,i)=>doc.text(l,ML+4.5,y+16.5+i*3.6));
 
-  card(rx); capLabel(rx,'POSEUR');
+  card(rx); capLabel(rx,K?'PRESTATAIRE DÉPOSE':'POSEUR');
   sf(true,9.5,BLACK); doc.text(poseurNom||'—',rx+4.5,y+11.5);
   const posObj=POS.find(p=>p.nom===poseurNom);
   if(posObj){
@@ -7558,7 +7562,7 @@ function genMissionPDF(){ if(porBloque('l’ordre de mission')) return;
   }
 
   // Tableau budget
-  sf(true,9,NAVY); doc.text('MONTANT DE LA MISSION',ML,y);
+  sf(true,9,NAVY); doc.text(K?'MONTANT DE LA DÉPOSE':'MONTANT DE LA MISSION',ML,y);
   y+=5;
 
   const colW2=[TW-70,20,25,25];
@@ -7588,46 +7592,15 @@ function genMissionPDF(){ if(porBloque('l’ordre de mission')) return;
     y+=rh; rowIdx++;
   }
 
-  const pJ=P(); const journee=(pJ.mode==='journee');
-  if(journee){ // mode journée : une seule ligne, le forfait établi sur le devis
-    total=pJ.journeePx;
-    drawMRow("Forfait main d'œuvre & déplacement — journée simple",'1 forfait',fn(pJ.journeePx),fn(pJ.journeePx));
-    sf(false,7,GREY); doc.text('Le forfait couvre la pose des panneaux, portes, accessoires et la dépose.',ML+3,y+4.5); y+=7;
-  } else {
-  {
-    const posePx=parseFloat(G('pp')?.value)||18, cats={};
-    pans.forEach(it=>{ const cat=it.paroi==='Plafond'?'Plafonds':(it.paroi==='Sol négatif'?'Sol de congélation':'Cloisons'); cats[cat]=(cats[cat]||0)+(it.surf||0); });
-    ['Cloisons','Plafonds','Sol de congélation'].forEach(cat=>{ const s=cats[cat]; if(s>0){ const mnt=s*posePx; total+=mnt; drawMRow(cat,fn(s).replace(' €','')+'m²',fn(posePx)+'/m²',fn(mnt)); } });
-  }
-
-  const porGP={};
-  pors.forEach(it=>{ const key=(it.subtype||porTypeName(it))+'|'+(it.pose||0); if(!porGP[key]) porGP[key]={desig:porTypeName(it),pose:it.pose||0,n:0}; porGP[key].n+=porQty(it); });
-  Object.values(porGP).forEach(g=>{ const mnt=g.pose*g.n; total+=mnt; drawMRow(g.desig,g.n+' u',fn(g.pose)+'/u',fn(mnt)); });
-
-  accs.forEach(it=>{
-    if(it.accId==='sol_phen'){ // sol phénolique : pose au m² = pose du sol + pose des chevrons PVC de calage
-      const sp=solPhenPx(); if(sp.poseTot<=0) return;
-      const qtyS=it.qty||0, mntS=r2(sp.poseTot*qtyS); total+=mntS;
-      drawMRow('Sol phénolique 100 mm — pose des panneaux + chevrons PVC de calage', fn(qtyS).replace(' €','')+'m²', fn(sp.poseTot)+'/m²', fn(mntS));
-      return;
-    }
-    const pose=accPxFor(it).pose;
-    if(pose<=0) return;
-    const qty=it.qty||1;
-    const mnt=pose*qty;
-    total+=mnt;
-    drawMRow(it.label,qty+' u',fn(pose)+'/u',fn(mnt));
-  });
-
-  // Dépose de l'existant (main d'œuvre poseur, au coût = tarif ÷ coef)
-  const depMP=calcDepose();
-  if(depMP.on) depMP.lines.forEach(L=>{ total+=L.costMontant; drawMRow(L.label, String(L.qty).replace('.',',')+' '+L.unit, fn(L.puCost)+'/'+L.unit, fn(L.costMontant)); });
-  } // fin mode budget
+  const MLN=missionLignes(kind);
+  MLN.rows.forEach(r=>drawMRow(r.desig, missionQte(r), missionPU(r), fn(r.montant)));
+  total=MLN.total;
+  if(MLN.journee){ sf(false,7,GREY); doc.text('Le forfait couvre la pose des panneaux, portes et accessoires.',ML+3,y+4.5); y+=7; }
 
   // Total
   y+=1;
   fillR(ML,y,TW,9,NAVY);
-  sf(true,9,WHITE); doc.text('TOTAL MISSION HT',ML+3,y+6);
+  sf(true,9,WHITE); doc.text(K?'TOTAL DÉPOSE HT':'TOTAL MISSION HT',ML+3,y+6);
   sf(true,11,WHITE); doc.text(fn(total),MR-2,y+6,{align:'right'});
   y+=13;
 
@@ -7652,12 +7625,13 @@ function genMissionPDF(){ if(porBloque('l’ordre de mission')) return;
   }
 
   const safe=(ref||devisNum||'Mission').replace(/[^\w\u00C0-\u017E]/g,'_').replace(/_+/g,'_');
-  doc.save('Mission_'+safe+'.pdf');
+  doc.save((K?'Mission_Depose_':'Mission_')+safe+'.pdf');
 }
 
 function initMissionSelect(){
   const sel=G('mission-poseur'); if(!sel) return;
   sel.innerHTML='<option value="">— Sélectionner —</option>'+POS.map(p=>`<option value="${p.nom}">${p.nom}</option>`).join('');
+  try{ initMissionSelectDepose(); }catch(e){}
 }
 
 function toggleDevisPanel(){
