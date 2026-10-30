@@ -2593,7 +2593,7 @@ function renumberPortes(){
 let pS={}, pH=[], qS={}, qH=[];
 let editIdx=null, editType=null; // produit en cours de modification (index dans items + 'pan'/'por')
 // Sections repliables des vues Édition et Aperçu devis (clic sur le titre)
-let secFold={edit_pan:true,edit_por:true,edit_acc:true,edit_marge:true,ap_pan:true,ap_por:true,ap_acc:true,ap_trv:true,ap_dep:true};
+let secFold={edit_pan:true,edit_por:true,edit_acc:true,edit_marge:true,ap_pan:true,ap_por:true,ap_acc:true,ap_trv:true,ap_dep:true,cfg_pan:true,cfg_por:true,cfg_acc:true};
 function togSec(k){ secFold[k]=!secFold[k]; refreshAll(); }
 
 // ══ UTILS ══════════════════════════════════════════════════
@@ -4544,18 +4544,24 @@ function refreshNav(){
   }
 }
 // Liste compacte des produits sur la page Configurateur : retour visuel après « Valider et ajouter »
-function renderCfgItems(p){
+function renderCfgItems(p){ // même ordre et mêmes sections que la vue Édition du devis client (règle Clément 30/10/2026)
   const card=G('cfg-items-card'), list=G('cfg-items-list');
   if(!card||!list) return;
-  if(!items.length){ card.style.display='none'; list.innerHTML=''; return; }
+  const dep=calcDepose(), trv=travauxHT();
+  if(!items.length&&!travaux.length&&!dep.on){ card.style.display='none'; list.innerHTML=''; return; }
   card.style.display='';
   const cnt=G('cfg-items-count'); if(cnt) cnt.textContent=items.length+(items.length>1?' produits':' produit');
-  list.innerHTML=items.map((it,i)=>{
-    const v=cpv(it,p);
+  const row=(it,i)=>{ const v=cpv(it,p);
     const tag=it.type==='pan'?'<span class="tag tag-pan">Pan</span>':it.type==='por'?'<span class="tag tag-por">Porte</span>':'<span class="tag tag-acc">+</span>';
     const edit=it.type==='acc'?`editAccItem(${i})`:`editItem(${i})`;
-    return `<div class="item-row"><div class="item-left"><div class="item-name">${tag}${it.label}</div><div class="item-meta">${it.meta||''}</div></div><div class="item-right"><div class="item-price"${v>0?'':' style="color:var(--text2)"'}>${v>0?fmt(v)+' €':'À chiffrer'}</div><button class="item-del item-edit" title="Modifier" onclick="${edit}">✎</button><button class="item-del" title="Supprimer" onclick="delItem(${i})">×</button></div></div>`;
-  }).join('');
+    return `<div class="item-row"><div class="item-left"><div class="item-name">${tag}${it.label}</div><div class="item-meta">${it.meta||''}</div></div><div class="item-right"><div class="item-price"${v>0?'':' style="color:var(--text2)"'}>${v>0?fmt(v)+' €':'À chiffrer'}</div><button class="item-del item-edit" title="Modifier" onclick="${edit}">✎</button><button class="item-del" title="Supprimer" onclick="delItem(${i})">×</button></div></div>`; };
+  const section=(key,titre,type)=>{ const idx=items.map((it,i)=>it.type===type?i:-1).filter(i=>i>=0); if(!idx.length) return '';
+    const st=idx.reduce((t,i)=>t+cpv(items[i],p),0);
+    return `<div class="items-section"><div class="items-section-title sec-tog" onclick="togSec('${key}')"><span>${secFold[key]?'▾':'▸'} ${titre} (${idx.length})</span><span>${st>0?fmt(st)+' €':''}</span></div>${secFold[key]?idx.map(i=>row(items[i],i)).join(''):''}</div>`; };
+  let h=section('cfg_pan','Panneaux','pan')+section('cfg_por','Portes & Rideaux','por')+section('cfg_acc','Compléments','acc');
+  if(travaux.length) h+=`<div class="items-section"><div class="items-section-title sec-tog" onclick="swCfg('trv')" title="Modifier dans l'onglet Travaux spécifiques"><span>Travaux spécifiques (${travaux.length}) <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--blue)">modifier ›</span></span><span>${fmt(trv)} €</span></div></div>`;
+  if(dep.on) h+=`<div class="items-section"><div class="items-section-title sec-tog" onclick="swCfg('dep')" title="Modifier dans l'onglet Dépose de l'existant"><span>Dépose de l'existant (${dep.lines.length}) <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--blue)">modifier ›</span></span><span>${fmt(dep.total)} €</span></div></div>`;
+  list.innerHTML=h;
 }
 function refreshAll(){
   renumberPortes();
