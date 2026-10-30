@@ -1658,7 +1658,7 @@ function togglePwd(){
     <div class="card" id="cfg-items-card" style="display:none">
       <div class="card-header">
         <div class="card-title">Produits de ce devis</div>
-        <div style="font-size:11px;color:var(--text3)"><span id="cfg-items-count"></span> · détail complet → onglet « Devis client »</div>
+        <div style="font-size:11px;color:var(--text3)"><span id="cfg-items-count"></span> · totaux, frais annexes et marge → onglet « Devis client »</div>
       </div>
       <div class="card-body" style="padding:.875rem 1rem">
         <div id="cfg-items-list"></div>
@@ -4544,24 +4544,48 @@ function refreshNav(){
   }
 }
 // Liste compacte des produits sur la page Configurateur : retour visuel après « Valider et ajouter »
-function renderCfgItems(p){ // même ordre et mêmes sections que la vue Édition du devis client (règle Clément 30/10/2026)
+// ── Sections produits (panneaux, portes & rideaux, compléments, travaux spécifiques, dépose) : une seule source, affichée dans le Configurateur ──
+// pfx = préfixe des clés de pli (secFold) ; depuis le Configurateur les liens « modifier » changent d'onglet, depuis ailleurs ils ouvrent d'abord le Configurateur
+function produitsSectionsHTML(p,pfx){
+  const cfg=(pfx==='cfg'); const go=w=>(cfg?'':"showPage('config',document.querySelector('.nav-item'));")+"swCfg('"+w+"')";
+  const pans=items.filter(i=>i.type==='pan'),pors=items.filter(i=>i.type==='por'),accs=items.filter(i=>i.type==='acc');
+  const dep=calcDepose(), trvHT=travauxHT();
+  let h='';
+      if(pans.length){const stPan=pans.reduce((s,it)=>s+cpv(it,p),0);h+=`<div class="items-section"><div class="items-section-title sec-tog" onclick="togSec('${pfx}_pan')"><span>${secFold[pfx+'_pan']?'▾':'▸'} Panneaux (${pans.length})</span><span>${fmt(stPan)} €</span></div>`;if(secFold[pfx+'_pan'])h+=items.map((it,i)=>{if(it.type!=='pan')return'';const pvm2=it.surf>0?cpv(it,p)/it.surf:0;const warn=it.dimsIncomplete?`<div style="margin-top:5px;display:inline-flex;align-items:center;gap:6px;background:#FDE7E9;color:#B4232A;border:1px solid #F1B0B4;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:600">⚠ Hauteur / ML à compléter <a onclick="event.stopPropagation();completerPanneau(${i})" style="color:#B4232A;text-decoration:underline;cursor:pointer">compléter</a></div>`:'';return`<div class="item-row"><div class="item-left"><div class="item-name"><span class="tag tag-pan">Pan</span>${it.label}</div><div class="item-meta">${it.meta}${pvm2>0?` · <span style="color:var(--blue);font-weight:600">${fmt(pvm2)} €/m²</span>`:''}</div>${warn}</div><div class="item-right">${puCtl(it,i,pvm2)}<div class="item-price">${fmt(cpv(it,p))} €</div><button class="item-del item-edit" title="Modifier ce panneau" onclick="editItem(${i})">✎</button><button class="item-del" onclick="delItem(${i})">×</button></div></div>`;}).join('');h+='</div>';}
+      if(pors.length){const stPor=pors.reduce((s,it)=>s+cpv(it,p),0);h+=`<div class="items-section"><div class="items-section-title sec-tog" onclick="togSec('${pfx}_por')"><span>${secFold[pfx+'_por']?'▾':'▸'} Portes & Rideaux (${pors.length})</span><span>${fmt(stPor)} €</span></div>`;if(secFold[pfx+'_por'])h+=items.map((it,i)=>{
+        if(it.type!=='por')return'';
+        const hasR = it.rideauOn!==false && it.rauto;
+        const doorPv = (p.mode==='journee'?it.achat:(it.achat+it.pose))*p.coef;
+        let row=`<div class="item-row"><div class="item-left"><div class="item-name"><span class="tag tag-por">Porte</span>${it.label}${porQty(it)>1?`<span class="por-qty-badge">× ${porQty(it)}<a onclick="event.stopPropagation();porEclater(${i})" title="Créer ${porQty(it)} portes individuelles (sens à préciser sur chacune) — nécessaire avant la commande">détailler</a></span>`:''}</div><div class="item-meta">${it.meta}</div></div><div class="item-right">${puCtl(it,i,(puFige(it)!=null?puFige(it):doorPv))}<div class="item-price">${fmt(hasR?r2((puFige(it)!=null?puFige(it):doorPv)*porQty(it)):cpv(it,p))} €</div><button class="item-del item-edit" title="Modifier cette porte" onclick="editItem(${i})">✎</button><button class="item-del" onclick="delItem(${i})">×</button></div></div>`;
+        if(hasR){
+          const rDim=porRideauDim(it), rRef=porRideauRef(it), rPv=r2(it.rauto*p.coef*porQty(it));
+          row+=`<div class="item-row"><div class="item-left"><div class="item-name"><span class="tag tag-por">Rideau</span>Rideau à lanières <span style="color:var(--text3);font-weight:400">${rRef}</span></div><div class="item-meta">${rDim?rDim+' mm':''}</div></div><div class="item-right"><div class="item-price">${fmt(rPv)} €</div><button class="item-del" onclick="delRideau(${i})" title="Retirer uniquement le rideau">×</button></div></div>`;
+        }
+        return row;
+      }).join('');h+='</div>';}
+      if(accs.length){const stAcc=accs.reduce((s,it)=>s+cpv(it,p),0);h+=`<div class="items-section"><div class="items-section-title sec-tog" onclick="togSec('${pfx}_acc')"><span>${secFold[pfx+'_acc']?'▾':'▸'} Compléments (${accs.length})</span><span>${stAcc>0?fmt(stAcc)+' €':''}</span></div>`;if(secFold[pfx+'_acc'])h+=items.map((it,i)=>{if(it.type!=='acc')return'';const v=cpv(it,p);const q=qteFacturee(it);const puA=q>0?v/q:v;return`<div class="item-row"><div class="item-left"><div class="item-name"><span class="tag tag-acc">+</span>${it.label}</div><div class="item-meta">${it.meta}${v>0&&q>0?` · <span style="color:var(--blue);font-weight:600">${fmt(puA)} €${puUnite(it)}</span>`:''}</div></div><div class="item-right">${puCtl(it,i,puA)}<div class="item-price"${v>0?'':' style="color:var(--text2)"'}>${v>0?fmt(v)+' €':'À chiffrer'}</div><button class="item-del item-edit" title="Modifier ce complément" onclick="editAccItem(${i})">✎</button><button class="item-del" onclick="delItem(${i})">×</button></div></div>`;}).join('');h+='</div>';}
+      // (plus de « Total HT produits » intermédiaire : seul le Total HT final compte — demande Clément 2026-09-03)
+      // ── Travaux spécifiques & Dépose : lignes-résumé (édition dans le Configurateur) ──
+      if(travaux.length){
+        h+=`<div class="items-section"><div class="items-section-title" style="display:flex;justify-content:space-between;align-items:center;text-transform:none"><span style="text-transform:uppercase;letter-spacing:.07em">Travaux spécifiques (${travaux.length}) <a onclick="${go('trv')}" style="font-size:11px;color:var(--blue);cursor:pointer;text-transform:none;letter-spacing:0;font-weight:500">✎ modifier</a></span><span>${fmt(trvHT)} €</span></div>`;
+        h+=travaux.map(l=>{const lt=(parseFloat(l.qty)||0)*(parseFloat(l.pu)||0);return `<div class="item-row"><div class="item-left"><div class="item-name"><span class="tag tag-acc">TS</span>${esc(l.desig||'(sans désignation)')}</div><div class="item-meta">${l.qty||0} ${esc(l.unit||'')} × ${fmt(l.pu||0)} €</div></div><div class="item-right"><div class="item-price">${fmt(lt)} €</div></div></div>`;}).join('');
+        h+=`</div>`;
+      }
+      if(dep.on){
+        h+=`<div class="items-section"><div class="items-section-title" style="display:flex;justify-content:space-between;align-items:center;text-transform:none"><span style="text-transform:uppercase;letter-spacing:.07em">Dépose de l'existant <a onclick="${go('dep')}" style="font-size:11px;color:var(--blue);cursor:pointer;text-transform:none;letter-spacing:0;font-weight:500">✎ modifier</a></span><span>${fmt(dep.total)} €</span></div>`;
+        h+=dep.lines.map(L=>`<div class="item-row"><div class="item-left"><div class="item-name"><span class="tag tag-acc">DÉ</span>${L.label}</div><div class="item-meta">${L.qty} ${L.unit} × ${fmt(L.pu)} €</div></div><div class="item-right"><div class="item-price">${fmt(L.montant)} €</div></div></div>`).join('');
+        h+=`</div>`;
+      }
+  return h;
+}
+function renderCfgItems(p){ // liste complète des produits du devis (mêmes fonctions que l'ancienne vue Édition)
   const card=G('cfg-items-card'), list=G('cfg-items-list');
   if(!card||!list) return;
-  const dep=calcDepose(), trv=travauxHT();
+  const dep=calcDepose();
   if(!items.length&&!travaux.length&&!dep.on){ card.style.display='none'; list.innerHTML=''; return; }
   card.style.display='';
   const cnt=G('cfg-items-count'); if(cnt) cnt.textContent=items.length+(items.length>1?' produits':' produit');
-  const row=(it,i)=>{ const v=cpv(it,p);
-    const tag=it.type==='pan'?'<span class="tag tag-pan">Pan</span>':it.type==='por'?'<span class="tag tag-por">Porte</span>':'<span class="tag tag-acc">+</span>';
-    const edit=it.type==='acc'?`editAccItem(${i})`:`editItem(${i})`;
-    return `<div class="item-row"><div class="item-left"><div class="item-name">${tag}${it.label}</div><div class="item-meta">${it.meta||''}</div></div><div class="item-right"><div class="item-price"${v>0?'':' style="color:var(--text2)"'}>${v>0?fmt(v)+' €':'À chiffrer'}</div><button class="item-del item-edit" title="Modifier" onclick="${edit}">✎</button><button class="item-del" title="Supprimer" onclick="delItem(${i})">×</button></div></div>`; };
-  const section=(key,titre,type)=>{ const idx=items.map((it,i)=>it.type===type?i:-1).filter(i=>i>=0); if(!idx.length) return '';
-    const st=idx.reduce((t,i)=>t+cpv(items[i],p),0);
-    return `<div class="items-section"><div class="items-section-title sec-tog" onclick="togSec('${key}')"><span>${secFold[key]?'▾':'▸'} ${titre} (${idx.length})</span><span>${st>0?fmt(st)+' €':''}</span></div>${secFold[key]?idx.map(i=>row(items[i],i)).join(''):''}</div>`; };
-  let h=section('cfg_pan','Panneaux','pan')+section('cfg_por','Portes & Rideaux','por')+section('cfg_acc','Compléments','acc');
-  if(travaux.length) h+=`<div class="items-section"><div class="items-section-title sec-tog" onclick="swCfg('trv')" title="Modifier dans l'onglet Travaux spécifiques"><span>Travaux spécifiques (${travaux.length}) <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--blue)">modifier ›</span></span><span>${fmt(trv)} €</span></div></div>`;
-  if(dep.on) h+=`<div class="items-section"><div class="items-section-title sec-tog" onclick="swCfg('dep')" title="Modifier dans l'onglet Dépose de l'existant"><span>Dépose de l'existant (${dep.lines.length}) <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--blue)">modifier ›</span></span><span>${fmt(dep.total)} €</span></div></div>`;
-  list.innerHTML=h;
+  list.innerHTML=produitsSectionsHTML(p,'cfg');
 }
 function refreshAll(){
   renumberPortes();
@@ -4618,30 +4642,16 @@ function refreshAll(){
       const pans=items.filter(i=>i.type==='pan'),pors=items.filter(i=>i.type==='por'),accs=items.filter(i=>i.type==='acc');
       let h='';
       if(!items.length && !travaux.length && !dep.on) h+='<div class="empty-state" style="padding:1.25rem 0">Devis vide — utilise le Configurateur (panneaux, portes, produits complémentaires, travaux spécifiques ou dépose).</div>';
-      if(pans.length){const stPan=pans.reduce((s,it)=>s+cpv(it,p),0);h+=`<div class="items-section"><div class="items-section-title sec-tog" onclick="togSec('edit_pan')"><span>${secFold.edit_pan?'▾':'▸'} Panneaux (${pans.length})</span><span>${fmt(stPan)} €</span></div>`;if(secFold.edit_pan)h+=items.map((it,i)=>{if(it.type!=='pan')return'';const pvm2=it.surf>0?cpv(it,p)/it.surf:0;const warn=it.dimsIncomplete?`<div style="margin-top:5px;display:inline-flex;align-items:center;gap:6px;background:#FDE7E9;color:#B4232A;border:1px solid #F1B0B4;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:600">⚠ Hauteur / ML à compléter <a onclick="event.stopPropagation();completerPanneau(${i})" style="color:#B4232A;text-decoration:underline;cursor:pointer">compléter</a></div>`:'';return`<div class="item-row"><div class="item-left"><div class="item-name"><span class="tag tag-pan">Pan</span>${it.label}</div><div class="item-meta">${it.meta}${pvm2>0?` · <span style="color:var(--blue);font-weight:600">${fmt(pvm2)} €/m²</span>`:''}</div>${warn}</div><div class="item-right">${puCtl(it,i,pvm2)}<div class="item-price">${fmt(cpv(it,p))} €</div><button class="item-del item-edit" title="Modifier ce panneau" onclick="editItem(${i})">✎</button><button class="item-del" onclick="delItem(${i})">×</button></div></div>`;}).join('');h+='</div>';}
-      if(pors.length){const stPor=pors.reduce((s,it)=>s+cpv(it,p),0);h+=`<div class="items-section"><div class="items-section-title sec-tog" onclick="togSec('edit_por')"><span>${secFold.edit_por?'▾':'▸'} Portes & Rideaux (${pors.length})</span><span>${fmt(stPor)} €</span></div>`;if(secFold.edit_por)h+=items.map((it,i)=>{
-        if(it.type!=='por')return'';
-        const hasR = it.rideauOn!==false && it.rauto;
-        const doorPv = (p.mode==='journee'?it.achat:(it.achat+it.pose))*p.coef;
-        let row=`<div class="item-row"><div class="item-left"><div class="item-name"><span class="tag tag-por">Porte</span>${it.label}${porQty(it)>1?`<span class="por-qty-badge">× ${porQty(it)}<a onclick="event.stopPropagation();porEclater(${i})" title="Créer ${porQty(it)} portes individuelles (sens à préciser sur chacune) — nécessaire avant la commande">détailler</a></span>`:''}</div><div class="item-meta">${it.meta}</div></div><div class="item-right">${puCtl(it,i,(puFige(it)!=null?puFige(it):doorPv))}<div class="item-price">${fmt(hasR?r2((puFige(it)!=null?puFige(it):doorPv)*porQty(it)):cpv(it,p))} €</div><button class="item-del item-edit" title="Modifier cette porte" onclick="editItem(${i})">✎</button><button class="item-del" onclick="delItem(${i})">×</button></div></div>`;
-        if(hasR){
-          const rDim=porRideauDim(it), rRef=porRideauRef(it), rPv=r2(it.rauto*p.coef*porQty(it));
-          row+=`<div class="item-row"><div class="item-left"><div class="item-name"><span class="tag tag-por">Rideau</span>Rideau à lanières <span style="color:var(--text3);font-weight:400">${rRef}</span></div><div class="item-meta">${rDim?rDim+' mm':''}</div></div><div class="item-right"><div class="item-price">${fmt(rPv)} €</div><button class="item-del" onclick="delRideau(${i})" title="Retirer uniquement le rideau">×</button></div></div>`;
+      // Composition du devis : une ligne par famille, les produits eux-mêmes s'éditent dans le Configurateur (règle Clément 30/10/2026 : plus de doublon)
+      {
+        const fam=[['Panneaux',pans,'pan'],['Portes & Rideaux',pors,'por'],['Compléments',accs,'acc']].filter(([,a])=>a.length);
+        if(fam.length||travaux.length||dep.on){
+          h+=`<div class="items-section"><div class="items-section-title" style="display:flex;justify-content:space-between;align-items:center;text-transform:none"><span style="text-transform:uppercase;letter-spacing:.07em">Composition du devis</span><a onclick="showPage('config',document.querySelector('.nav-item'))" style="font-size:11px;color:var(--blue);cursor:pointer;text-transform:none;letter-spacing:0;font-weight:500">✎ modifier les produits dans le Configurateur</a></div>`;
+          fam.forEach(([nom,arr,w])=>{ const st=arr.reduce((s2,it)=>s2+cpv(it,p),0); h+=`<div class="item-row" style="cursor:pointer" onclick="showPage('config',document.querySelector('.nav-item'));swCfg('${w}')" title="Ouvrir dans le Configurateur"><div class="item-left"><div class="item-name">${nom} <span style="color:var(--text3);font-weight:400">(${arr.length})</span></div></div><div class="item-right"><div class="item-price"${st>0?'':' style="color:var(--text2)"'}>${st>0?fmt(st)+' €':'À chiffrer'}</div></div></div>`; });
+          if(travaux.length) h+=`<div class="item-row" style="cursor:pointer" onclick="showPage('config',document.querySelector('.nav-item'));swCfg('trv')" title="Ouvrir dans le Configurateur"><div class="item-left"><div class="item-name">Travaux spécifiques <span style="color:var(--text3);font-weight:400">(${travaux.length})</span></div></div><div class="item-right"><div class="item-price">${fmt(trvHT)} €</div></div></div>`;
+          if(dep.on) h+=`<div class="item-row" style="cursor:pointer" onclick="showPage('config',document.querySelector('.nav-item'));swCfg('dep')" title="Ouvrir dans le Configurateur"><div class="item-left"><div class="item-name">Dépose de l'existant <span style="color:var(--text3);font-weight:400">(${dep.lines.length})</span></div></div><div class="item-right"><div class="item-price">${fmt(dep.total)} €</div></div></div>`;
+          h+=`</div>`;
         }
-        return row;
-      }).join('');h+='</div>';}
-      if(accs.length){const stAcc=accs.reduce((s,it)=>s+cpv(it,p),0);h+=`<div class="items-section"><div class="items-section-title sec-tog" onclick="togSec('edit_acc')"><span>${secFold.edit_acc?'▾':'▸'} Compléments (${accs.length})</span><span>${stAcc>0?fmt(stAcc)+' €':''}</span></div>`;if(secFold.edit_acc)h+=items.map((it,i)=>{if(it.type!=='acc')return'';const v=cpv(it,p);const q=qteFacturee(it);const puA=q>0?v/q:v;return`<div class="item-row"><div class="item-left"><div class="item-name"><span class="tag tag-acc">+</span>${it.label}</div><div class="item-meta">${it.meta}${v>0&&q>0?` · <span style="color:var(--blue);font-weight:600">${fmt(puA)} €${puUnite(it)}</span>`:''}</div></div><div class="item-right">${puCtl(it,i,puA)}<div class="item-price"${v>0?'':' style="color:var(--text2)"'}>${v>0?fmt(v)+' €':'À chiffrer'}</div><button class="item-del item-edit" title="Modifier ce complément" onclick="editAccItem(${i})">✎</button><button class="item-del" onclick="delItem(${i})">×</button></div></div>`;}).join('');h+='</div>';}
-      // (plus de « Total HT produits » intermédiaire : seul le Total HT final compte — demande Clément 2026-09-03)
-      // ── Travaux spécifiques & Dépose : lignes-résumé (édition dans le Configurateur) ──
-      if(travaux.length){
-        h+=`<div class="items-section"><div class="items-section-title" style="display:flex;justify-content:space-between;align-items:center;text-transform:none"><span style="text-transform:uppercase;letter-spacing:.07em">Travaux spécifiques (${travaux.length}) <a onclick="showPage('config',document.querySelector('.nav-item'));swCfg('trv')" style="font-size:11px;color:var(--blue);cursor:pointer;text-transform:none;letter-spacing:0;font-weight:500">✎ modifier</a></span><span>${fmt(trvHT)} €</span></div>`;
-        h+=travaux.map(l=>{const lt=(parseFloat(l.qty)||0)*(parseFloat(l.pu)||0);return `<div class="item-row"><div class="item-left"><div class="item-name"><span class="tag tag-acc">TS</span>${esc(l.desig||'(sans désignation)')}</div><div class="item-meta">${l.qty||0} ${esc(l.unit||'')} × ${fmt(l.pu||0)} €</div></div><div class="item-right"><div class="item-price">${fmt(lt)} €</div></div></div>`;}).join('');
-        h+=`</div>`;
-      }
-      if(dep.on){
-        h+=`<div class="items-section"><div class="items-section-title" style="display:flex;justify-content:space-between;align-items:center;text-transform:none"><span style="text-transform:uppercase;letter-spacing:.07em">Dépose de l'existant <a onclick="showPage('config',document.querySelector('.nav-item'));swCfg('dep')" style="font-size:11px;color:var(--blue);cursor:pointer;text-transform:none;letter-spacing:0;font-weight:500">✎ modifier</a></span><span>${fmt(dep.total)} €</span></div>`;
-        h+=dep.lines.map(L=>`<div class="item-row"><div class="item-left"><div class="item-name"><span class="tag tag-acc">DÉ</span>${L.label}</div><div class="item-meta">${L.qty} ${L.unit} × ${fmt(L.pu)} €</div></div><div class="item-right"><div class="item-price">${fmt(L.montant)} €</div></div></div>`).join('');
-        h+=`</div>`;
       }
       // Bloc frais annexes
       const hasAnnexes = tr.trNet > 0 || evac > 0 || manu > 0 || journeeForfait > 0;
