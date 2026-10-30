@@ -1658,10 +1658,11 @@ function togglePwd(){
     <div class="card" id="cfg-items-card" style="display:none">
       <div class="card-header">
         <div class="card-title">Produits de ce devis</div>
-        <div style="font-size:11px;color:var(--text3)"><span id="cfg-items-count"></span> · totaux, frais annexes et marge → onglet « Devis client »</div>
+        <div style="font-size:11px;color:var(--text3)"><span id="cfg-items-count"></span> · aperçu et PDF → onglet « Devis client »</div>
       </div>
       <div class="card-body" style="padding:.875rem 1rem">
         <div id="cfg-items-list"></div>
+        <div id="cfg-marge"></div>
       </div>
     </div>
   </div>
@@ -1698,15 +1699,11 @@ function togglePwd(){
     </div>
 
     <div class="view-toggle" style="display:flex;justify-content:space-between;align-items:center">
-      <div>
-        <button class="vtb active" id="vt-edit" onclick="swView('edit')">Édition</button>
-        <button class="vtb" id="vt-apercu" onclick="swView('apercu')">Aperçu devis</button>
-      </div>
+      <div style="font-size:11px;color:var(--text3)">Aperçu du devis client · les produits se modifient dans le Configurateur</div>
       <button class="btn btn-green" onclick="genPDF()" style="font-size:12px;padding:6px 14px">Générer PDF</button>
     </div>
     </div>
-    <div id="view-edit"></div>
-    <div id="view-apercu" style="display:none"></div>
+    <div id="view-apercu"></div>
   </div>
 
   <!-- PAGE CMD PAN -->
@@ -2497,7 +2494,7 @@ let APP=[];
 const FOU=[];
 
 // ══ ÉTAT ══════════════════════════════════════════════════
-let items=[], curClient=null, curView='edit', sortAZ=true, modType='client', secOpen=false;
+let items=[], curClient=null, curView='apercu', sortAZ=true, modType='client', secOpen=false; // Devis client = aperçu seul (règle Clément 30/10/2026)
 let PXOV={}; // override prix panneaux PIR propre au devis courant (clé CL_{ep} / PL_{ep})
 let EVMANU_DEF={ev:660, manu:600}; // défauts globaux évac/manut (chargés de Supabase), base des nouveaux devis
 let MANU_DEF={chariotFx:275, chariotPx:175, nacelleFx:0, nacellePx:0}; // défauts chariot / nacelle d'un devis neuf (jours à 0 : rien n'est compté tant qu'on ne saisit pas de jours)
@@ -4380,14 +4377,7 @@ function swCfg(w){
   if(w==='trv') renderTravauxCfg();
   if(w==='dep') renderDeposeCfg();
 }
-function swView(v){
-  curView=v;
-  G('vt-edit').classList.toggle('active',v==='edit');
-  G('vt-apercu').classList.toggle('active',v==='apercu');
-  G('view-edit').style.display=v==='edit'?'block':'none';
-  G('view-apercu').style.display=v==='apercu'?'block':'none';
-  refreshAll();
-}
+function swView(v){ curView='apercu'; refreshAll(); } // (compat) la vue Édition n'existe plus : Devis client = aperçu + Générer PDF
 function swCtab(n,btn){
   document.querySelectorAll('.c-tab').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.c-panel').forEach(p=>p.classList.remove('active'));
@@ -4578,6 +4568,30 @@ function produitsSectionsHTML(p,pfx){
       }
   return h;
 }
+// Bloc interne du Configurateur : prix de pose global (indicatif) + marge interne — remplace l'ancienne vue Édition
+function renderCfgMarge(p, remise){
+  const box=G('cfg-marge'); if(!box) return;
+  if(devisVide()){ box.innerHTML=''; return; }
+  let h='';
+  if(items.length) h+=`<div class="total-row" style="border-top:1px dashed var(--border);padding-top:.5rem;margin-top:.5rem"><span class="total-label" style="color:var(--text2)">Prix de pose global<span style="color:var(--text3);font-size:11px"> — main d'œuvre, indicatif</span></span><span class="total-value" style="font-size:15px;color:var(--text2)">${fmt(poseGlobale())} €</span></div>`;
+  const mg=calcMarge(p, remise.montant);
+  h+=`<div class="marge-box"><div class="marge-head sec-tog" onclick="togSec('edit_marge')"><span>${secFold.edit_marge?'▾':'▸'} 🔒 Marge interne</span><span class="marge-badge">non visible client</span></div>`;
+  if(secFold.edit_marge){
+    h+=`<div class="marge-body">`;
+    h+=`<div class="marge-row big"><span>Marge ferme</span><span style="color:${mg.marge>=0?'var(--green)':'var(--red)'}">${fmt(mg.marge)} €${mg.vFerme>0?` <span style="font-size:12px;font-weight:500">(${mg.pct.toFixed(1).replace('.',',')} %)</span>`:''}</span></div>`;
+    h+=`<div class="marge-row"><span>Vente ferme HT</span><span>${fmt(mg.vFerme)} €</span></div>`;
+    h+=`<div class="marge-row"><span>Coût estimé (achat + pose + accessoires)</span><span>${fmt(mg.cFerme)} €</span></div>`;
+    if(remise.on) h+=`<div class="marge-row"><span>${esc(remise.label)} (déduite de la marge)</span><span style="color:var(--red)">− ${fmt(remise.montant)} €</span></div>`;
+    if(mg.flou.length){
+      h+=`<div class="marge-flou">⚠ Part floue : ${mg.flou.length} ligne${mg.flou.length>1?'s':''} au coût inconnu${mg.vFlou>0?` — CA ${fmt(mg.vFlou)} €`:''}</div>`;
+      h+=mg.flou.map(f=>`<div class="marge-flou-line">· ${esc(f)}</div>`).join('');
+    }
+    h+=`<div class="marge-note">Hors frais annexes (transport, évacuation, manutention${p.mode==='journee'?', forfait journée':''}) — refacturés au client.</div>`;
+    h+=`</div>`;
+  }
+  h+=`</div>`;
+  box.innerHTML=h;
+}
 function renderCfgItems(p){ // liste complète des produits du devis (mêmes fonctions que l'ancienne vue Édition)
   const card=G('cfg-items-card'), list=G('cfg-items-list');
   if(!card||!list) return;
@@ -4635,66 +4649,8 @@ function refreshAll(){
   try{ majBoutonPlans(); }catch(e){}
   renderAccList();
 
-  // VUE ÉDITION
-  const ve=G('view-edit');
-  if(ve){
-    {
-      const pans=items.filter(i=>i.type==='pan'),pors=items.filter(i=>i.type==='por'),accs=items.filter(i=>i.type==='acc');
-      let h='';
-      if(!items.length && !travaux.length && !dep.on) h+='<div class="empty-state" style="padding:1.25rem 0">Devis vide — utilise le Configurateur (panneaux, portes, produits complémentaires, travaux spécifiques ou dépose).</div>';
-      // Composition du devis : une ligne par famille, les produits eux-mêmes s'éditent dans le Configurateur (règle Clément 30/10/2026 : plus de doublon)
-      {
-        const fam=[['Panneaux',pans,'pan'],['Portes & Rideaux',pors,'por'],['Compléments',accs,'acc']].filter(([,a])=>a.length);
-        if(fam.length||travaux.length||dep.on){
-          h+=`<div class="items-section"><div class="items-section-title" style="display:flex;justify-content:space-between;align-items:center;text-transform:none"><span style="text-transform:uppercase;letter-spacing:.07em">Composition du devis</span><a onclick="showPage('config',document.querySelector('.nav-item'))" style="font-size:11px;color:var(--blue);cursor:pointer;text-transform:none;letter-spacing:0;font-weight:500">✎ modifier les produits dans le Configurateur</a></div>`;
-          fam.forEach(([nom,arr,w])=>{ const st=arr.reduce((s2,it)=>s2+cpv(it,p),0); h+=`<div class="item-row" style="cursor:pointer" onclick="showPage('config',document.querySelector('.nav-item'));swCfg('${w}')" title="Ouvrir dans le Configurateur"><div class="item-left"><div class="item-name">${nom} <span style="color:var(--text3);font-weight:400">(${arr.length})</span></div></div><div class="item-right"><div class="item-price"${st>0?'':' style="color:var(--text2)"'}>${st>0?fmt(st)+' €':'À chiffrer'}</div></div></div>`; });
-          if(travaux.length) h+=`<div class="item-row" style="cursor:pointer" onclick="showPage('config',document.querySelector('.nav-item'));swCfg('trv')" title="Ouvrir dans le Configurateur"><div class="item-left"><div class="item-name">Travaux spécifiques <span style="color:var(--text3);font-weight:400">(${travaux.length})</span></div></div><div class="item-right"><div class="item-price">${fmt(trvHT)} €</div></div></div>`;
-          if(dep.on) h+=`<div class="item-row" style="cursor:pointer" onclick="showPage('config',document.querySelector('.nav-item'));swCfg('dep')" title="Ouvrir dans le Configurateur"><div class="item-left"><div class="item-name">Dépose de l'existant <span style="color:var(--text3);font-weight:400">(${dep.lines.length})</span></div></div><div class="item-right"><div class="item-price">${fmt(dep.total)} €</div></div></div>`;
-          h+=`</div>`;
-        }
-      }
-      // Bloc frais annexes
-      const hasAnnexes = tr.trNet > 0 || evac > 0 || manu > 0 || journeeForfait > 0;
-      if(hasAnnexes){
-        h+=`<div style="margin-top:.5rem;padding:.625rem .875rem;background:var(--bg2);border-radius:var(--radius-sm);font-size:12px">`;
-        h+=`<div style="font-weight:600;color:var(--text2);margin-bottom:4px;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Frais annexes</div>`;
-        if(journeeForfait>0) h+=`<div style="display:flex;justify-content:space-between;padding:2px 0;color:var(--text2)"><span>Main d'œuvre & Déplacement</span><span style="color:var(--text)">${fmt(journeeForfait)} €</span></div>`;
-        if(tr.trNet>0){
-          h+=`<div style="display:flex;justify-content:space-between;padding:2px 0;color:var(--text2)"><span>Transport</span><span style="color:var(--text)">${fmt(tr.trNet)} €</span></div>`;
-        }
-        if(evac>0) h+=`<div style="display:flex;justify-content:space-between;padding:2px 0;color:var(--text2)"><span>Évacuation & Déchets</span><span style="color:var(--text)">${fmt(evac)} €</span></div>`;
-        if(manuClient) h+=`<div style="display:flex;justify-content:space-between;padding:2px 0;color:var(--text2)"><span>Manutention</span><span style="color:var(--text3);font-style:italic">À la charge du client</span></div>`;
-        else if(manu>0) h+=`<div style="display:flex;justify-content:space-between;padding:2px 0;color:var(--text2)"><span>Manutention & Déchargement</span><span style="color:var(--text)">${fmt(manu)} €</span></div>`;
-        h+=`</div>`;
-      }
-      if(!devisVide() && remise.on){
-        h+=`<div class="total-row" style="padding-top:.625rem"><span class="total-label" style="color:var(--text2)">Total HT avant remise</span><span class="total-value" style="font-size:14px;color:var(--text2)">${fmt(remise.totAvant)} €</span></div>`;
-        h+=`<div class="total-row"><span class="total-label" style="color:var(--red)">${esc(remise.label)}</span><span class="total-value" style="font-size:14px;color:var(--red)">− ${fmt(remise.montant)} €</span></div>`;
-      }
-      if(!devisVide()) h+=`<div class="total-row" style="padding-top:.625rem"><span class="total-label" style="font-weight:600">Total HT</span><span class="total-value" id="tot-ht-val">${fmt(totAvecTr)} €</span></div>`;
-      if(items.length) h+=`<div class="total-row" style="border-top:1px dashed var(--border);padding-top:.5rem;margin-top:.5rem"><span class="total-label" style="color:var(--text2)">Prix de pose global<span style="color:var(--text3);font-size:11px"> — main d'œuvre, indicatif</span></span><span class="total-value" id="pose-glob-val" style="font-size:15px;color:var(--text2)">${fmt(poseGlobale())} €</span></div>`;
-      // ── Marge interne (uniquement dans l'app, jamais sur le devis/PDF client) ──
-      if(!devisVide()){
-        const mg=calcMarge(p, remise.montant);
-        h+=`<div class="marge-box"><div class="marge-head sec-tog" onclick="togSec('edit_marge')"><span>${secFold.edit_marge?'▾':'▸'} 🔒 Marge interne</span><span class="marge-badge">non visible client</span></div>`;
-        if(secFold.edit_marge){
-          h+=`<div class="marge-body">`;
-          h+=`<div class="marge-row big"><span>Marge ferme</span><span style="color:${mg.marge>=0?'var(--green)':'var(--red)'}">${fmt(mg.marge)} €${mg.vFerme>0?` <span style="font-size:12px;font-weight:500">(${mg.pct.toFixed(1).replace('.',',')} %)</span>`:''}</span></div>`;
-          h+=`<div class="marge-row"><span>Vente ferme HT</span><span>${fmt(mg.vFerme)} €</span></div>`;
-          h+=`<div class="marge-row"><span>Coût estimé (achat + pose + accessoires)</span><span>${fmt(mg.cFerme)} €</span></div>`;
-          if(remise.on) h+=`<div class="marge-row"><span>${esc(remise.label)} (déduite de la marge)</span><span style="color:var(--red)">− ${fmt(remise.montant)} €</span></div>`;
-          if(mg.flou.length){
-            h+=`<div class="marge-flou">⚠ Part floue : ${mg.flou.length} ligne${mg.flou.length>1?'s':''} au coût inconnu${mg.vFlou>0?` — CA ${fmt(mg.vFlou)} €`:''}</div>`;
-            h+=mg.flou.map(f=>`<div class="marge-flou-line">· ${esc(f)}</div>`).join('');
-          }
-          h+=`<div class="marge-note">Hors frais annexes (transport, évacuation, manutention${p.mode==='journee'?', forfait journée':''}) — refacturés au client.</div>`;
-          h+=`</div>`;
-        }
-        h+=`</div>`;
-      }
-      ve.innerHTML=h;
-    }
-  }
+  // Marge interne + prix de pose global (jamais sur le devis client) : dans le Configurateur, sous les produits
+  try{ renderCfgMarge(p, remise); }catch(e){ console.warn('marge cfg', e); }
 
   // VUE APERÇU
   const va=G('view-apercu');
