@@ -265,6 +265,8 @@ body {
   border-bottom: 1px solid var(--border);
 }
 .devis-sticky .view-toggle { margin-bottom: 0; }
+.apercu-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 4px 0 0; }
+.apercu-bar-hint { flex: 1; min-width: 0; font-size: 11px; color: var(--text3); line-height: 1.4; }
 
 /* ── STATS ── */
 .stats-row {
@@ -1476,7 +1478,6 @@ function togglePwd(){
   <div class="topbar-right">
     <button class="btn" onclick="location.href='cockpit.html'" title="Passer au Cockpit (suivi chantiers, finances, tâches)" style="display:inline-flex;align-items:center;gap:7px;background:linear-gradient(100deg,#6D5BD0,#C23D7B);color:#fff;border-color:transparent"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 13A6 6 0 1 1 8 1a6 6 0 0 1 0 12z" opacity=".5"/><path d="M8 8l3-3"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/></svg>Cockpit</button>
     <button class="btn" onclick="showPage('devis-existant')" style="display:inline-flex;align-items:center;gap:7px"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h12M2 12h8"/></svg>Mes devis</button>
-    <button class="btn" onclick="nouveauDevis()" style="display:inline-flex;align-items:center;gap:7px"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>Nouveau</button>
     <span id="save-status" style="font-size:11px;color:var(--text3);margin-right:8px;white-space:nowrap"></span>
     <button class="btn btn-green" onclick="sauvegarderDevis()" style="display:inline-flex;align-items:center;gap:7px"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2h8l3 3v9H3z"/><path d="M5 2v4h5V2"/><rect x="5" y="9" width="6" height="4"/></svg>Sauvegarder</button>
   </div>
@@ -1698,9 +1699,9 @@ function togglePwd(){
       </div>
     </div>
 
-    <div class="view-toggle" style="display:flex;justify-content:space-between;align-items:center">
-      <div style="font-size:11px;color:var(--text3)">Aperçu du devis client · les produits se modifient dans le Configurateur</div>
-      <button class="btn btn-green" onclick="genPDF()" style="font-size:12px;padding:6px 14px">Générer PDF</button>
+    <div class="apercu-bar">
+      <div class="apercu-bar-hint">Aperçu du devis client · les produits se modifient dans le Configurateur</div>
+      <button class="btn btn-green" onclick="genPDF()" style="font-size:12px;padding:6px 14px;white-space:nowrap">Générer PDF</button>
     </div>
     </div>
     <div id="view-apercu"></div>
