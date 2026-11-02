@@ -3393,7 +3393,8 @@ function renderAccForm(pid){
     soupape:`<div class="acc-note">Une soupape par chambre négative : le volume de la chambre choisit le modèle (moins de 75 m³ ou 75 m³ et plus). Pour une autre chambre, ajoute une autre soupape avec son volume.</div>
       <div class="acc-field"><label>Volume de la chambre</label><input type="number" id="af-soup-vol" value="" min="0" step="0.5" placeholder="L × l × h" oninput="calcSoupape()"><span class="acc-unit">m³</span></div>
       <div class="acc-result" id="af-res-soup">Saisir le volume de la chambre</div>`,
-    sol_phen:`<div class="acc-field"><label>Mode de saisie</label>
+    sol_phen:`<div class="acc-field"><label>Chambre froide</label><input type="text" id="af-sol-piece" placeholder="ex : CF négative 1, Labo boulangerie…" style="width:220px"><span class="acc-unit" style="color:var(--text3);font-size:11px">nom repris sur le plan et la commande</span></div>
+      <div class="acc-field"><label>Mode de saisie</label>
       <div style="display:flex;gap:6px">
         <button type="button" id="af-sol-btn-dim" onclick="solSetMode('dim')" style="font-size:12px;padding:5px 11px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif">Dimensions L × l</button>
         <button type="button" id="af-sol-btn-surf" onclick="solSetMode('surf')" style="font-size:12px;padding:5px 11px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif">Surface m²</button>
@@ -3878,7 +3879,7 @@ function accAdd(){
   else if(pid==='ecrou_pom'){qty=parseInt(G('af-qty')?.value)||1;unit='u';label='Pose écrou POM pour reprise plafond';meta=`${qty} point${qty>1?'s':''} de suspension — tige filetée + écrou POM traversant`;}
   else if(['trappe','silicone'].includes(pid)){qty=parseInt(G('af-qty')?.value)||1;meta=`${qty} unité${qty>1?'s':''}`;}
   else if(pid==='lisse'){const ml=parseFloat(G('af-ml')?.value)||0;const niv=parseInt(G('af-niv')?.value)||1;const totMl=ml*niv;const barres=Math.ceil(totMl/3);qty=ml;unit='ml';nbU=barres;extra.niv=niv;extra.mlLisse=totMl;label+=niv>1?` — ${niv} niveaux (haute et basse)`:' — 1 niveau';meta=niv>1?`${fmt(ml)} ml de paroi × ${niv} niveaux = ${fmt(totMl)} ml de lisse — ${barres} barre${barres>1?'s':''} 3m`:`${fmt(totMl)} ml — ${barres} barre${barres>1?'s':''} 3m`;} // qty = ml de PAROI ; le prix au ml est multiplié par le nombre de niveaux dans cpv
-  else if(pid==='sol_phen'){const out=solResult();if(!out){alert((G('af-sol-mode')?.value)==='surf'?'Saisir la surface.':'Saisir la longueur et la largeur.');return;}qty=out.qty;nbU=out.nb;unit='m²';meta=out.meta;cmdDetail=out.cmdDetail;extra.solMix=(out.mode==='dim'&&out.res)?Object.assign({},out.res.plaques):{3:out.nb};extra.solMode=out.mode;extra.solL=out.L||0;extra.solW=out.l||0;extra.solDispo=out.dispo||'rangees';}
+  else if(pid==='sol_phen'){const out=solResult();if(!out){alert((G('af-sol-mode')?.value)==='surf'?'Saisir la surface.':'Saisir la longueur et la largeur.');return;}qty=out.qty;nbU=out.nb;unit='m²';meta=out.meta;cmdDetail=out.cmdDetail;extra.solMix=(out.mode==='dim'&&out.res)?Object.assign({},out.res.plaques):{3:out.nb};extra.solMode=out.mode;extra.solL=out.L||0;extra.solW=out.l||0;extra.solDispo=out.dispo||'rangees';const pcSol=(G('af-sol-piece')?.value||'').trim();if(pcSol){extra.piece=pcSol;meta=pcSol+' — '+meta;}}
   else if(pid==='brio'){const ml=parseFloat(G('af-brio-ml')?.value)||0;const ep=G('af-brio-ep')?.value;const h=G('af-brio-h')?.value;qty=Math.ceil(Math.round(ml/1.22*1e10)/1e10);meta=`${qty} panneaux BRIO ${ep}mm × ${(parseInt(h)/1000).toFixed(2)}m`;}
   else if(pid==='tole'){const out=toleResult();if(!out){alert((G('af-tole-mode')?.value)==='surf'?'Saisir la surface.':'Saisir la longueur et la largeur.');return;}qty=out.qty;nbU=out.nb;unit='m²';meta=out.meta;cmdDetail=out.cmdDetail;extra.toleFmt=out.fmt.k;extra.toleMode=out.mode;extra.toleL=out.L||0;extra.toleW=out.l||0;}
   else if(pid==='te_systeme'){const ml=parseFloat(G('af-te-ml')?.value)||0;const cable=parseFloat(G('af-te-cable')?.value)||2;const nb=Math.ceil(ml/4);const mlFact=nb*4;const clRep=Math.ceil(ml);const clCont=nb;const tot=clRep+clCont;qty=mlFact;nbU=nb;unit='ML';meta=`${nb} barres Té 4m (${mlFact} ML) | ${clRep} cl.rep. | ${clCont} cl.cont. | ${tot} zip+oeillet | ~${Math.ceil(tot*cable)}m câble`;}
@@ -3960,7 +3961,7 @@ function metreChambresDevis(){
     const fv=it.formVals||{}; const mode=it.solMode||fv['af-sol-mode']||'dim';
     const L=parseFloat(it.solL!=null?it.solL:fv['af-sol-L'])||0, w=parseFloat(it.solW!=null?it.solW:fv['af-sol-w'])||0;
     const ok=mode!=='surf'&&L>0&&w>0; const idx=k++; const ov=METRE.volDevis[idx];
-    out.push({src:'devis', idx, itemIdx, label:it.label||'Sol phénolique', l:ok?L:0, w:ok?w:0, vol:(ov!=null&&ov!=='')?(parseFloat(ov)||0):(ok?r2(L*w*h):0), missing:!ok, surf:ok?0:(parseFloat(it.qty)||0)});
+    out.push({src:'devis', idx, itemIdx, piece:(it.piece||'').trim(), label:(it.piece?it.piece+' — ':'')+(it.label||'Sol phénolique'), l:ok?L:0, w:ok?w:0, vol:(ov!=null&&ov!=='')?(parseFloat(ov)||0):(ok?r2(L*w*h):0), missing:!ok, surf:ok?0:(parseFloat(it.qty)||0)});
   });
   return out;
 }
@@ -4103,7 +4104,7 @@ function metreRenderPanel(){
   const chevTxt=c=>{ const ml=chevronMlChambre(c,METRE.chevronEsp); return ml>0?fmt(ml)+' ml':'—'; };
   let ch=dev.map(c=>{ n++;
     if(c.missing) return `<tr class="me-missing"><td class="c-n">${n}</td><td colspan="4"><span class="cmdacc-warn-fou" style="margin-left:0">⚠ Dimensions manquantes</span> ${esc(c.label)} saisi en surface${c.surf?` (${fmt(c.surf)} m²)`:''} : reprends la ligne dans le configurateur en mode « Dimensions L × l » pour calculer les chevrons.</td><td class="c-del"><button class="item-del" title="Ouvrir cette ligne dans le configurateur" onclick="editAccItem(${c.itemIdx})">✎</button></td></tr>`;
-    return `<tr><td class="c-n">${n}</td><td class="cmdacc-fixed">${fmt(c.l)} <span class="cmdacc-src">devis</span></td><td class="cmdacc-fixed">${fmt(c.w)}</td><td><input type="number" class="dep-in" value="${c.vol||''}" oninput="metreVolDevisInput(${c.idx},this.value)" title="Volume proposé = ${fmt(c.l)} × ${fmt(c.w)} × ${fmt(hCl)} m (hauteur max des cloisons du devis) — modifiable"></td><td class="cmdacc-fixed" id="me-chev-d${c.idx}">${chevTxt(c)}</td><td class="c-del"></td></tr>`;
+    return `<tr><td class="c-n">${n}</td><td class="cmdacc-fixed">${fmt(c.l)} <span class="cmdacc-src">devis${c.piece?' · '+esc(c.piece):''}</span></td><td class="cmdacc-fixed">${fmt(c.w)}</td><td><input type="number" class="dep-in" value="${c.vol||''}" oninput="metreVolDevisInput(${c.idx},this.value)" title="Volume proposé = ${fmt(c.l)} × ${fmt(c.w)} × ${fmt(hCl)} m (hauteur max des cloisons du devis) — modifiable"></td><td class="cmdacc-fixed" id="me-chev-d${c.idx}">${chevTxt(c)}</td><td class="c-del"></td></tr>`;
   }).join('');
   ch+=METRE.chambres.map((c,i)=>{ n++; return `<tr><td class="c-n">${n}</td><td><input type="number" class="dep-in" value="${c.l||''}" oninput="metreChambreInput(${i},'l',this.value)"></td><td><input type="number" class="dep-in" value="${c.w||''}" oninput="metreChambreInput(${i},'w',this.value)"></td><td><input type="number" class="dep-in" value="${c.vol||''}" oninput="metreChambreInput(${i},'vol',this.value)"></td><td class="cmdacc-fixed" id="me-chev-${i}">${chevTxt(c)}</td><td class="c-del"><button class="item-del" title="Retirer cette chambre" onclick="metreDelChambre(${i})">×</button></td></tr>`; }).join('');
   el.innerHTML=`<section class="dep-step">
@@ -4695,11 +4696,11 @@ function refreshAll(){
     const pan=items.filter(i=>i.type==='pan');
     if(pan.length){
       cpan.innerHTML=`<table class="cmd-table">
-        <thead><tr><th>Réf.</th><th>Désignation</th><th>Ép. (mm)</th><th>Hauteur (mm)</th><th>Nb panneaux</th></tr></thead>
+        <thead><tr><th>Réf.</th><th>Désignation</th><th>Lieu</th><th>Ép. (mm)</th><th>Hauteur (mm)</th><th>Nb panneaux</th></tr></thead>
         <tbody>${groupPanneaux(pan).map(it=>{
           const isBrio=it.mousse==='BRIO';
           const desig=isBrio?`BRIO ${it.ep}mm`:`${it.paroi} ${it.ep}mm — ${it.mousse} — ${it.surface||'Phénolique'}`;
-          return `<tr><td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3)">${it.ref||''}</td><td><strong>${desig}</strong></td><td>${it.ep}</td><td>${it._h?Math.round(parseFloat(it._h)*1000):'—'}</td><td>${it.nbPan||'—'}</td></tr>`;
+          return `<tr><td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3)">${it.ref||''}</td><td><strong>${desig}</strong></td><td>${esc(it.piece||'')}</td><td>${it.ep}</td><td>${it._h?Math.round(parseFloat(it._h)*1000):'—'}</td><td>${it.nbPan||'—'}</td></tr>`;
         }).join('')}</tbody>
       </table>`;
     } else {
@@ -5520,8 +5521,9 @@ function groupPanneaux(pans){
   const map={}, order=[];
   pans.forEach(it=>{
     const surf=normSurf(it.surface);
-    const key=[it.paroi||'',it.ep||'',it.mousse||'',surf,it._h||''].join('|');
-    if(!map[key]){ map[key]={ref:it.ref||'', paroi:it.paroi, ep:it.ep, mousse:it.mousse, surface:surf, _h:it._h, nbPan:0}; order.push(key); }
+    const piece=(it.piece||'').trim(); // nom de la chambre froide / pièce (plafonds surtout) : une ligne par pièce sur la commande (demande Clément 02/11/2026)
+    const key=[it.paroi||'',it.ep||'',it.mousse||'',surf,it._h||'',piece].join('|');
+    if(!map[key]){ map[key]={ref:it.ref||'', paroi:it.paroi, ep:it.ep, mousse:it.mousse, surface:surf, _h:it._h, piece, nbPan:0}; order.push(key); }
     map[key].nbPan += (parseInt(it.nbPan)||0);
   });
   return order.map(k=>map[k]);
@@ -5554,7 +5556,7 @@ function panneauxDevisLignes(pans, p){
   return out;
 }
 function devisDesigAcc(it){ // libellé + détail montrés au CLIENT (aperçu + PDF) ; le détail de commande reste dans l'app
-  if(it.accId==='sol_phen') return {label:'Sol phénolique 100mm', meta:fmt(parseFloat(it.qty)||0)+' m² — sur chevrons PVC inclus'};
+  if(it.accId==='sol_phen') return {label:'Sol phénolique 100mm'+(it.piece?' — '+it.piece:''), meta:fmt(parseFloat(it.qty)||0)+' m² — sur chevrons PVC inclus'};
   if(it.accId==='tole') return {label:'Tôle larmée 4mm', meta:fmt(parseFloat(it.qty)||0)+' m²'}; // sans nombre ni format de tôles côté client
   if(it.accId==='ecrou_pom') return {label:'Pose écrou POM pour reprise plafond', meta:'Suspension des plafonds existants à la structure, par tige filetée et écrou POM traversant'};
   if(it.accId==='lisse' && it.niv){ const ml=parseFloat(it.qty)||0, n=it.niv||1; return {label:it.label||'', meta:(n>1?`${fmt(ml)} ml de paroi × ${n} niveaux = ${fmt(ml*n)} ml de lisse`:`${fmt(ml)} ml de lisse`)+', cache-vis et embouts compris'}; }
@@ -6999,7 +7001,7 @@ const PDF_INK=[26,25,23], PDF_ACCENT=[199,42,118];
 // ── Plans de calepinage (dossier poseur) : sol phénolique et tôle larmée saisis en dimensions ──
 function planDims(it){
   const fv=it.formVals||{};
-  if(it.accId==='sol_phen'){ const mode=it.solMode||fv['af-sol-mode']||'dim'; const L=parseFloat(it.solL!=null?it.solL:fv['af-sol-L'])||0, l=parseFloat(it.solW!=null?it.solW:fv['af-sol-w'])||0; return {isSol:true, ok:mode!=='surf'&&L>0&&l>0, L, l, dispo:it.solDispo||fv['af-sol-dispo']||'rangees'}; }
+  if(it.accId==='sol_phen'){ const mode=it.solMode||fv['af-sol-mode']||'dim'; const L=parseFloat(it.solL!=null?it.solL:fv['af-sol-L'])||0, l=parseFloat(it.solW!=null?it.solW:fv['af-sol-w'])||0; return {isSol:true, ok:mode!=='surf'&&L>0&&l>0, L, l, dispo:it.solDispo||fv['af-sol-dispo']||'rangees', piece:(it.piece||fv['af-sol-piece']||'').trim()}; }
   if(it.accId==='tole'){ const mode=it.toleMode||fv['af-tole-mode']||'dim'; const L=parseFloat(it.toleL!=null?it.toleL:fv['af-tole-L'])||0, l=parseFloat(it.toleW!=null?it.toleW:fv['af-tole-w'])||0; return {isSol:false, ok:mode!=='surf'&&L>0&&l>0, L, l, fmt:toleFormat(it.toleFmt||fv['af-tole-fmt'])||TOLE_FORMATS[0]}; }
   return {ok:false};
 }
@@ -7024,7 +7026,7 @@ function genPlansPDF(){
     y+=26.9+5; doc.setDrawColor(228,226,222); doc.setLineWidth(0.4); doc.line(ML,y,MR,y); y+=8;
     const d=planDims(it); const L=d.L, l=d.l;
     const res=d.isSol?solSimulate(L,l,d.dispo):toleSimulateFmt(L,l,d.fmt);
-    const titre=(d.isSol?'Sol phénolique 100 mm':'Tôle larmée 4 mm — format '+res.fmt.lab)+' — pièce '+fm(L)+' × '+fm(l)+' m';
+    const titre=(d.isSol?'Sol phénolique 100 mm':'Tôle larmée 4 mm — format '+res.fmt.lab)+(d.piece?' — '+d.piece:'')+' — '+fm(L)+' × '+fm(l)+' m';
     sf(true,11,BLACK); doc.text(titre, ML, y); y+=6;
     const l1=d.isSol
       ? `${res.nb} plaque${res.nb>1?'s':''} : ${solFmtMix(res.plaques)}${res.dispo==='eco'?' — chutes réemployées, joints décalés':' — rangées identiques'}${res.ripLast?' — dernière bande coupée dans la longueur à '+fm(res.lastW)+' m':''}`
@@ -7212,8 +7214,8 @@ function genCmdPDF(type, ov){ if(type==='por'&&porBloque('la commande des portes
   // En-têtes tableau selon type
   let headers=[], colWidths=[];
   if(type==='pan'){
-    headers=['Réf.','Désignation','Ép. (mm)','Hauteur (mm)','Nb pan.'];
-    colWidths=[15,100,22,25,20];
+    headers=['Réf.','Désignation','Lieu','Ép. (mm)','Hauteur (mm)','Nb pan.']; // Lieu = chambre froide / pièce : le fabricant l'écrit sur les colis (demande Clément 02/11/2026)
+    colWidths=[14,74,36,16,22,20];
   } else if(type==='por'){
     headers=['Réf.','Type','Dimensions','Ferrage','Ép. cadre','Qté','Détails'];
     colWidths=[15,50,25,19,22,11,40]; // Réf. élargie (P001-R tient sur une ligne), total 182 inchangé
@@ -7221,7 +7223,7 @@ function genCmdPDF(type, ov){ if(type==='por'&&porBloque('la commande des portes
     headers=['Désignation','Quantité']; // plus de colonne Détails (demande Clément 16/09/2026)
     colWidths=[137,45];
   }
-  const rightFrom = type==='acc' ? 1 : 2; // colonnes alignées à droite à partir de cet index
+  const rightFrom = type==='acc' ? 1 : (type==='pan' ? 3 : 2); // colonnes alignées à droite à partir de cet index (panneaux : Réf., Désignation, Lieu restent à gauche)
 
   // Header tableau
   fillR(ML,y,TW,7,NAVY);
@@ -7244,8 +7246,8 @@ function genCmdPDF(type, ov){ if(type==='por'&&porBloque('la commande des portes
     if(ov.rows){ cells = type==='acc' ? it.slice(0,2) : it; } // accessoires : le détail n'est plus imprimé
     else if(type==='pan'){
       const isBrio=it.mousse==='BRIO';
-      const desig=isBrio?`BRIO ${it.ep}mm`:`${it.paroi} ${it.ep}mm — ${it.mousse}${it.surface?' — '+it.surface:''}${it.piece?' — '+it.piece:''}`;
-      cells=[it.ref||'',desig,it.ep,it._h?String(Math.round(parseFloat(it._h)*1000)):'—',it.nbPan||'—'];
+      const desig=isBrio?`BRIO ${it.ep}mm`:`${it.paroi} ${it.ep}mm — ${it.mousse}${it.surface?' — '+it.surface:''}`;
+      cells=[it.ref||'',desig,it.piece||'',it.ep,it._h?String(Math.round(parseFloat(it._h)*1000)):'—',it.nbPan||'—'];
     } else if(type==='por'){
       cells=it; // déjà des cellules (porCmdRows)
     } else {
