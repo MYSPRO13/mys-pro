@@ -2515,6 +2515,8 @@ function solPhenPx(){
 }
 // Lit un champ numérique en RESPECTANT 0 (vide/NaN → défaut). Évite le piège « 0 || défaut ».
 function valOr(id,def){ const r=G(id)?.value; return (r===''||r==null||isNaN(parseFloat(r)))?def:parseFloat(r); }
+function nOr(v,def){ return (v==null||v===''||isNaN(parseFloat(v)))?def:parseFloat(v); } // idem pour une valeur brute (0 respecté, ≠ « || »)
+function coefOr(v,def){ const c=nOr(v,def); return c>0?c:def; } // le coefficient doit rester > 0
 let travaux=[], travauxSeq=0; // lignes libres « Travaux spécifiques »
 let trManual=false; // transport : résultat forcé à la main (override)
 function travauxHT(){return travaux.reduce((s,l)=>s+((parseFloat(l.qty)||0)*(parseFloat(l.pu)||0)),0);}
@@ -2531,7 +2533,7 @@ function missionLignes(kind){
   if(journee) return {rows:[{desig:"Forfait main d'œuvre & déplacement — journée simple",qty:1,unit:'forfait',pu:pJ.journeePx,montant:pJ.journeePx}],total:pJ.journeePx,journee:true};
   const pans=items.filter(i=>i.type==='pan'), pors=items.filter(i=>i.type==='por'), accs=items.filter(i=>i.type==='acc');
   // Panneaux : Cloisons / Plafonds / Sol de congélation (pose au m²)
-  { const posePx=parseFloat(G('pp')?.value)||18, cats={};
+  { const posePx=valOr('pp',18), cats={};
     pans.forEach(it=>{ const cat=it.paroi==='Plafond'?'Plafonds':(it.paroi==='Sol négatif'?'Sol de congélation':'Cloisons'); cats[cat]=(cats[cat]||0)+(it.surf||0); });
     ['Cloisons','Plafonds','Sol de congélation'].forEach(cat=>add(cat,cats[cat]||0,'m²',posePx)); }
   // Portes : regroupées par type (même pose)
@@ -2557,7 +2559,7 @@ function initMissionSelectDepose(){ const sel=G('mission-poseur-depose'); if(!se
 // Prix de pose global (main d'œuvre) — même logique que la page Ordre de mission
 function poseGlobale(){
   const pm=P(); if(pm.mode==='journee') return pm.journeePx; // journée : le forfait remplace les montants de pose
-  const posePx=parseFloat(G('pp')?.value)||18;
+  const posePx=valOr('pp',18);
   let total=0;
   items.forEach(it=>{
     if(it.type==='pan') total+=(it.surf||0)*posePx;
@@ -2603,9 +2605,9 @@ const P = () => {
   const mode = document.querySelector('input[name="pose-mode"]:checked')?.value || 'budget';
   const journee = mode === 'journee';
   return {
-    pose: journee ? 0 : (parseFloat(G('pp').value)||18),
-    acc:  parseFloat(G('pa').value)||6, // accessoires €/m² TOUJOURS comptés (même en journée : seule la pose est remplacée par le forfait)
-    coef: parseFloat(G('pc').value)||1.5,
+    pose: journee ? 0 : valOr('pp',18),  // 0 saisi = 0 (pas la valeur par défaut)
+    acc:  valOr('pa',6), // accessoires €/m² TOUJOURS comptés (même en journée : seule la pose est remplacée par le forfait) ; 0 saisi = 0
+    coef: coefOr(G('pc').value,1.5),
     mode,
     journeePx: valOr('journee-px', 1125) // 0 respecté (forfait journée à 0 possible)
   };
@@ -6047,7 +6049,7 @@ function genPDF(){
   // ── PIED DE PAGE toutes pages ─────────────────────────────
   const pc=doc.internal.getNumberOfPages();
   // Code interne discret (marge/acc/pose de ce devis) — anodin pour le client, lisible par Yvan
-  const spy='M'+(parseFloat(G('pc')?.value)||1.5)+'A'+(parseFloat(G('pa')?.value)||6)+'P'+(parseFloat(G('pp')?.value)||18);
+  const spy='M'+coefOr(G('pc')?.value,1.5)+'A'+valOr('pa',6)+'P'+valOr('pp',18);
   for(let i=1;i<=pc;i++){
     doc.setPage(i);
     hline(283, [200,200,200], 0.4);
@@ -6137,20 +6139,20 @@ function applyParams(px){
   if(G('sup_pet55') && px.sup_pet55!==undefined) G('sup_pet55').value = px.sup_pet55;
   if(G('sup_inox')  && px.sup_inox!==undefined)  G('sup_inox').value  = px.sup_inox;
   try{ updateSidebarPir(); }catch(e){}
-  if(px.pp) DEFAULT_PARAMS.pp = px.pp;
-  if(px.pa) DEFAULT_PARAMS.pa = px.pa;
-  if(px.pc) DEFAULT_PARAMS.pc = px.pc;
+  if(px.pp!=null && px.pp!=='' && !isNaN(parseFloat(px.pp))) DEFAULT_PARAMS.pp = parseFloat(px.pp);
+  if(px.pa!=null && px.pa!=='' && !isNaN(parseFloat(px.pa))) DEFAULT_PARAMS.pa = parseFloat(px.pa);
+  if(px.pc>0) DEFAULT_PARAMS.pc = parseFloat(px.pc);
   // Réglages pose/acc/coef PROPRES à l'affaire : ne PAS les écraser si un devis est déjà
   // chargé (sinon un chargement de prix global fausse un devis en cours / sa nouvelle version).
   // Un devis vierge (nouveauDevis) ou repris (restoreDraft) pose lui-même ses valeurs.
   if(!items.length){
-    if(G('pp') && px.pp) G('pp').value = px.pp;
-    if(G('pa') && px.pa) G('pa').value = px.pa;
-    if(G('pc') && px.pc) G('pc').value = px.pc;
+    if(G('pp') && px.pp!=null && px.pp!=='') G('pp').value = px.pp;
+    if(G('pa') && px.pa!=null && px.pa!=='') G('pa').value = px.pa;
+    if(G('pc') && px.pc>0) G('pc').value = px.pc;
   }
-  if(G('def-pp') && px.pp) G('def-pp').value = px.pp;
-  if(G('def-pa') && px.pa) G('def-pa').value = px.pa;
-  if(G('def-pc') && px.pc) G('def-pc').value = px.pc;
+  if(G('def-pp') && px.pp!=null && px.pp!=='') G('def-pp').value = px.pp;
+  if(G('def-pa') && px.pa!=null && px.pa!=='') G('def-pa').value = px.pa;
+  if(G('def-pc') && px.pc>0) G('def-pc').value = px.pc;
   if(px.sol_chev_ml!=null)   SOL_CHEV.ml   = parseFloat(px.sol_chev_ml)||0;
   if(px.sol_chev_pose!=null) SOL_CHEV.pose = parseFloat(px.sol_chev_pose)||0;
   if(G('sol-chev-ml'))   G('sol-chev-ml').value   = SOL_CHEV.ml;
@@ -6204,7 +6206,7 @@ async function sauvegarderParams(fromButton){
   // Le bouton « Sauvegarder les prix » fige aussi pose/acc/coef courants comme nouveaux défauts ;
   // les sauvegardes automatiques (ex. prix porte hors matrice) n'y touchent pas.
   if(fromButton===true){
-    DEFAULT_PARAMS = { pp:parseFloat(G('def-pp')?.value)||parseFloat(G('pp')?.value)||18, pa:parseFloat(G('def-pa')?.value)||parseFloat(G('pa')?.value)||6, pc:parseFloat(G('def-pc')?.value)||parseFloat(G('pc')?.value)||1.5 };
+    DEFAULT_PARAMS = { pp:valOr('def-pp',valOr('pp',18)), pa:valOr('def-pa',valOr('pa',6)), pc:coefOr(G('def-pc')?.value,coefOr(G('pc')?.value,1.5)) };
     refreshAll();
   }
   const px = collectParams();
@@ -6411,9 +6413,9 @@ function restoreDraft(d){
   DEPOSE=deposeLoad(d.depose);
   if(G('projet-nom')) G('projet-nom').value=d.projet||'';
   if(d.num){ G('devis-num').textContent=d.num; if(G('dnum')) G('dnum').textContent=d.num; }
-  if(G('pp')&&d.pp) G('pp').value=d.pp;
-  if(G('pa')&&d.pa) G('pa').value=d.pa;
-  if(G('pc')&&d.pc) G('pc').value=d.pc;
+  if(G('pp')&&d.pp!=null&&d.pp!=='') G('pp').value=d.pp;
+  if(G('pa')&&d.pa!=null&&d.pa!=='') G('pa').value=d.pa;
+  if(G('pc')&&d.pc!=null&&d.pc!=='') G('pc').value=d.pc;
   if(G('ev-base')&&d.evBase!=null&&d.evBase!=='') G('ev-base').value=d.evBase;
   if(G('manu-base')&&d.manuBase!=null&&d.manuBase!=='') G('manu-base').value=d.manuBase;
   if(G('manu-client')) G('manu-client').checked=!!d.manuClient;
@@ -6557,7 +6559,7 @@ async function sauvegarderDevis(opts){
     client: curClient,
     projet_nom: G('projet-nom')?.value||'',
     items: items,
-    params: { pose: parseFloat(G('pp')?.value)||18, acc: parseFloat(G('pa')?.value)||6, coef: parseFloat(G('pc')?.value)||1.5, depose: deposePayload(), pxOverride: PXOV, evBase: valOr('ev-base',EVMANU_DEF.ev), manuBase: valOr('manu-base',EVMANU_DEF.manu), manuClient: G('manu-client')?.checked||false, manuExtra: manuExtraGet(), poseMode: document.querySelector('input[name="pose-mode"]:checked')?.value||'budget', journeePx: valOr('journee-px',POSE_DEF.px), travaux: travaux, remise: remisePayload(), metre: metrePayload(), trPanFou: (G('tr-pan-fou')?.value)||'arcelor', trPanLivr: parseInt(G('tr-pan-livr')?.value)||1, trPanMontant: (G('tr-pan-montant')?.value)||'', dateDevis: DEVIS_DATE },
+    params: { pose: valOr('pp',18), acc: valOr('pa',6), coef: coefOr(G('pc')?.value,1.5), depose: deposePayload(), pxOverride: PXOV, evBase: valOr('ev-base',EVMANU_DEF.ev), manuBase: valOr('manu-base',EVMANU_DEF.manu), manuClient: G('manu-client')?.checked||false, manuExtra: manuExtraGet(), poseMode: document.querySelector('input[name="pose-mode"]:checked')?.value||'budget', journeePx: valOr('journee-px',POSE_DEF.px), travaux: travaux, remise: remisePayload(), metre: metrePayload(), trPanFou: (G('tr-pan-fou')?.value)||'arcelor', trPanLivr: parseInt(G('tr-pan-livr')?.value)||1, trPanMontant: (G('tr-pan-montant')?.value)||'', dateDevis: DEVIS_DATE },
     transport: tr,
     evacuation: evac,
     manutention: { base: parseFloat(G('manu-base')?.value)||600, client: G('manu-client')?.checked||false, total: manu },
@@ -6798,7 +6800,7 @@ async function telechargerDevisPDF(id){
     DEPOSE=deposeLoad(d.params&&d.params.depose); // la dépose du devis enregistré, pas celle du devis en cours
     REMISE=remiseLoad(d.params&&d.params.remise);
     {const _p=d.params||{}; if(G('ev-base'))G('ev-base').value=(_p.evBase!=null)?_p.evBase:EVMANU_DEF.ev; if(G('manu-base'))G('manu-base').value=(_p.manuBase!=null)?_p.manuBase:EVMANU_DEF.manu; if(G('manu-client'))G('manu-client').checked=!!_p.manuClient; manuExtraApply(_p.manuExtra);}
-    if(G('pp'))G('pp').value=(d.params&&d.params.pose)||DEFAULT_PARAMS.pp; if(G('pa'))G('pa').value=(d.params&&d.params.acc)||DEFAULT_PARAMS.pa; if(G('pc'))G('pc').value=(d.params&&d.params.coef)||DEFAULT_PARAMS.pc;
+    {const _q=d.params||{}; if(G('pp'))G('pp').value=nOr(_q.pose,DEFAULT_PARAMS.pp); if(G('pa'))G('pa').value=nOr(_q.acc,DEFAULT_PARAMS.pa); if(G('pc'))G('pc').value=coefOr(_q.coef,DEFAULT_PARAMS.pc);}
     if(G('projet-nom'))G('projet-nom').value=d.projet_nom||'';
     if(G('devis-num'))G('devis-num').textContent=d.numero||'';
     refreshAll();
@@ -6830,9 +6832,9 @@ async function chargerDevis(id){
     travauxSeq = travaux.reduce((m,l)=>Math.max(m, parseInt(String(l.id||'').replace('trv',''))||0), 0);
     curClient = d.client || null;
     // Chaque devis garde ses propres pose/acc/coef ; à défaut, on repart des défauts globaux
-    if(G('pp')) G('pp').value = (d.params&&d.params.pose)||DEFAULT_PARAMS.pp;
-    if(G('pa')) G('pa').value = (d.params&&d.params.acc)||DEFAULT_PARAMS.pa;
-    if(G('pc')) G('pc').value = (d.params&&d.params.coef)||DEFAULT_PARAMS.pc;
+    if(G('pp')) G('pp').value = nOr(d.params&&d.params.pose, DEFAULT_PARAMS.pp);
+    if(G('pa')) G('pa').value = nOr(d.params&&d.params.acc, DEFAULT_PARAMS.pa);
+    if(G('pc')) G('pc').value = coefOr(d.params&&d.params.coef, DEFAULT_PARAMS.pc);
     const dpz = d.params && d.params.depose;
     DEPOSE = deposeLoad(dpz);
     PXOV = (d.params && d.params.pxOverride && typeof d.params.pxOverride==='object') ? Object.assign({}, d.params.pxOverride) : {};
