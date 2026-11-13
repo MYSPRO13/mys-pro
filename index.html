@@ -5538,13 +5538,19 @@ function groupPanneaux(pans){
   return order.map(k=>map[k]);
 }
 // Lignes du tableau de l'aperçu devis — mêmes colonnes/sections que le PDF final
-// Lignes panneaux pour le devis : plafonds regroupés par épaisseur (sans hauteur), le reste par item
+// Lignes panneaux pour le devis : plafonds regroupés par épaisseur (sans hauteur), BRIO regroupé par épaisseur + hauteur de plaque + prix unitaire, le reste par item
 function panneauxDevisLignes(pans, p){
   const out=[], autres=pans.filter(i=>i.paroi!=='Plafond'), plafs=pans.filter(i=>i.paroi==='Plafond');
+  const brioIdx={}; // clé BRIO → position de sa ligne dans out (la ligne garde la place de la 1re occurrence)
   autres.forEach(it=>{
     const isBrio=it.mousse==='BRIO', v=cpv(it,p), pu=it.surf>0?v/it.surf:v;
     const desig=isBrio?`BRIO ${it.ep}mm`:`${it.paroi} ${it.ep}mm — ${it.mousse}`;
     const sub=isBrio?`h. ${it._h}m`:[(normSurf(it.surface)||'Phénolique'), it._h?`h. ${it._h}m`:''].filter(Boolean).join(' — ');
+    if(isBrio){ // même épaisseur, même hauteur, même prix au m² → une seule ligne (un prix figé différent reste à part)
+      const k=[it.ep||'', it._h||'', pu.toFixed(2)].join('|');
+      if(brioIdx[k]!=null){ const L=out[brioIdx[k]]; L.surf=r2(L.surf+(it.surf||0)); L.montant=r2(L.montant+v); return; }
+      brioIdx[k]=out.length;
+    }
     out.push({ref:it.ref||'', desig, sub, pu, surf:it.surf||0, montant:v});
   });
   const gmap={};
