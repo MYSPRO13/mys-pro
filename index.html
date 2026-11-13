@@ -4804,7 +4804,7 @@ function editItem(i){
     if(it.dimsIncomplete){ pS._surfManual=it.surfExact||it.surf; }
     else if(it.paroi==='Sol négatif'){ pS._ml=it._ml; pS._lg=it._lg!=null?it._lg:(it._ml>0&&it.surfExact?Math.round(it.surfExact/it._ml*100)/100:''); }
     else if(it.paroi==='Plafond'){ pS._ml=it._ml; pS._lg=it._lg!=null?it._lg:(it.nbPan>0?Math.round(it.nbPan*1.15*100)/100:''); }
-    else if(it.mousse==='BRIO'){ pS._ml=it._ml; }
+    else if(it.mousse==='BRIO'){ if(it.surfSaisie>0) pS._surfManual=it.surfSaisie; else pS._ml=it._ml; }
     else { pS._ml=it._ml; pS._h=it._h; }
     showPage('config', document.querySelector('.nav-item'));
     swCfg('pan'); panRender();
@@ -5064,6 +5064,7 @@ function panDims(kind){
     rows+=cfgField('Largeur (m)','pan-lg','0.1','ex: 3.00',lg,'panDim()');
   } else if(kind==='brio'){
     rows+=cfgField('ML / longueur (m)','pan-ml','0.1','ex: 4.60',ml,'panDim()');
+    rows+=cfgField('Surface (m²)','pan-surf','0.1','ou saisir directement',(surfC.surfSaisie?pS._surfManual:surfDisp),'panSurf()'); // surface seule : on réaffiche ce qui a été tapé, pas la surface arrondie aux plaques
   } else if(kind==='plafond'){
     rows+=cfgField('Hauteur panneau (m) — petit côté','pan-ml','0.1','ex: 2.50',ml,'panDim()');
     rows+=cfgField('ML — grand côté (m)','pan-lg','0.1','ex: 3.00',lg,'panDim()');
@@ -5095,15 +5096,20 @@ function panCalc(){
   const isSol=paroi==='Sol négatif', isPlaf=paroi==='Plafond', isBrio=pS.mousse==='BRIO';
   const ml=parseFloat(pS._ml)||0, lg=parseFloat(pS._lg)||0, h=(pS._h!=null?parseFloat(pS._h):2.5)||2.5;
   let nb=0,surf=0,surfExact=0,hUsed=h,dimLabel='',valid=false,dimsIncomplete=false;
+  let mlOut=ml, surfSaisie=0; // BRIO « surface seule » : ML équivalent + surface tapée (gardée pour la modification)
   const manualSurf=parseFloat(pS._surfManual)||0;
   if(isSol){
     valid=ml>0&&lg>0; surfExact=ml*lg; surf=Math.ceil(ml*lg*100)/100; nb=Math.ceil((ml*lg)/1.2);
     dimLabel=`${ml} × ${lg} m`;
   } else if(isBrio){
-    valid=!!pS.ep&&!!pS.surface&&ml>0;
     const brioH=parseInt(pS.surface||'2600')/1000; hUsed=brioH;
-    nb=Math.ceil(Math.round(ml/1.22*1e10)/1e10); surfExact=nb*brioH*1.22; surf=Math.ceil(nb*brioH*1.22*100)/100; // × 1,22 = largeur de la plaque (surface achetée, plaques entières)
-    dimLabel=`${ml} ml ÷ 1,22 = ${nb} plaque${nb>1?'s':''} × 1,22 × h. ${brioH} m`;
+    let mlB=ml;
+    if(!(mlB>0)&&manualSurf>0){ // surface seule : ML équivalent = surface ÷ hauteur de plaque (arrondi au cm supérieur) → mêmes plaques, mêmes accessoires
+      mlB=Math.ceil(Math.round(manualSurf/brioH*100*1e6)/1e6)/100; surfSaisie=manualSurf;
+    }
+    valid=!!pS.ep&&!!pS.surface&&mlB>0; mlOut=mlB;
+    nb=Math.ceil(Math.round(mlB/1.22*1e10)/1e10); surfExact=nb*brioH*1.22; surf=Math.ceil(nb*brioH*1.22*100)/100; // × 1,22 = largeur de la plaque (surface achetée, plaques entières)
+    dimLabel=surfSaisie?`Surface saisie ${fmt(surfSaisie)} m² = ${nb} plaque${nb>1?'s':''} × 1,22 × h. ${brioH} m`:`${ml} ml ÷ 1,22 = ${nb} plaque${nb>1?'s':''} × 1,22 × h. ${brioH} m`;
   } else if(isPlaf){
     if(lg>0&&ml>0){
       nb=Math.ceil(Math.round(lg/1.15*1e10)/1e10); surfExact=nb*1.15*ml; surf=Math.ceil(nb*1.15*ml*100)/100; hUsed=ml;
@@ -5128,7 +5134,7 @@ function panCalc(){
   const ov=pS.achatOverride;
   const a=(ov!=null&&String(ov).trim()!==''&&!isNaN(parseFloat(ov)))?parseFloat(ov):refA;
   const m2=(a+p.pose+p.acc)*p.coef; const tot=m2*surf;
-  return {valid,paroi,isSol,isPlaf,isBrio,ml,lg,h:hUsed,nb,surf,surfExact,dimLabel,dimsIncomplete,a,refA,aOver:(a!==refA),coef:p.coef,pose:p.pose,acc:p.acc,tot};
+  return {valid,paroi,isSol,isPlaf,isBrio,ml:mlOut,lg,h:hUsed,nb,surf,surfExact,surfSaisie,dimLabel,dimsIncomplete,a,refA,aOver:(a!==refA),coef:p.coef,pose:p.pose,acc:p.acc,tot};
 }
 function panDim(){
   const ml=G('pan-ml'),h=G('pan-h'),lg=G('pan-lg');
@@ -5182,6 +5188,7 @@ function panAdd(){
   const meta=c.dimsIncomplete?`${fmt(c.surf)} m² · dimensions à compléter${piece?' | '+piece:''}`:`${c.nb} pan. | ${fmt(c.surf)} m²${piece?' | '+piece:''}`;
   const it={type:'pan',ref,label,meta,ep:pS.ep,surface:pS.surface,paroi:pS.paroi,surf:c.surf,surfExact:c.surfExact,nbPan:c.nb,piece:piece,_h:c.h,mousse:pS.mousse,_ml:c.ml,_lg:c.lg,dimsIncomplete:c.dimsIncomplete};
   if(c.aOver) it.achatOverride=c.a; // prix d'achat négocié pour CE devis (override du tarif catalogue)
+  if(c.surfSaisie) it.surfSaisie=c.surfSaisie; // BRIO saisi par la surface seule
   const wasEdit=(editIdx!=null&&editType==='pan'&&items[editIdx]);
   if(wasEdit){ items.splice(editIdx,1,it); editIdx=null; editType=null; }
   else items.push(it);
