@@ -1247,6 +1247,10 @@ select.dx-pill { cursor: pointer; border: none; outline: none; -webkit-appearanc
 .px-table tr:last-child td { border-bottom: none; }
 .px-table input { width: 68px; border: 1px solid var(--border); border-radius: 4px; padding: 3px 3px; font-size: 11px; font-family: 'DM Mono', monospace; text-align: right; background: var(--surface); color: var(--text); box-sizing: border-box; }
 .px-table input:focus { outline: none; border-color: var(--blue); }
+.px-switch { display: flex; gap: 2px; margin: .5rem 1rem .15rem; padding: 2px; background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius-sm); }
+.px-sw { flex: 1; padding: 4px 6px; font-size: 11px; font-family: 'DM Sans', sans-serif; border: none; border-radius: 4px; background: none; color: var(--text2); cursor: pointer; transition: all .15s; white-space: nowrap; }
+.px-sw.active { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: var(--shadow); }
+.px-dot { display: none; width: 6px; height: 6px; border-radius: 50%; background: var(--magenta); margin-left: 5px; vertical-align: middle; }
 /* Catalogue accessoires : lisibilité des lignes sur écran large (zébrage + survol) */
 #acc-prices-body tr.acc-row td { border-bottom: 1px solid var(--border2); }
 #acc-prices-body tr.acc-alt td { background: var(--bg2); }
@@ -2339,10 +2343,14 @@ function togglePwd(){
     <div class="sr-row" style="font-size:11px;color:var(--text3);padding:2px 0 8px;line-height:1.4" id="remise-info">Vide = pas de remise.</div>
   </div>
 
-  <!-- Prix panneaux PIR PROPRES À CE DEVIS : override de la base globale (vide = tarif de base). -->
-  <button class="collapse-btn" onclick="togCollapse('px')">Prix achat panneaux PIR — ce devis<span class="collapse-arrow" id="arr-px">▼</span></button>
+  <!-- Prix panneaux PROPRES À CE DEVIS (PIR ou laine de roche) : override de la base globale (vide = tarif de base). -->
+  <button class="collapse-btn" onclick="togCollapse('px')">Prix achat panneaux — ce devis<span class="collapse-arrow" id="arr-px">▼</span></button>
   <div class="collapse-body" id="body-px">
-    <table class="px-table">
+    <div class="px-switch">
+      <button type="button" class="px-sw active" id="pxsw-PIR" onclick="srPxMode('PIR')">PIR<span class="px-dot" id="pxdot-PIR" title="Prix négocié sur ce devis"></span></button>
+      <button type="button" class="px-sw" id="pxsw-LR" onclick="srPxMode('LR')">Laine de roche<span class="px-dot" id="pxdot-LR" title="Prix négocié sur ce devis"></span></button>
+    </div>
+    <table class="px-table" id="pxt-PIR">
       <tr><th>Ép.</th><th>Cloison</th><th>Plafond</th></tr>
       <tr><td>40</td><td><input id="srp-cl-40" type="number" step="0.01" oninput="srPxOv('CL','40',this.value)"></td><td><input id="srp-pl-40" type="number" step="0.01" oninput="srPxOv('PL','40',this.value)"></td></tr>
       <tr><td>60</td><td><input id="srp-cl-60" type="number" step="0.01" oninput="srPxOv('CL','60',this.value)"></td><td><input id="srp-pl-60" type="number" step="0.01" oninput="srPxOv('PL','60',this.value)"></td></tr>
@@ -2352,7 +2360,17 @@ function togglePwd(){
       <tr><td>150</td><td><input id="srp-cl-150" type="number" step="0.01" oninput="srPxOv('CL','150',this.value)"></td><td><input id="srp-pl-150" type="number" step="0.01" oninput="srPxOv('PL','150',this.value)"></td></tr>
       <tr><td>200</td><td><input id="srp-cl-200" type="number" step="0.01" oninput="srPxOv('CL','200',this.value)"></td><td><input id="srp-pl-200" type="number" step="0.01" oninput="srPxOv('PL','200',this.value)"></td></tr>
     </table>
-    <div style="font-size:10px;color:var(--text3);padding:.35rem .25rem;font-style:italic;line-height:1.4">Vide = tarif de base. Une valeur = prix négocié <b>pour ce devis seulement</b> (en orange). Plafond vide = même prix que Cloison. Base globale + LR/BRIO/suppléments → <a onclick="showPage('catalogue', document.querySelector('.nav-item[onclick*=&quot;catalogue&quot;]'))" style="color:var(--blue);cursor:pointer">page Paramètres →</a></div>
+    <table class="px-table" id="pxt-LR" style="display:none">
+      <tr><th>Ép.</th><th>Cloison</th><th>Plafond</th></tr>
+      <tr><td>40</td><td><input id="srp-lrcl-40" type="number" step="0.01" oninput="srPxOv('LRCL','40',this.value)"></td><td><input id="srp-lrpl-40" type="number" step="0.01" oninput="srPxOv('LRPL','40',this.value)"></td></tr>
+      <tr><td>60</td><td><input id="srp-lrcl-60" type="number" step="0.01" oninput="srPxOv('LRCL','60',this.value)"></td><td><input id="srp-lrpl-60" type="number" step="0.01" oninput="srPxOv('LRPL','60',this.value)"></td></tr>
+      <tr><td>80</td><td><input id="srp-lrcl-80" type="number" step="0.01" oninput="srPxOv('LRCL','80',this.value)"></td><td><input id="srp-lrpl-80" type="number" step="0.01" oninput="srPxOv('LRPL','80',this.value)"></td></tr>
+      <tr><td>100</td><td><input id="srp-lrcl-100" type="number" step="0.01" oninput="srPxOv('LRCL','100',this.value)"></td><td><input id="srp-lrpl-100" type="number" step="0.01" oninput="srPxOv('LRPL','100',this.value)"></td></tr>
+      <tr><td>120</td><td><input id="srp-lrcl-120" type="number" step="0.01" oninput="srPxOv('LRCL','120',this.value)"></td><td><input id="srp-lrpl-120" type="number" step="0.01" oninput="srPxOv('LRPL','120',this.value)"></td></tr>
+      <tr><td>150</td><td><input id="srp-lrcl-150" type="number" step="0.01" oninput="srPxOv('LRCL','150',this.value)"></td><td><input id="srp-lrpl-150" type="number" step="0.01" oninput="srPxOv('LRPL','150',this.value)"></td></tr>
+      <tr><td>200</td><td><input id="srp-lrcl-200" type="number" step="0.01" oninput="srPxOv('LRCL','200',this.value)"></td><td><input id="srp-lrpl-200" type="number" step="0.01" oninput="srPxOv('LRPL','200',this.value)"></td></tr>
+    </table>
+    <div style="font-size:10px;color:var(--text3);padding:.35rem .25rem;font-style:italic;line-height:1.4">Vide = tarif de base. Une valeur = prix négocié <b>pour ce devis seulement</b> (en couleur). Plafond vide = même prix que Cloison. Base globale (PIR, laine de roche, BRIO, suppléments) → <a onclick="showPage('catalogue', document.querySelector('.nav-item[onclick*=&quot;catalogue&quot;]'))" style="color:var(--blue);cursor:pointer">page Paramètres →</a></div>
   </div>
 </aside>
 
@@ -3090,7 +3108,11 @@ function normSurf(s){ s=String(s||''); return /lisse|nervur|pet|inox/i.test(s)?s
 // sur la base globale, remis à zéro sur un nouveau devis, enregistré avec le devis.
 function panBaseAchat(mousse,ep,paroi){
   if(mousse==='BRIO') return parseFloat(G('xBRIO'+ep)?.value)||0;
-  if(mousse==='LR'){ if(paroi==='Plafond'){ const pl=parseFloat(G('xLRPL'+ep)?.value); if(pl>0) return pl; } return parseFloat(G('xLR'+ep)?.value)||0; } // LR plafond (xLRPL) si renseigné, sinon LR cloison
+  if(mousse==='LR'){ // override devis (LRCL_{ep} / LRPL_{ep}) → base LR plafond (xLRPL) si renseignée → base LR cloison
+    const pkL=(paroi==='Plafond'?'PL':'CL'), kL='LR'+pkL+'_'+ep;
+    if(PXOV[kL]!=null && PXOV[kL]!=='' && !isNaN(parseFloat(PXOV[kL]))) return parseFloat(PXOV[kL]);
+    return lrBase(pkL,ep);
+  }
   const key=(paroi==='Plafond'?'PL':'CL')+'_'+ep;
   if(PXOV[key]!=null && PXOV[key]!=='' && !isNaN(parseFloat(PXOV[key]))) return parseFloat(PXOV[key]); // override devis
   if(paroi==='Plafond'){ const pl=parseFloat(G('xPL'+ep+'ll')?.value); if(pl>0) return pl; }          // base plafond
@@ -3101,17 +3123,28 @@ function surfSupp(surf){return String(surf||'').split('/').reduce((s,f)=>s+faceS
 function getPx(ep,surf,mousse,paroi){return panBaseAchat(mousse,ep,paroi)+surfSupp(surf);}
 // Prix de base effectif d'une épaisseur/paroi (sans override devis) — pour l'affichage placeholder.
 function pirBase(pk,ep){ if(pk==='PL'){ const pl=parseFloat(G('xPL'+ep+'ll')?.value); if(pl>0) return pl; } return parseFloat(G('x'+ep+'ll')?.value)||0; }
+function lrBase(pk,ep){ if(pk==='PL'){ const pl=parseFloat(G('xLRPL'+ep)?.value); if(pl>0) return pl; } return parseFloat(G('xLR'+ep)?.value)||0; } // idem pour la laine de roche
 // Grille latérale = OVERRIDE PAR DEVIS (jamais la base globale). Vide = tarif de base.
+// Clés PXOV : PIR = CL_{ep} / PL_{ep} (historique) ; laine de roche = LRCL_{ep} / LRPL_{ep}.
 function srPxOv(pk,ep,v){ const key=pk+'_'+ep; if(v===''||v==null) delete PXOV[key]; else PXOV[key]=v; refreshAll(); }
+let SR_PX_MODE='PIR'; // famille affichée dans la grille latérale
+function srPxMode(m){
+  SR_PX_MODE=(m==='LR')?'LR':'PIR';
+  ['PIR','LR'].forEach(k=>{ const t=G('pxt-'+k), b=G('pxsw-'+k); if(t) t.style.display=(k===SR_PX_MODE)?'':'none'; if(b) b.classList.toggle('active',k===SR_PX_MODE); });
+}
 function updateSidebarPir(){
+  const has={PIR:false, LR:false};
   EPS_PAN.forEach(ep=>{
-    [['cl','CL'],['pl','PL']].forEach(([sfx,pk])=>{
+    [['cl','CL','PIR'],['pl','PL','PIR'],['lrcl','LRCL','LR'],['lrpl','LRPL','LR']].forEach(([sfx,pk,fam])=>{
+      const key=pk+'_'+ep, ov=(PXOV[key]!=null && PXOV[key]!=='');
+      if(ov) has[fam]=true;
       const s=G('srp-'+sfx+'-'+ep); if(!s||document.activeElement===s) return;
-      const key=pk+'_'+ep, base=pirBase(pk,ep);
-      if(PXOV[key]!=null && PXOV[key]!==''){ s.value=PXOV[key]; s.style.borderColor='var(--magenta)'; s.style.color='var(--magenta)'; s.style.fontWeight='600'; }
+      const base=(fam==='LR')?lrBase(pk.slice(2),ep):pirBase(pk,ep);
+      if(ov){ s.value=PXOV[key]; s.style.borderColor='var(--magenta)'; s.style.color='var(--magenta)'; s.style.fontWeight='600'; }
       else { s.value=''; s.placeholder=base?fmt(base):'—'; s.style.borderColor=''; s.style.color=''; s.style.fontWeight=''; }
     });
   });
+  ['PIR','LR'].forEach(k=>{ const d=G('pxdot-'+k); if(d) d.style.display=has[k]?'inline-block':'none'; }); // point = un prix négocié existe dans cette famille
 }
 function fc(m,l,h,f){const ks=[`${l}x${h}${f||''}`,`${l}x${h}D`,`${l}x${h}G`,`${l}x${h}`];for(const k of ks)if(m[k]!==undefined)return{p:m[k],ref:k,exact:true,kl:l,kh:h};let b=null,bd=Infinity;for(const[k,p] of Object.entries(m)){const ps=k.replace(/[DG]$/,'').split('x');if(ps.length<2)continue;const kl=parseInt(ps[0]),kh=parseInt(ps[1]);if(kl>=l&&kh>=h){const d=(kl-l)+(kh-h);if(d<bd){bd=d;b={p,ref:k,exact:false,kl,kh};}}}return b;}
 function rr(l,v,hl){return`<div class="recap-row"><span class="rk">${l}</span><span class="rv"${hl?' style="color:var(--blue)"':''}>${v}</span></div>`;}
