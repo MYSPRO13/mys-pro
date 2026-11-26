@@ -1201,6 +1201,10 @@ select.dx-pill { cursor: pointer; border: none; outline: none; -webkit-appearanc
 .sr-input:focus { outline: none; border-color: var(--blue); }
 .sr-unit { font-size: 10px; color: var(--text3); margin-left: 3px; }
 .sr-sep { height: 1px; background: var(--border2); margin: .375rem 0; }
+.sr-check { display: flex; align-items: center; gap: 7px; cursor: pointer; line-height: 1.25; padding-right: 6px; }
+.sr-check input { accent-color: var(--magenta); margin: 0; flex: none; cursor: pointer; }
+.sr-row.sr-off .sr-input, .sr-row.sr-off .sr-unit { opacity: .45; }
+.item-row.just-edited { box-shadow: 0 0 0 2px var(--magenta) inset; transition: box-shadow .25s; }
 .collapse-btn {
   display: flex;
   align-items: center;
@@ -2257,6 +2261,9 @@ function togglePwd(){
   <div class="sr-row"><span class="sr-label">Accessoires</span><span><input class="sr-input" id="pa" type="number" value="6" step="0.5" oninput="syncP()"><span class="sr-unit">€/m²</span></span></div>
   <div class="sr-row" style="padding-bottom:.625rem"><span class="sr-label">Coefficient</span><span><input class="sr-input" id="pc" type="number" value="1.5" step="0.05" oninput="syncP()"><span class="sr-unit">×</span></span></div>
   <div id="params-devis-hint" style="display:none;font-size:10px;color:var(--orange);background:var(--orange-light);border-radius:var(--radius-sm);padding:4px 8px;margin-bottom:.625rem;line-height:1.5"></div>
+  <!-- Options du devis : plans d'exécution & DOE (forfait) et compte prorata (% de tout ce qui précède) -->
+  <div class="sr-row sr-off" id="ex-doe-row"><label class="sr-label sr-check"><input type="checkbox" id="ex-doe-on" onchange="extrasInput()"><span>Plans d'exécution &amp; DOE</span></label><span style="white-space:nowrap"><input class="sr-input" id="ex-doe" type="number" value="1000" step="50" min="0" oninput="extrasInput()"><span class="sr-unit">€</span></span></div>
+  <div class="sr-row sr-off" id="ex-pro-row" style="padding-bottom:.625rem"><label class="sr-label sr-check"><input type="checkbox" id="ex-pro-on" onchange="extrasInput()"><span>Compte prorata</span></label><span style="white-space:nowrap"><input class="sr-input" id="ex-pro" type="number" value="2" step="0.5" min="0" oninput="extrasInput()"><span class="sr-unit">%</span></span></div>
   <div class="sr-sep"></div>
   <div class="sr-sep"></div>
   <button class="collapse-btn" onclick="togCollapse('pose-mode')">Mode de pose<span class="collapse-arrow" id="arr-pose-mode">▼</span></button>
@@ -2696,6 +2703,32 @@ function remiseInfoUpdate(rem){ // textes d'aide (jamais les valeurs saisies)
   if(rem.on) info.innerHTML=`Remise : <b>${fmt(rem.montant)} €</b> → Total HT ${fmt(rem.totNet)} € (avant remise ${fmt(rem.totAvant)} €).`;
   else if(rem.depasse) info.textContent='Cible supérieure ou égale au total actuel : aucune remise appliquée.';
   else info.textContent='Vide = pas de remise. Elle apparaît sur le devis juste au-dessus du Total HT.';
+}
+// Options du devis (cases à cocher de la barre de droite, demande Clément 26/11/2026) :
+//  - Plans d'exécution & DOE : forfait (1 000 € par défaut), ligne au-dessus du transport ;
+//  - Compte prorata : % (2 % par défaut) de TOUT ce qui précède (produits, travaux, dépose, plans/DOE, transport, évacuation, manutention),
+//    ligne à part entre les frais annexes et le Total HT. La remise commerciale s'applique après.
+const EXTRAS_DEF={doe:1000, proPct:2};
+let EXTRAS=extrasEmpty();
+function extrasEmpty(){ return {doeOn:false, doe:EXTRAS_DEF.doe, proOn:false, proPct:EXTRAS_DEF.proPct}; }
+function extrasLoad(x){ if(!x||typeof x!=='object') return extrasEmpty(); return {doeOn:!!x.doeOn, doe:nOr(x.doe,EXTRAS_DEF.doe), proOn:!!x.proOn, proPct:nOr(x.proPct,EXTRAS_DEF.proPct)}; }
+function extrasPayload(){ return {doeOn:!!EXTRAS.doeOn, doe:nOr(EXTRAS.doe,EXTRAS_DEF.doe), proOn:!!EXTRAS.proOn, proPct:nOr(EXTRAS.proPct,EXTRAS_DEF.proPct)}; }
+function calcExtras(sousTotal){ // sousTotal = tout le devis SANS plans/DOE ni prorata
+  const doe=EXTRAS.doeOn?r2(Math.max(0,nOr(EXTRAS.doe,EXTRAS_DEF.doe))):0;
+  const pct=EXTRAS.proOn?Math.max(0,nOr(EXTRAS.proPct,EXTRAS_DEF.proPct)):0;
+  const base=r2((+sousTotal||0)+doe); // ce sur quoi porte le prorata
+  const prorata=r2(base*pct/100);
+  return {doe, pct, base, prorata, total:r2(doe+prorata), proLabel:'Compte prorata ('+String(pct).replace('.',',')+' %)'};
+}
+function extrasUiState(){ const a=G('ex-doe-row'), b=G('ex-pro-row'); if(a) a.classList.toggle('sr-off',!EXTRAS.doeOn); if(b) b.classList.toggle('sr-off',!EXTRAS.proOn); }
+function extrasInput(){ // barre latérale → modèle → recalcul
+  EXTRAS={doeOn:!!G('ex-doe-on')?.checked, doe:G('ex-doe')?.value, proOn:!!G('ex-pro-on')?.checked, proPct:G('ex-pro')?.value};
+  extrasUiState(); refreshAll();
+}
+function extrasApplyToUI(){ // modèle → champs (chargement, nouveau devis)
+  const a=G('ex-doe-on'), b=G('ex-doe'), c=G('ex-pro-on'), d=G('ex-pro');
+  if(a) a.checked=!!EXTRAS.doeOn; if(b) b.value=nOr(EXTRAS.doe,EXTRAS_DEF.doe); if(c) c.checked=!!EXTRAS.proOn; if(d) d.value=nOr(EXTRAS.proPct,EXTRAS_DEF.proPct);
+  extrasUiState();
 }
 let DEPOSE=deposeEmpty();
 // Barème distance → supplément €/m² sur la dépose cloisons/plafonds (interne : le devis ne montre que le tarif final).
@@ -4632,7 +4665,7 @@ function renderCfgMarge(p, remise){
       h+=`<div class="marge-flou">⚠ Part floue : ${mg.flou.length} ligne${mg.flou.length>1?'s':''} au coût inconnu${mg.vFlou>0?` — CA ${fmt(mg.vFlou)} €`:''}</div>`;
       h+=mg.flou.map(f=>`<div class="marge-flou-line">· ${esc(f)}</div>`).join('');
     }
-    h+=`<div class="marge-note">Hors frais annexes (transport, évacuation, manutention${p.mode==='journee'?', forfait journée':''}) — refacturés au client.</div>`;
+    h+=`<div class="marge-note">Hors frais annexes (transport, évacuation, manutention, plans/DOE, compte prorata${p.mode==='journee'?', forfait journée':''}) — refacturés au client.</div>`;
     h+=`</div>`;
   }
   h+=`</div>`;
@@ -4674,7 +4707,8 @@ function refreshAll(){
   const manuClient = G('manu-client')?.checked;
   const trvHT      = travauxHT();
   const dep        = calcDepose();
-  const totAvant   = tot + tr.trNet + evac + manu + journeeForfait + trvHT + dep.total;
+  const extras     = calcExtras(tot + tr.trNet + evac + manu + journeeForfait + trvHT + dep.total); // plans/DOE + compte prorata
+  const totAvant   = tot + tr.trNet + evac + manu + journeeForfait + trvHT + dep.total + extras.total;
   const remise     = calcRemise(totAvant);
   const totAvecTr  = remise.totNet; // total HT après remise commerciale
   const tva = totAvecTr * .2;
@@ -4722,7 +4756,8 @@ function refreshAll(){
           <tbody>${apercuDevisRows(items, travaux, p)}</tbody>
         </table>
         <div class="apercu-totaux">
-          ${buildApercuAnnexes(tr, evac, manu, manuClient, items, p)}
+          ${buildApercuAnnexes(tr, evac, manu, manuClient, items, p, extras)}
+          ${extras.prorata>0?`<div class="ap-tot-row" style="padding-top:5px;border-top:1px solid var(--border2);margin-top:4px"><span>Sous-total HT</span><span>${fmt(extras.base)} €</span></div><div class="ap-tot-row" style="font-weight:500"><span>${extras.proLabel}</span><span>${fmt(extras.prorata)} €</span></div>`:''}
           ${remise.on?`<div class="ap-tot-row" style="padding-top:5px;border-top:1px solid var(--border2);margin-top:4px"><span>Total HT avant remise</span><span>${fmt(remise.totAvant)} €</span></div><div class="ap-tot-row" style="color:var(--red)"><span>${esc(remise.label)}</span><span>− ${fmt(remise.montant)} €</span></div>`:''}
           <div class="ap-tot-row" style="font-weight:500;padding-top:5px;border-top:1px solid var(--border2);margin-top:4px"><span>Total HT</span><span>${fmt(totAvecTr)} €</span></div>
           <div class="ap-tot-row"><span>TVA 20 %</span><span>${fmt(tva)} €</span></div>
@@ -4863,6 +4898,16 @@ function editItem(i){
   scrollMainTop(); // remonter au configurateur (réglages) après clic « modifier »
 }
 // Remonte la zone de contenu en haut (le scroll est sur #main-content, pas la fenêtre)
+// Après « Enregistrer les modifications » : on RESTE dans le Configurateur, recalé sur la ligne modifiée (demande Clément 26/11/2026 ; avant : renvoi vers Devis client)
+function retourLigneModifiee(idx){
+  const ligne=()=>{ const b=document.querySelector('#cfg-items-list [onclick="editItem('+idx+')"]'); return b&&b.closest('.item-row'); };
+  requestAnimationFrame(()=>{
+    const row=ligne(), cible=row||G('cfg-items-card'); if(!cible) return;
+    try{ cible.scrollIntoView({block:'center',behavior:'smooth'}); }catch(e){ cible.scrollIntoView(); }
+    const t0=Date.now(); // la liste peut être redessinée entre-temps (enregistrement auto) : on repose le repère tant que le délai court
+    (function flash(){ const r=ligne(); if(!r) return; if(Date.now()-t0<1800){ r.classList.add('just-edited'); setTimeout(flash,200); } else r.classList.remove('just-edited'); })();
+  });
+}
 function scrollMainTop(){ requestAnimationFrame(()=>{ const m=G('main-content')||window; try{ m.scrollTo({top:0,behavior:'smooth'}); }catch(e){ if(m) m.scrollTop=0; } }); }
 function cancelEdit(){
   const t=editType; editIdx=null; editType=null;
@@ -4893,7 +4938,8 @@ function syncTravauxTotals(){
   const journeeForfait=p.mode==='journee'?p.journeePx:0;
   const tr=calcTransport(p,items), evac=calcEvacuation(p), manu=calcManutention(p);
   const trvHT=travauxHT();
-  const totAvecTr=calcRemise(tot+tr.trNet+evac+manu+journeeForfait+trvHT+calcDepose().total).totNet;
+  const sousTot=tot+tr.trNet+evac+manu+journeeForfait+trvHT+calcDepose().total;
+  const totAvecTr=calcRemise(sousTot+calcExtras(sousTot).total).totNet;
   const tva=totAvecTr*.2;
   travaux.forEach(l=>{const e=G('trv-lt-'+l.id);if(e)e.textContent=fmt((parseFloat(l.qty)||0)*(parseFloat(l.pu)||0))+' €';});
   const sumE=G('trv-sum'); if(sumE) sumE.textContent=fmt(trvHT)+' €';
@@ -5236,11 +5282,11 @@ function panAdd(){
   const it={type:'pan',ref,label,meta,ep:pS.ep,surface:pS.surface,paroi:pS.paroi,surf:c.surf,surfExact:c.surfExact,nbPan:c.nb,piece:piece,_h:c.h,mousse:pS.mousse,_ml:c.ml,_lg:c.lg,dimsIncomplete:c.dimsIncomplete};
   if(c.aOver) it.achatOverride=c.a; // prix d'achat négocié pour CE devis (override du tarif catalogue)
   if(c.surfSaisie) it.surfSaisie=c.surfSaisie; // BRIO saisi par la surface seule
-  const wasEdit=(editIdx!=null&&editType==='pan'&&items[editIdx]);
+  const wasEdit=(editIdx!=null&&editType==='pan'&&items[editIdx]), idxEdit=editIdx;
   if(wasEdit){ items.splice(editIdx,1,it); editIdx=null; editType=null; }
   else items.push(it);
   refreshAll();panReset();
-  if(wasEdit){ showToast('Panneau modifié'); showPage('devis', navItemFor('devis')); }
+  if(wasEdit){ showToast('Panneau modifié'); retourLigneModifiee(idxEdit); }
 }
 function panReset(){ if(editType==='pan'){ editIdx=null; editType=null; } pS={}; panRender(); }
 // Compléter les dimensions d'un panneau ajouté « surface seule » (pour la commande)
@@ -5520,7 +5566,7 @@ function porAdd(){
   if(!c.valid){alert('Configuration porte incomplète.');return;}
   const piece=(G('por-piece')&&G('por-piece').value||'').trim();
   if(c.manualUsed){ setMatrixOverride(c.t, qS.rt, c.l, c.h, c.achat, qS.cf); } // mémorise le prix saisi dans la matrice (par durée pour les coupe-feu) — 2 vantaux : sous le passage total // mémorise le prix saisi dans la matrice (par durée pour les coupe-feu)
-  const wasEdit=(editIdx!=null&&editType==='por'&&items[editIdx]);
+  const wasEdit=(editIdx!=null&&editType==='por'&&items[editIdx]), idxEdit=editIdx;
   const ref=wasEdit?(items[editIdx].ref||genRefPor()):genRefPor(); // en modification, on garde la référence d'origine
   const optInsts=(qS.options||[]).map(x=>(x&&typeof x==='object')?{ref:x.ref,faces:x.faces,label:x.label,net:x.net}:{ref:x,faces:1,label:optInstLabel(x),net:optNet(x)});
   const optLabels=optInsts.map(o=>o.label);
@@ -5529,7 +5575,7 @@ function porAdd(){
   else items.push(it);
   const persist=c.manualUsed;
   refreshAll();porReset();
-  if(wasEdit){ showToast('Porte modifiée'); showPage('devis', navItemFor('devis')); }
+  if(wasEdit){ showToast('Porte modifiée'); retourLigneModifiee(idxEdit); }
   if(persist && typeof sauvegarderParams==='function'){ sauvegarderParams(); } // persiste l'override en base
 }
 function porReset(){ if(editType==='por'){ editIdx=null; editType=null; } qS={}; porRender(); }
@@ -5551,10 +5597,13 @@ function porRideauDim(it){
   return '';
 }
 
-function buildApercuAnnexes(tr, evac, manu, manuClient, items, p){
+function buildApercuAnnexes(tr, evac, manu, manuClient, items, p, extras){
   let h = '';
   if(p.mode==='journee' && p.journeePx>0){
     h += '<div class="ap-tot-row"><span>Main d\'œuvre & Déplacement</span><span>' + fmt(p.journeePx) + ' €</span></div>';
+  }
+  if(extras && extras.doe>0){ // juste au-dessus du transport
+    h += '<div class="ap-tot-row"><span>Plans d\'exécution & DOE</span><span>' + fmt(extras.doe) + ' €</span></div>';
   }
   if(tr.trNet > 0){
     const surfPan = items.filter(i=>i.type==='pan').reduce((s,i)=>s+i.surf, 0);
@@ -6020,11 +6069,16 @@ function genPDF(){
   const manuClient=G('manu-client')?.checked;
   const surfPan=items.filter(i=>i.type==='pan').reduce((s,i)=>s+i.surf,0);
   const journeeForfait=p.mode==='journee'?p.journeePx:0;
-  const hasAnnexes=tr.trNet>0||evac>0||manu>0||manuClient||journeeForfait>0;
+  const tot=items.reduce((s,it)=>s+cpv(it,p),0);
+  const trvHT=travauxHT();
+  const sousTotPdf=tot+tr.trNet+evac+manu+journeeForfait+trvHT+depPdf.total;
+  const exPdf=calcExtras(sousTotPdf); // plans/DOE + compte prorata
+  const hasAnnexes=tr.trNet>0||evac>0||manu>0||manuClient||journeeForfait>0||exPdf.doe>0;
 
   if(hasAnnexes){
     y+=2;
     if(journeeForfait>0) drawAnnexe('MAIN D\'ŒUVRE & DÉPLACEMENT', fn(journeeForfait));
+    if(exPdf.doe>0) drawAnnexe('PLANS D\'EXÉCUTION & DOE', fn(exPdf.doe)); // juste au-dessus du transport
     if(tr.trNet>0){
       const lbl='TRANSPORT'; // libellé nu sur le PDF
       drawAnnexe(lbl, fn(tr.trNet));
@@ -6035,11 +6089,10 @@ function genPDF(){
   }
 
   // ── TOTAUX ────────────────────────────────────────────────
-  if(y>220){doc.addPage();y=15;}
-  const tot=items.reduce((s,it)=>s+cpv(it,p),0);
-  const trvHT=travauxHT();
-  const remisePdf=calcRemise(tot+tr.trNet+evac+manu+journeeForfait+trvHT+depPdf.total);
+  const remisePdf=calcRemise(sousTotPdf+exPdf.total);
   const totAvecTr=remisePdf.totNet;
+  { const nLignes=3+(remisePdf.on?2:0)+(exPdf.prorata>0?2:0); // au-delà de 5 lignes de totaux, on garde la place en bas de page
+    if(y>220-Math.max(0,nLignes-5)*7){doc.addPage();y=15;} }
   const tva=totAvecTr*0.20;
   const ttc=totAvecTr+tva;
 
@@ -6059,6 +6112,7 @@ function genPDF(){
     y+=rh;
   }
 
+  if(exPdf.prorata>0){ totRow('Sous-total HT', fn(exPdf.base)); totRow(exPdf.proLabel, fn(exPdf.prorata)); } // à part des frais annexes, juste avant le Total HT
   if(remisePdf.on){ totRow('Total HT avant remise', fn(remisePdf.totAvant)); totRow(remisePdf.label, '- '+fn(remisePdf.montant)); }
   totRow('Total HT', fn(totAvecTr));
   totRow('TVA 20 %', fn(tva));
@@ -6447,7 +6501,7 @@ function saveDraft(){
   const num=G('devis-num')?.textContent||''; if(!num) return;
   const o=readDrafts();
   o[num]={ ts:Date.now(), num, projet:G('projet-nom')?.value||'', items:items, travaux:travaux, client:curClient,
-    pp:G('pp')?.value, pa:G('pa')?.value, pc:G('pc')?.value, pxOverride:PXOV, trManual:trManual, trTotal:G('tr-total')?.value, trPanFou:G('tr-pan-fou')?.value, trPanLivr:G('tr-pan-livr')?.value, trPanMontant:G('tr-pan-montant')?.value, dateDevis:DEVIS_DATE, remise:remisePayload(), metre:metrePayload(),
+    pp:G('pp')?.value, pa:G('pa')?.value, pc:G('pc')?.value, pxOverride:PXOV, trManual:trManual, trTotal:G('tr-total')?.value, trPanFou:G('tr-pan-fou')?.value, trPanLivr:G('tr-pan-livr')?.value, trPanMontant:G('tr-pan-montant')?.value, dateDevis:DEVIS_DATE, remise:remisePayload(), extras:extrasPayload(), metre:metrePayload(),
     evBase:G('ev-base')?.value, manuBase:G('manu-base')?.value, manuClient:G('manu-client')?.checked, manuExtra:manuExtraGet(),
     poseMode:document.querySelector('input[name="pose-mode"]:checked')?.value, journeePx:G('journee-px')?.value, depose:DEPOSE };
   const keys=Object.keys(o).sort((a,b)=>(o[b].ts||0)-(o[a].ts||0)); keys.slice(30).forEach(k=>delete o[k]); // garder les 30 plus récents
@@ -6482,6 +6536,7 @@ function restoreDraft(d){
   if(d.poseMode){ const r=document.querySelector('input[name="pose-mode"][value="'+d.poseMode+'"]'); if(r) r.checked=true; }
   if(G('journee-px')&&d.journeePx!=null&&d.journeePx!=='') G('journee-px').value=d.journeePx;
   REMISE=remiseLoad(d.remise); remiseApplyToUI();
+  EXTRAS=extrasLoad(d.extras); extrasApplyToUI();
   metreLoad(d.metre);
   if(G('tr-pan-fou')&&d.trPanFou) G('tr-pan-fou').value=d.trPanFou; if(G('tr-pan-livr')&&d.trPanLivr) G('tr-pan-livr').value=d.trPanLivr; if(G('tr-pan-montant')) G('tr-pan-montant').value=(d.trPanMontant!=null?d.trPanMontant:''); DEVIS_DATE=d.dateDevis||null;
   if(curClient) setClient(curClient); else clearClient();
@@ -6610,7 +6665,8 @@ async function sauvegarderDevis(opts){
   const deposeSave = calcDepose();
   const trvHT = travauxHT();                                   // travaux spécifiques
   const journeeForfait = p.mode==='journee' ? p.journeePx : 0; // forfait journée
-  const totAvecTr = calcRemise(tot + tr.trNet + evac + manu + journeeForfait + trvHT + deposeSave.total).totNet; // même formule que refreshAll/genPDF (après remise)
+  const sousTotSave = tot + tr.trNet + evac + manu + journeeForfait + trvHT + deposeSave.total;
+  const totAvecTr = calcRemise(sousTotSave + calcExtras(sousTotSave).total).totNet; // même formule que refreshAll/genPDF (plans/DOE + prorata, puis remise)
   let num = G('devis-num').textContent;
   const payload = {
     numero: num,
@@ -6618,7 +6674,7 @@ async function sauvegarderDevis(opts){
     client: curClient,
     projet_nom: G('projet-nom')?.value||'',
     items: items,
-    params: { pose: valOr('pp',18), acc: valOr('pa',6), coef: coefOr(G('pc')?.value,1.5), depose: deposePayload(), pxOverride: PXOV, evBase: valOr('ev-base',EVMANU_DEF.ev), manuBase: valOr('manu-base',EVMANU_DEF.manu), manuClient: G('manu-client')?.checked||false, manuExtra: manuExtraGet(), poseMode: document.querySelector('input[name="pose-mode"]:checked')?.value||'budget', journeePx: valOr('journee-px',POSE_DEF.px), travaux: travaux, remise: remisePayload(), metre: metrePayload(), trPanFou: (G('tr-pan-fou')?.value)||'arcelor', trPanLivr: parseInt(G('tr-pan-livr')?.value)||1, trPanMontant: (G('tr-pan-montant')?.value)||'', dateDevis: DEVIS_DATE },
+    params: { pose: valOr('pp',18), acc: valOr('pa',6), coef: coefOr(G('pc')?.value,1.5), depose: deposePayload(), pxOverride: PXOV, evBase: valOr('ev-base',EVMANU_DEF.ev), manuBase: valOr('manu-base',EVMANU_DEF.manu), manuClient: G('manu-client')?.checked||false, manuExtra: manuExtraGet(), poseMode: document.querySelector('input[name="pose-mode"]:checked')?.value||'budget', journeePx: valOr('journee-px',POSE_DEF.px), travaux: travaux, remise: remisePayload(), extras: extrasPayload(), metre: metrePayload(), trPanFou: (G('tr-pan-fou')?.value)||'arcelor', trPanLivr: parseInt(G('tr-pan-livr')?.value)||1, trPanMontant: (G('tr-pan-montant')?.value)||'', dateDevis: DEVIS_DATE },
     transport: tr,
     evacuation: evac,
     manutention: { base: parseFloat(G('manu-base')?.value)||600, client: G('manu-client')?.checked||false, total: manu },
@@ -6844,7 +6900,7 @@ async function telechargerDevisPDF(id){
   if(!data||!data.length){ showToast('Devis introuvable', true); return; }
   const d=data[0];
   // On génère le PDF du devis sauvegardé sans écraser le devis en cours de travail
-  const bak={items:items, curClient:curClient, trManual:trManual, trTotal:G('tr-total')?G('tr-total').value:'', trFou:G('tr-pan-fou')?G('tr-pan-fou').value:'arcelor', trLivr:G('tr-pan-livr')?G('tr-pan-livr').value:1, trMont:G('tr-pan-montant')?G('tr-pan-montant').value:'', dd:DEVIS_DATE, pxov:PXOV, dep:DEPOSE, rem:REMISE, trv:travaux,
+  const bak={items:items, curClient:curClient, trManual:trManual, trTotal:G('tr-total')?G('tr-total').value:'', trFou:G('tr-pan-fou')?G('tr-pan-fou').value:'arcelor', trLivr:G('tr-pan-livr')?G('tr-pan-livr').value:1, trMont:G('tr-pan-montant')?G('tr-pan-montant').value:'', dd:DEVIS_DATE, pxov:PXOV, dep:DEPOSE, rem:REMISE, ext:EXTRAS, trv:travaux,
     projet:G('projet-nom')?G('projet-nom').value:'', num:G('devis-num')?G('devis-num').textContent:'',
     pp:G('pp')?G('pp').value:'', pa:G('pa')?G('pa').value:'', pc:G('pc')?G('pc').value:'',
     ev:G('ev-base')?G('ev-base').value:'', mn:G('manu-base')?G('manu-base').value:'', mc:G('manu-client')?G('manu-client').checked:false, mx:manuExtraGet()};
@@ -6858,6 +6914,7 @@ async function telechargerDevisPDF(id){
     PXOV=(d.params&&d.params.pxOverride&&typeof d.params.pxOverride==='object')?Object.assign({},d.params.pxOverride):{};
     DEPOSE=deposeLoad(d.params&&d.params.depose); // la dépose du devis enregistré, pas celle du devis en cours
     REMISE=remiseLoad(d.params&&d.params.remise);
+    EXTRAS=extrasLoad(d.params&&d.params.extras);
     {const _p=d.params||{}; if(G('ev-base'))G('ev-base').value=(_p.evBase!=null)?_p.evBase:EVMANU_DEF.ev; if(G('manu-base'))G('manu-base').value=(_p.manuBase!=null)?_p.manuBase:EVMANU_DEF.manu; if(G('manu-client'))G('manu-client').checked=!!_p.manuClient; manuExtraApply(_p.manuExtra);}
     {const _q=d.params||{}; if(G('pp'))G('pp').value=nOr(_q.pose,DEFAULT_PARAMS.pp); if(G('pa'))G('pa').value=nOr(_q.acc,DEFAULT_PARAMS.pa); if(G('pc'))G('pc').value=coefOr(_q.coef,DEFAULT_PARAMS.pc);}
     if(G('projet-nom'))G('projet-nom').value=d.projet_nom||'';
@@ -6868,7 +6925,7 @@ async function telechargerDevisPDF(id){
   finally{
     items=bak.items; travaux=bak.trv; curClient=bak.curClient; trManual=bak.trManual; PXOV=bak.pxov;
     if(G('tr-total')) G('tr-total').value=bak.trTotal; if(G('tr-pan-fou')) G('tr-pan-fou').value=bak.trFou; if(G('tr-pan-livr')) G('tr-pan-livr').value=bak.trLivr; if(G('tr-pan-montant')) G('tr-pan-montant').value=bak.trMont; DEVIS_DATE=bak.dd;
-    DEPOSE=bak.dep; REMISE=bak.rem; remiseApplyToUI();
+    DEPOSE=bak.dep; REMISE=bak.rem; remiseApplyToUI(); EXTRAS=bak.ext; extrasApplyToUI();
     if(G('ev-base'))G('ev-base').value=bak.ev; if(G('manu-base'))G('manu-base').value=bak.mn; if(G('manu-client'))G('manu-client').checked=bak.mc; manuExtraApply(bak.mx);
     if(G('projet-nom'))G('projet-nom').value=bak.projet;
     if(G('devis-num'))G('devis-num').textContent=bak.num;
@@ -6908,6 +6965,7 @@ async function chargerDevis(id){
     { const pm=_prm.poseMode||POSE_DEF.mode; const r=document.querySelector('input[name="pose-mode"][value="'+pm+'"]'); if(r) r.checked=true; }
     if(G('journee-px')) G('journee-px').value = (_prm.journeePx!=null) ? _prm.journeePx : POSE_DEF.px;
     REMISE=remiseLoad(_prm.remise); remiseApplyToUI();
+    EXTRAS=extrasLoad(_prm.extras); extrasApplyToUI();
     metreLoad(_prm.metre); // métré chantier propre au devis
     if(G('tr-pan-fou')) G('tr-pan-fou').value=_prm.trPanFou||'arcelor'; if(G('tr-pan-livr')) G('tr-pan-livr').value=_prm.trPanLivr||1; if(G('tr-pan-montant')) G('tr-pan-montant').value=(_prm.trPanMontant!=null?_prm.trPanMontant:''); DEVIS_DATE=_prm.dateDevis||null; // transport : fournisseur panneaux du devis
     if(G('projet-nom')) G('projet-nom').value = d.projet_nom||'';
@@ -6943,6 +7001,7 @@ async function nouveauDevis(force){
   { const r=document.querySelector('input[name="pose-mode"][value="'+POSE_DEF.mode+'"]'); if(r) r.checked=true; }
   if(G('journee-px')) G('journee-px').value = POSE_DEF.px;
   REMISE=remiseEmpty(); remiseApplyToUI();
+  EXTRAS=extrasEmpty(); extrasApplyToUI();
   metreLoad(null); // métré remis à zéro
   if(G('tr-pan-fou')) G('tr-pan-fou').value='arcelor'; if(G('tr-pan-livr')) G('tr-pan-livr').value=1; if(G('tr-pan-montant')) G('tr-pan-montant').value=''; DEVIS_DATE=null; // nouveau devis → date du jour
   curClient = null;
