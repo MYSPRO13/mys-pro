@@ -5586,20 +5586,17 @@ function panneauxDevisLignes(pans, p){
     }
     out.push({ref:it.ref||'', desig, sub, pu, surf:it.surf||0, montant:v});
   });
-  const gmap={};
-  plafs.forEach(it=>{ const k=it.ep||'?'; (gmap[k]=gmap[k]||[]).push(it); });
-  Object.keys(gmap).sort((a,b)=>parseInt(a)-parseInt(b)).forEach(ep=>{
-    const g=gmap[ep];
+  // Plafonds : une ligne par épaisseur ET par isolant (un plafond laine de roche ne se fond pas dans les PIR de même épaisseur).
+  const gmap={}, ordM=m=>{ const i=['PIR','LR'].indexOf(m); return i<0?9:i; };
+  plafs.forEach(it=>{ const k=(it.ep||'?')+'|'+(it.mousse||''); (gmap[k]=gmap[k]||[]).push(it); });
+  Object.keys(gmap).sort((a,b)=>{ const [ea,ma]=a.split('|'), [eb,mb]=b.split('|'); return (parseInt(ea)-parseInt(eb)) || (ordM(ma)-ordM(mb)) || ma.localeCompare(mb); }).forEach(k=>{
+    const g=gmap[k], [ep,mousse]=k.split('|');
     const surf=g.reduce((s,i)=>s+(i.surf||0),0);
     const montant=g.reduce((s,i)=>s+cpv(i,p),0);
     const pu=surf>0?montant/surf:montant;
-    const mousses=[...new Set(g.map(i=>i.mousse).filter(Boolean))];
     const surfaces=[...new Set(g.map(i=>normSurf(i.surface)).filter(Boolean))];
-    const subParts=[];
-    if(mousses.length===1) subParts.push(mousses[0]);
-    if(surfaces.length===1) subParts.push(surfaces[0]);
     const refs=[...new Set(g.map(i=>i.ref).filter(Boolean))];
-    out.push({ref:refs.length===1?refs[0]:'', desig:`Plafond ${ep}mm`, sub:subParts.join(' — '), pu, surf, montant});
+    out.push({ref:refs.length===1?refs[0]:'', desig:`Plafond ${ep}mm`+(mousse?` — ${mousse}`:''), sub:surfaces.length===1?surfaces[0]:'', pu, surf, montant});
   });
   return out;
 }
