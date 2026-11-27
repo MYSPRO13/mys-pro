@@ -3054,8 +3054,8 @@ const ACC_DEFAULTS = [
   {id:'boite_ecrou_10',   cat:'plafond', fou:'Fixone', u:'boîte', nom:'Boîte écrou ø10 mm'},
   // ── Équipements ──
   {id:'trappe_740',    cat:'equip', fou:'Celtek', u:'unité',     nom:'Trappe de visite 740 × 740 mm'},
-  {id:'soupape_inf75', cat:'equip', fou:'Celtek', u:'unité',     nom:"Soupape d'équilibrage pression (< 75 m³)"},
-  {id:'soupape_sup75', cat:'equip', fou:'Celtek', u:'unité',     nom:"Soupape d'équilibrage pression (> 75 m³)"},
+  {id:'soupape_inf75', cat:'equip', fou:'Celtek', u:'unité',     nom:"Soupape d'équilibrage de pression TS22 — réf. 04N030001 (chambre < 50 m³)"},
+  {id:'soupape_sup75', cat:'equip', fou:'Celtek', u:'unité',     nom:"Soupape d'équilibrage de pression TS23 — réf. 04N030003 (chambre de 50 m³ et plus)"},
   {id:'lisse_prot',    cat:'equip', fou:'Plastiques des Neiges', u:'barre 3 m', nom:'Lisse de protection avec cache-vis — 3 m'},
   {id:'lisse_cache',   cat:'equip', fou:'Plastiques des Neiges', u:'unité',     nom:'Cache-vis de lisse de protection'},
   {id:'lisse_embout',  cat:'equip', fou:'Plastiques des Neiges', u:'unité',     nom:'Embout de lisse de protection'},
@@ -3093,13 +3093,23 @@ function accPxNum(pref,id){ // vide OU 0 dans Paramètres → défaut du catalog
   const a=ACC_DEFAULTS.find(x=>x.id===id); const d=a?(pref==='a'?a.defA:a.defP):null; const hasDef=(d!=null&&!isNaN(parseFloat(d)));
   const v=parseFloat(ACC_PX_STORE[pref+'_'+id]); if(!isNaN(v)&&(v>0||!hasDef)) return v; return hasDef?parseFloat(d):0; }
 function getAccPx(id){ id=ACC_PX_MAP[id]||id; return { achat: accPxNum('a',id), pose: accPxNum('p',id) }; }
-// Prix d'un complément du devis : la soupape dépend du volume de sa chambre (< 75 m³ / 75 m³ et plus), repli sur l'ancienne ligne « soupape » tant que les deux modèles n'ont pas de prix
-function soupapeId(vol){ return (parseFloat(vol)||0)>=75?'soupape_sup75':'soupape_inf75'; }
+// Soupape d'équilibrage : le volume de la chambre choisit le MODÈLE et la QUANTITÉ — source unique pour le devis, le métré et la commande.
+// Fiche Celtek du 22/10/2026 (chambre négative jusqu'à −20 °C), recoupée avec les mentions de ses factures :
+//   moins de 20 m³ → 1 TS22 ; 20 à moins de 50 m³ → 2 TS22 ; 50 à 100 m³ → 1 TS23 ; au-delà → 1 TS23 par tranche de 100 m³ (175 m³ → 2 TS23, règle Clément 27/11/2026).
+// Les ids de prix « soupape_inf75 / soupape_sup75 » sont historiques (ancien seuil à 75 m³) : conservés pour ne pas perdre les prix enregistrés.
+const SOUPAPES={ TS22:{id:'soupape_inf75', ref:'04N030001'}, TS23:{id:'soupape_sup75', ref:'04N030003'} };
+function soupapeChoix(vol){ const v=parseFloat(vol)||0; const mod=v<50?'TS22':'TS23'; const qty=v<20?1:(v<50?2:Math.max(1,Math.ceil(v/100))); return {mod, qty, id:SOUPAPES[mod].id, ref:SOUPAPES[mod].ref}; }
+function soupapeId(vol){ return soupapeChoix(vol).id; }
+function soupapeNomCmd(mod){ return "Soupape d'équilibrage de pression "+mod+" (réf. "+SOUPAPES[mod].ref+")"; } // désignation des fiches de commande
+// Prix d'un complément du devis : la soupape prend le prix de SON modèle, repli sur l'ancienne ligne « soupape » tant que ce modèle n'a pas de prix
 function accPxFor(it){ const id=it.accId||it._accId||it.id||''; if(id==='soupape'){ const px=getAccPx(soupapeId(it.vol)); return (px.achat>0||px.pose>0)?px:getAccPx('soupape'); } return getAccPx(id); }
 function calcSoupape(){ const v=parseFloat(G('af-soup-vol')?.value)||0; const r=G('af-res-soup'); if(!r) return;
   if(v<=0){ r.textContent='Saisir le volume de la chambre'; return; }
-  const px=accPxFor({accId:'soupape',vol:v}); const pu=r2((px.achat+px.pose)*((P().coef)||1.5));
-  r.innerHTML=`Soupape ${v>=75?'75 m³ et plus':'moins de 75 m³'} — chambre de ${fmt(v)} m³ → <b>${pu>0?fmt(pu)+' € HT':'À chiffrer'}</b>`; }
+  const ch=soupapeChoix(v), propre=getAccPx(ch.id), px=accPxFor({accId:'soupape',vol:v}); const pu=r2((px.achat+px.pose)*((P().coef)||1.5));
+  const sansPrix=!(propre.achat>0||propre.pose>0);
+  r.innerHTML=`Chambre de ${fmt(v)} m³ → <b>${ch.qty} soupape${ch.qty>1?'s':''} ${ch.mod}</b> — `
+    +(pu>0?`${ch.qty>1?ch.qty+' × '+fmt(pu)+' € = ':''}<b>${fmt(r2(pu*ch.qty))} € HT</b>`:'<b>À chiffrer</b>')
+    +(sansPrix?`<div style="color:var(--orange);margin-top:3px">⚠ Prix de la soupape ${ch.mod} à saisir dans Paramètres › Accessoires${pu>0?' : en attendant, c\'est l\'ancien prix de soupape qui est utilisé':''}.</div>`:''); }
 
 // Familles repliées par défaut, sauf celles où il reste des prix à saisir
 let accCatOpen={};
@@ -3302,7 +3312,7 @@ function hasPlafond(){return items.some(i=>i.type==='pan'&&i.paroi==='Plafond');
 // ══ CATALOGUE PRIX ════════════════════════════════════════════
 const CATALOGUE = {
   equipements:[
-    {id:'soupape',n:"Soupape d'équilibrage (< 75 m³)",u:'unité',px:0},
+    {id:'soupape',n:"Soupape d'équilibrage de pression",u:'unité',px:0},
     {id:'trappe',n:'Trappe de visite 740×740mm',u:'unité',px:0},
     {id:'lisse',n:'Lisse de protection 3m',u:'barre',px:0},
     {id:'cache_vis',n:'Cache vis lisse de protection',u:'unité',px:0},
@@ -3368,7 +3378,7 @@ function togCatSection(id){const b=G(id);const open=b.classList.toggle('open');c
 // ══ ENTONNOIR ACCESSOIRES ══════════════════════════════════════
 let accCat=null,accProd=null;
 const ACC_PRODS={
-  equipements:[{id:'soupape',n:"Soupape d'équilibrage",hint:'Panneau ≥ 100mm'},{id:'trappe',n:'Trappe de visite 740×740mm',hint:'Plafond isotherme'},{id:'lisse',n:'Lisse de protection PVC',hint:'ML → nb barres 3m'}],
+  equipements:[{id:'soupape',n:"Soupape d'équilibrage",hint:'Modèle et quantité selon le volume'},{id:'trappe',n:'Trappe de visite 740×740mm',hint:'Plafond isotherme'},{id:'lisse',n:'Lisse de protection PVC',hint:'ML → nb barres 3m'}],
   sol:[{id:'sol_phen',n:'Sol phénolique 100mm',hint:'Surface m² → nb panneaux'},{id:'tole',n:'Tôle larmée 4mm',hint:'Surface m² → nb tôles'},{id:'iso_sol',n:'Isolant de sol CF négative',hint:'2 couches 80mm → surface'},{id:'bastaing',n:'Bastaing de protection',hint:'Simple/double hauteur → ML'}],
   plafond:[{id:'te_reprise',n:'Té de reprise (système complet)',hint:'ML + hauteur → Té + coulisses + œillets + clips + câble + éclisses'},{id:'ecrou_pom',n:'Reprise de plafond — écrou POM',hint:'Nombre de points → tige filetée + écrou POM traversant, fourniture et pose'}],
   finitions:[{id:'corn_ext',n:'Cornière ext. 50×150mm',hint:'ML → nb barres 3m'},{id:'corn_int',n:'Cornière int. 50×50mm',hint:'Angles + périmètre → nb barres'},{id:'plinthe',n:'Plinthe PVC 80mm',hint:'Auto depuis cloisons ≤80mm + ML séparatif'}],
@@ -3479,7 +3489,7 @@ function renderAccForm(pid){
         <div class="acc-field"><label>Surface à isoler</label><input type="number" id="af-iso-surf" value="0" min="0" step="0.1" oninput="calcIsoSol()"><span class="acc-unit">m²</span></div>
       </div>
       <div class="acc-result" id="af-res-iso">Saisir la surface</div>`,
-    soupape:`<div class="acc-note">Une soupape par chambre négative : le volume de la chambre choisit le modèle (moins de 75 m³ ou 75 m³ et plus). Pour une autre chambre, ajoute une autre soupape avec son volume.</div>
+    soupape:`<div class="acc-note">Une ligne par chambre négative : le volume choisit le modèle et la quantité. Moins de 20 m³ : 1 TS22 · 20 à 50 m³ : 2 TS22 · 50 à 100 m³ : 1 TS23 · au-delà : 1 TS23 par tranche de 100 m³. Pour une autre chambre, ajoute une autre ligne avec son volume.</div>
       <div class="acc-field"><label>Volume de la chambre</label><input type="number" id="af-soup-vol" value="" min="0" step="0.5" placeholder="L × l × h" oninput="calcSoupape()"><span class="acc-unit">m³</span></div>
       <div class="acc-result" id="af-res-soup">Saisir le volume de la chambre</div>`,
     sol_phen:`<div class="acc-field"><label>Chambre froide</label><input type="text" id="af-sol-piece" placeholder="ex : CF négative 1, Labo boulangerie…" style="width:220px"><span class="acc-unit" style="color:var(--text3);font-size:11px">nom repris sur le plan et la commande</span></div>
@@ -3964,7 +3974,7 @@ function accAdd(){
     renderAccList();refreshAll();accReset();
     return;
   }
-  if(pid==='soupape'){vol=parseFloat(G('af-soup-vol')?.value)||0;if(vol<=0){alert('Saisir le volume de la chambre pour cette soupape.');return;}qty=1;label=`Soupape d'équilibrage de pression — chambre de ${fmt(vol)} m³`;meta=`modèle ${vol>=75?'75 m³ et plus':'moins de 75 m³'}`;cmdDetail=`modèle ${vol>=75?'75 m³ et plus':'moins de 75 m³'}`;}
+  if(pid==='soupape'){vol=parseFloat(G('af-soup-vol')?.value)||0;if(vol<=0){alert('Saisir le volume de la chambre pour cette soupape.');return;}const ch=soupapeChoix(vol);qty=ch.qty;label=`Soupape d'équilibrage de pression — chambre de ${fmt(vol)} m³`;meta=`${ch.qty} × ${ch.mod} (réf. ${ch.ref})`;cmdDetail=meta;}
   else if(pid==='ecrou_pom'){qty=parseInt(G('af-qty')?.value)||1;unit='u';label='Pose écrou POM pour reprise plafond';meta=`${qty} point${qty>1?'s':''} de suspension — tige filetée + écrou POM traversant`;}
   else if(['trappe','silicone'].includes(pid)){qty=parseInt(G('af-qty')?.value)||1;meta=`${qty} unité${qty>1?'s':''}`;}
   else if(pid==='lisse'){const ml=parseFloat(G('af-ml')?.value)||0;const niv=parseInt(G('af-niv')?.value)||1;const totMl=ml*niv;const barres=Math.ceil(totMl/3);qty=ml;unit='ml';nbU=barres;extra.niv=niv;extra.mlLisse=totMl;label+=niv>1?` — ${niv} niveaux (haute et basse)`:' — 1 niveau';meta=niv>1?`${fmt(ml)} ml de paroi × ${niv} niveaux = ${fmt(totMl)} ml de lisse — ${barres} barre${barres>1?'s':''} 3m`:`${fmt(totMl)} ml — ${barres} barre${barres>1?'s':''} 3m`;} // qty = ml de PAROI ; le prix au ml est multiplié par le nombre de niveaux dans cpv
@@ -3982,8 +3992,9 @@ function accAdd(){
   renderAccList();refreshAll();
   if(pid==='soupape'&&accEditIdx==null){ // une soupape par chambre : on repropose aussitôt une autre soupape avec un nouveau volume
     accReset(); accPickCat('equipements'); accPickProd('soupape');
-    const r=G('af-res-soup'); if(r) r.innerHTML=`<b>Soupape ajoutée</b> (chambre de ${fmt(vol)} m³). Une autre chambre ? Saisis son volume, sinon « Retour ».`;
-    showToast('Soupape ajoutée — chambre de '+fmt(vol)+' m³'); return; }
+    const ch=soupapeChoix(vol), txt=ch.qty+' soupape'+(ch.qty>1?'s':'')+' '+ch.mod;
+    const r=G('af-res-soup'); if(r) r.innerHTML=`<b>${txt} ajoutée${ch.qty>1?'s':''}</b> (chambre de ${fmt(vol)} m³). Une autre chambre ? Saisis son volume, sinon « Retour ».`;
+    showToast(txt+' — chambre de '+fmt(vol)+' m³'); return; }
   accReset();
 }
 function renderAccList(){
@@ -3995,7 +4006,7 @@ function renderAccList(){
     // Té de reprise : quantité = ml, non ajustable par +/- (le prix dépend des ml ET de la hauteur → supprimer/re-créer pour modifier)
     const qtyBlock = it.accId==='te_reprise'
       ? `<span class="acc-qty-val" style="min-width:auto">${it.qty||0} ${it.unit||'ml'}</span>`
-      : (it.accId==='soupape'&&(parseFloat(it.vol)||0)>0) ? `<span class="acc-qty-val" style="min-width:auto" title="Une soupape par chambre : pour une autre chambre, ajoute une autre soupape">1 u</span>`
+      : (it.accId==='soupape'&&(parseFloat(it.vol)||0)>0) ? `<span class="acc-qty-val" style="min-width:auto" title="Quantité fixée par le volume de la chambre : ✎ pour changer le volume, une autre ligne pour une autre chambre">${it.qty||1} u</span>`
       : `<button class="acc-qty-btn" onclick="accQtyChange(${gi},-1)">−</button><span class="acc-qty-val">${it.qty||1}${it.unit?' '+it.unit:''}</span><button class="acc-qty-btn" onclick="accQtyChange(${gi},1)">+</button>`;
     return `<div class="acc-item-row"><div class="acc-item-left"><div class="acc-item-name">${it.label}</div><div class="acc-item-meta">${it.meta||''}</div></div>
       <div class="acc-item-right">
@@ -4143,14 +4154,17 @@ function metreCalc(){
   // Chevrons (chambres négatives)
   { const ml=metreAllChambres().reduce((t,c)=>t+chevronMlChambre(c,f.chevronEsp),0); // chambres du devis + chambres saisies
     if(ml>0) add('chevron_pvc',Math.ceil(ml/3),`${ml.toFixed(1)} ml (périmètre + rangées tous les ${f.chevronEsp||40} cm) ÷ 3`,{cond:'barre'}); }
-  // Soupapes (par volume) + tampons
-  const vInf=[], vSup=[]; metreAllChambres().forEach((c,i)=>{ const v=c.vol||0; if(v<=0) return; (v<75?vInf:vSup).push(`chambre ${i+1} : ${fmt(v)} m³`); });
-  // Soupapes déjà saisies au devis (Produits complémentaires › Équipements) : elles remplacent l'automatique, pas de doublon
-  let mInf=0, mSup=0; items.forEach(it=>{ if(it.type==='acc'&&it.accId==='soupape'){ const q=parseInt(it.qty)||1; if((parseFloat(it.vol)||0)>=75) mSup+=q; else mInf+=q; } });
-  let nInf=vInf.length-mInf, nSup=vSup.length-mSup; if(nInf<0){ nSup+=nInf; nInf=0; } if(nSup<0){ nInf+=nSup; nSup=0; } nInf=Math.max(0,nInf); nSup=Math.max(0,nSup);
-  const mTot=mInf+mSup, mTxt=mTot?` − ${mTot} saisie${mTot>1?'s':''} au devis`:'';
-  add('soupape_inf75',nInf,`${vInf.join(' · ')} (< 75 m³, 1 soupape par chambre)${mTxt}`,{noMarge:true});
-  add('soupape_sup75',nSup,`${vSup.join(' · ')} (75 m³ et plus, 1 soupape par chambre)${mTxt}`,{noMarge:true});
+  // Soupapes : le volume de chaque chambre choisit le modèle et la quantité (soupapeChoix) + tampons
+  // Soupape déjà saisie au devis (Produits complémentaires › Équipements) = une chambre : elle remplace l'automatique
+  // de la chambre au volume le plus proche, pas de doublon
+  const chSoup=metreAllChambres().map((c,i)=>({n:i+1, vol:c.vol||0})).filter(c=>c.vol>0);
+  let nSaisies=0;
+  items.forEach(it=>{ if(it.type!=='acc'||it.accId!=='soupape') return; nSaisies++; if(!chSoup.length) return;
+    const v=parseFloat(it.vol)||0; let k=0; chSoup.forEach((c,j)=>{ if(Math.abs(c.vol-v)<Math.abs(chSoup[k].vol-v)) k=j; }); chSoup.splice(k,1); });
+  const soupAuto=chSoup.map(c=>Object.assign({},c,soupapeChoix(c.vol)));
+  const mTxt=nSaisies?` − ${nSaisies} chambre${nSaisies>1?'s':''} déjà saisie${nSaisies>1?'s':''} au devis`:'';
+  ['soupape_inf75','soupape_sup75'].forEach(id=>{ const g=soupAuto.filter(c=>c.id===id); if(!g.length) return;
+    add(id, g.reduce((t,c)=>t+c.qty,0), g.map(c=>`chambre ${c.n} : ${fmt(c.vol)} m³ → ${c.qty} ${c.mod}`).join(' · ')+mTxt, {noMarge:true}); });
   if(d.nbPortes>10) add('tampon_porte',d.nbPivot,`${d.nbPivot} portes pivotantes (projet > 10 portes)`,{noMarge:true});
   // Arrondi + marge
   const lines=L.map(x=>{ let q=x.noMarge?x.theo:x.theo*(1+marge), finale, cl='';
@@ -4162,7 +4176,7 @@ function metreCalc(){
     const ov=f.overrides[x.id];
     return {id:x.id, nom:def.nom||x.id, fou:(METRE.fouOverride&&METRE.fouOverride[x.id])||def.fou||'(non attribué)', fouDef:def.fou||'(non attribué)', u:def.u||'', theo:x.theo, finale, affiche:(ov!=null&&ov!=='')?parseFloat(ov):finale, cond:cl, formule:x.formule, noMarge:x.noMarge, override:(ov!=null&&ov!=='')};
   });
-  return {marge, data:d, lines};
+  return {marge, data:d, lines, soupAuto};
 }
 // ── Rendu du panneau Métré (formulaire + résultats) ──
 function metreReadForm(){
@@ -4211,7 +4225,7 @@ function metreRenderPanel(){
     <div class="cmdacc-sub">Chambres froides négatives <span class="dep-rate">reprises des lignes « Sol phénolique » du devis (une ligne = une chambre) ; pour les chevrons et les soupapes</span></div>
     <table class="dep-table"><thead><tr><th class="c-n">#</th><th>Longueur <em>m</em></th><th>Largeur <em>m</em></th><th>Volume <em>m³</em></th><th>Chevrons <em>calculés</em></th><th class="c-del"></th></tr></thead>
       <tbody>${ch||'<tr class="dep-empty"><td colspan="6">Aucune chambre négative : ajoute un sol phénolique au devis, ou une chambre à la main.</td></tr>'}</tbody></table>
-    <div class="dep-legend">Volume des chambres « devis » = longueur × largeur × hauteur des cloisons du devis (${fmt(hCl)} m), à corriger si la chambre a une autre hauteur. Il sert aux soupapes : 1 par chambre, modèle selon &lt; ou ≥ 75 m³.</div>
+    <div class="dep-legend">Volume des chambres « devis » = longueur × largeur × hauteur des cloisons du devis (${fmt(hCl)} m), à corriger si la chambre a une autre hauteur. Il sert aux soupapes : moins de 20 m³ = 1 TS22, 20 à 50 m³ = 2 TS22, 50 à 100 m³ = 1 TS23, au-delà = 1 TS23 par tranche de 100 m³.</div>
     <div class="dep-legend" id="me-chev-tot"></div>
     <button class="dep-add" onclick="metreAddChambre()">+ Ajouter une chambre négative</button>
   </section>
@@ -4256,7 +4270,7 @@ function accCmdLines(it){
     const f=it.toleFmt?toleFormat(it.toleFmt):null;
     return [[f?('Tôle larmée 4mm - '+Math.round(f.L*1000)+' x '+Math.round(f.l*1000)+' mm'):it.label, (it.nbU||0)+' unité'+((it.nbU||0)>1?'s':''), it.cmdDetail||accDetail(it)||'']];
   }
-  if(id==='soupape'&&(parseFloat(it.vol)||0)>0){ const v=parseFloat(it.vol)||0; return [[`Soupape d'équilibrage de pression (${v>=75?'75 m³ et plus':'< 75 m³'}) — chambre de ${fmt(v)} m³`, '1 unité', '']]; }
+  if(id==='soupape'&&(parseFloat(it.vol)||0)>0){ const v=parseFloat(it.vol)||0, q=parseInt(it.qty)||1; return [[soupapeNomCmd(soupapeChoix(v).mod)+' — chambre de '+fmt(v)+' m³', q+' unité'+(q>1?'s':''), '']]; } // même modèle et même quantité que la ligne du devis
   if(id==='ecrou_pom'){ const q=parseInt(it.qty)||1; return [['Écrou POM ø10 mm sans rondelle', q+' unité'+(q>1?'s':''), 'reprise de plafond — '+q+' point'+(q>1?'s':'')+' de suspension (tiges filetées et rondelles à prévoir)']]; }
   return [[it.label, cmdAccQty(it), (it.cmdDetail||accDetail(it)||'')]];
 }
@@ -4348,12 +4362,11 @@ window._cmdAccFouKeys=[];
 function cmdAccGroupes(mode){
   const r=metreCalc(), rows={};
   const push=(fou,cells)=>{ (rows[fou]=rows[fou]||[]).push(cells); };
-  const chambres=metreAllChambres();
   r.lines.forEach(L=>{
-    if(/^soupape/.test(L.id) && !L.override){ // une soupape par chambre, avec le volume de la pièce
-      const sup=L.id==='soupape_sup75';
-      chambres.forEach(c=>{ const v=c.vol||0; if(v<=0) return; if((v>=75)!==sup) return; push(L.fou, [L.nom.replace(/\s*\([^)]*m³\)\s*/,'')+' — chambre de '+fmt(v)+' m³', '1 unité', '']); }); // sans la tranche « (< / > 75 m³) » : le volume exact suffit
-      return;
+    if(/^soupape/.test(L.id)){ // une ligne par chambre : modèle, référence et quantité choisis par le volume
+      const mod=L.id===SOUPAPES.TS23.id?'TS23':'TS22';
+      if(!L.override){ (r.soupAuto||[]).filter(c=>c.id===L.id).forEach(c=>push(L.fou, [soupapeNomCmd(mod)+' — chambre de '+fmt(c.vol)+' m³', c.qty+' unité'+(c.qty>1?'s':''), ''])); return; }
+      push(L.fou, [soupapeNomCmd(mod), L.affiche+' unité'+((+L.affiche)>1?'s':''), '']); return; // quantité forcée à la main dans le métré
     }
     let u=L.cond||L.u; if(u==='unité'&&(+L.affiche)>1) u='unités';
     push(L.fou, [L.nom, L.affiche+' '+u, '']);
@@ -5727,6 +5740,7 @@ function apercuDevisRows(items, travaux, p){
     if(secFold.ap_acc) accs.forEach(it=>{
       const v=cpv(it,p), qte=it.qty||1, pu=qte>0?v/qte:v;
       const dd=devisDesigAcc(it); h+=row('', dd.label, dd.meta, v>0?money(pu):'—', `${String(qte).replace('.',',')} ${it.unit||'u'}`, v>0?money(v):'À chiffrer');
+  if(it.accId==='soupape' && (parseFloat(it.vol)||0)>0) return {label:it.label||'', meta:'modèle '+soupapeChoix(it.vol).mod}; // le client voit le modèle, jamais la référence fournisseur
     });
   }
   if(travaux.length){
