@@ -2449,6 +2449,18 @@ const LOGO_B64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAARoAAADICAIAAAC4
 // ══ DONNÉES ══════════════════════════════════════════════
 const EPS_PAN=['40','60','80','100','120','125','150','175','200']; // épaisseurs de panneaux (grilles de prix) — 200 mm ajouté le 29/10/2026, 125 et 175 mm le 26/11/2026 (demandes Clément)
 const EP_CL=[{v:'60',l:'60 mm',h:'Courant positif',pre:true},{v:'80',l:'80 mm',h:'Positif'},{v:'100',l:'100 mm',h:'Courant négatif'},{v:'120',l:'120 mm',h:'Négatif'},{v:'125',l:'125 mm',h:'Négatif'},{v:'150',l:'150 mm',h:'Négatif/ext.'},{v:'175',l:'175 mm',h:'Négatif/ext.'},{v:'200',l:'200 mm',h:'Négatif/ext.'},{v:'40',l:'40 mm',h:'Positif léger'}];
+// Portée max d'un plafond PIR posé sur 2 appuis (travée simple, sans platelage) — doc. Arcelor Frigotherm, tableaux de charges p. 6-7.
+// 125 mm = valeur du 120 (prudent) ; 150 et 175 mm = 8 m comme 140 à 200 (le tableau s'arrête à 8 m).
+const PL_PORTEE_MAX={'40':2.4,'60':4.4,'80':6.0,'100':6.6,'120':7.2,'125':7.2,'140':8,'150':8,'160':8,'175':8,'180':8,'200':8};
+function plPorteeAlerte(mousse,ep,portee){
+  const max=PL_PORTEE_MAX[String(ep)], p=parseFloat(String(portee).replace(',','.'))||0;
+  if(mousse!=='PIR'||!max||p<=0) return null;
+  const nf=v=>v.toFixed(2).replace('.',',');
+  const plus=Object.keys(PL_PORTEE_MAX).map(Number).sort((a,b)=>a-b).find(e=>e>Number(ep)&&PL_PORTEE_MAX[e]>=p);
+  if(p>max) return {niv:'ko',txt:`Attention : en ${ep} mm, un plafond tient jusqu'à ${nf(max)} m de portée (Arcelor). Pour ${nf(p)} m, passer en ${plus?plus+' mm':'plus épais ou ajouter un appui'}.`};
+  if(p>=max*0.9) return {niv:'limite',txt:`Proche de la limite : ${nf(p)} m pour ${nf(max)} m max en ${ep} mm (Arcelor).${plus?` Le ${plus} mm va jusqu'à ${nf(PL_PORTEE_MAX[plus])} m.`:''}`};
+  return null;
+}
 const EP_PL=[{v:'80',l:'80 mm',h:'Courant positif',pre:true},{v:'100',l:'100 mm',h:'Courant négatif'},{v:'120',l:'120 mm',h:'Grande portée'},{v:'125',l:'125 mm',h:'Grande portée'},{v:'150',l:'150 mm',h:'Ext./portée'},{v:'175',l:'175 mm',h:'Ext./portée'},{v:'200',l:'200 mm',h:'Ext./grande portée'},{v:'60',l:'60 mm',h:'Positif léger'}];
 const SF_CL=[{v:'Lisse/Lisse',h:'Standard',pre:true},{v:'Nervuré/Lisse',h:'Économique'},{v:'Lisse PET/Lisse',h:'Alimentaire'}];
 const SF_PL=[{v:'Lisse/Nervuré acier',h:'Standard',pre:true},{v:'Lisse/Lisse',h:'Sur demande'}];
@@ -5162,7 +5174,7 @@ function panDims(kind){
     rows+=cfgField('Hauteur (m)','pan-h','0.1','ex: 2.50',hh,'panDim()');
     rows+=cfgField('Surface (m²)','pan-surf','0.1','ou saisir directement',surfDisp,'panSurf()');
   }
-  return `<div class="cfg-block"><div class="step-label">Dimensions</div>${rows}<div class="field-hint" id="pan-nb-hint"></div></div>`;
+  return `<div class="cfg-block"><div class="step-label">Dimensions</div>${rows}<div class="field-hint" id="pan-nb-hint"></div>${kind==='plafond'?'<div class="field-hint" id="pan-portee-hint" style="display:none;margin-top:6px"></div>':''}</div>`;
 }
 function panPiece(){
   return `<div class="cfg-block"><div class="step-label">Pièce <span style="font-size:11px;color:var(--text3);font-style:italic">(facultatif)</span></div><input type="text" class="field-input" id="pan-piece" placeholder="ex : Chambre froide négative..." value="${escAttr(pS.piece)}" style="width:100%" oninput="pS.piece=this.value"></div>`;
@@ -5251,6 +5263,12 @@ function panPrice(){
   const c=panCalc();
   const hint=G('pan-nb-hint');
   if(hint){ if(c.surf>0){hint.style.display='block';hint.textContent=`${c.dimLabel} → ${fmt(c.surf)} m²`;} else hint.style.display='none'; }
+  const ph=G('pan-portee-hint'); // plafond : portée (hauteur panneau) au-delà ou près de la limite Arcelor pour l'épaisseur choisie
+  if(ph){
+    const al=pS.paroi==='Plafond'?plPorteeAlerte(pS.mousse,pS.ep,pS._ml):null;
+    if(al){ ph.style.display='block'; ph.style.background=al.niv==='ko'?'var(--red-light)':'var(--orange-light)'; ph.style.color=al.niv==='ko'?'var(--red)':'var(--orange)'; ph.textContent='⚠ '+al.txt; }
+    else ph.style.display='none';
+  }
   const sum=G('pan-summary'); if(!sum)return;
   let s=cfgSummaryBox(c.valid,`<div class="price-box"><div class="price-formula">(${fmt(c.a)} + ${c.pose} pose + ${c.acc} acc) × ${c.coef}</div><div class="price-final">${fmt(c.tot)} € HT — ${fmt(c.surf)} m²</div></div>`);
   const editingPan=editIdx!=null&&editType==='pan';
@@ -5300,6 +5318,7 @@ function completerPanneau(i){
   const b=prompt(isPlaf?'ML (grand côté) en m :':'Hauteur en m :',''); if(b===null)return;
   const v1=parseFloat(String(a).replace(',','.'))||0, v2=parseFloat(String(b).replace(',','.'))||0;
   if(v1<=0||v2<=0){alert('Dimensions invalides.');return;}
+  if(isPlaf){ const al=plPorteeAlerte(it.mousse,it.ep,v1); if(al&&al.niv==='ko') alert('⚠ '+al.txt); }
   let nb,surfExact,hUsed,mlv;
   if(isPlaf){ nb=Math.ceil(Math.round(v2/1.15*1e10)/1e10); surfExact=nb*1.15*v1; hUsed=v1; mlv=v1; }
   else { nb=Math.ceil(Math.round(v1/1.15*1e10)/1e10); surfExact=nb*1.15*v2; hUsed=v2; mlv=v1; }
