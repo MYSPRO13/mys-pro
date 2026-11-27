@@ -2173,9 +2173,18 @@ function togglePwd(){
             <div class="prm-row"><span>Minimum</span><input id="tr-te-min" type="number" value="60" step="5" oninput="refreshAll()"><span class="u">€</span></div>
               </div>
               <div class="prm-block">
-                <div class="prm-block-title">Autres postes</div>
-            <div class="prm-row"><span>Consommables Sil3tec — forfait</span><input id="tr-conso" type="number" value="50" step="5" oninput="refreshAll()"><span class="u">€</span></div>
-            <div class="prm-row"><span>Plastiques des Neiges — forfait</span><input id="tr-pdn" type="number" value="0" step="5" oninput="refreshAll()"><span class="u">€</span></div>
+                <div class="prm-block-title">Consommables Sil3tec</div>
+            <div class="prm-row"><span>Achat estimé par m² de panneaux</span><input id="tr-sil-m2" type="number" value="0.9" step="0.1" oninput="refreshAll()"><span class="u">€/m²</span></div>
+            <div class="prm-row"><span>Port, en part de cet achat</span><input id="tr-sil-taux" type="number" value="15" step="1" oninput="refreshAll()"><span class="u">%</span></div>
+            <div class="prm-row"><span>Franco à partir de</span><input id="tr-sil-franco" type="number" value="1000" step="50" oninput="refreshAll()"><span class="u">€</span></div>
+              </div>
+              <div class="prm-block">
+                <div class="prm-block-title">Plastiques des Neiges</div>
+            <div class="prm-row"><span>Achat estimé par m² de panneaux</span><input id="tr-pdn-m2" type="number" value="3" step="0.1" oninput="refreshAll()"><span class="u">€/m²</span></div>
+            <div class="prm-row"><span>Port, en part de cet achat</span><input id="tr-pdn-taux" type="number" value="20" step="1" oninput="refreshAll()"><span class="u">%</span></div>
+            <div class="prm-row"><span>Plafond (une palette)</span><input id="tr-pdn-max" type="number" value="312" step="5" oninput="refreshAll()"><span class="u">€</span></div>
+            <div class="prm-row"><span>Franco à partir de</span><input id="tr-pdn-franco" type="number" value="5000" step="100" oninput="refreshAll()"><span class="u">€</span></div>
+                <div class="prm-note">Au premier devis, les accessoires ne sont pas comptés un par un : l'achat chez ces deux fournisseurs est estimé d'après la surface de cloisons et de plafonds, et le port en est une part. Exemple : 400 m² → Sil3tec 360 € d'achat, 54 € de port ; Plastiques des Neiges 1 200 € d'achat, 240 € de port.</div>
               </div>
               <div class="prm-block prm-block-accent">
                 <div class="prm-block-title">Coefficient</div>
@@ -5868,9 +5877,17 @@ function calcTransport(p, items){
   // 4) Tés de reprise (Fixone) : au ml, minimum
   const teMl=items.filter(i=>i.type==='acc'&&(i.accId==='te_reprise'||i.accId==='te_systeme')).reduce((s,i)=>s+(parseFloat(i.accId==='te_reprise'?i.ml:i.qty)||0),0);
   const trTe = teMl>0 ? r2(Math.max(n('tr-te-min',60), teMl*n('tr-te-ml',5))) : 0;
-  // 5) Consommables Sil3tec (silicone, butyle, mousse : toujours commandés avec des panneaux) + Plastiques des Neiges (0 tant qu'aucune facture avec port)
-  const trConso = hasPan ? n('tr-conso',50) : 0;
-  const trPdn   = hasPan ? n('tr-pdn',0) : 0;
+  // 5) Sil3tec (silicone, butyle, mousse…) et Plastiques des Neiges (plinthes, congés, U de sol…) : port estimé d'après la surface
+  //    de panneaux, faute de compter les accessoires un par un au premier devis (règle Clément 27/11/2026).
+  //    Relevé des factures 2023-2026 : Sil3tec ≈ 0,9 € d'achat par m², port ≈ 15 % de l'achat, franco dès 1 000 € ;
+  //    Plastiques des Neiges ≈ 3 € d'achat par m² (plinthes des deux côtés et angles compris), port ≈ 20 % de l'achat,
+  //    plafonné au prix d'une palette, franco dès 5 000 €. Un seuil franco à 0 = jamais franco.
+  const surfAcc=pans.filter(i=>i.paroi!=='Sol négatif').reduce((t,i)=>t+(parseFloat(i.surf||i.surfExact)||0),0);
+  const achSil=r2(surfAcc*n('tr-sil-m2',0.9)), seuilSil=n('tr-sil-franco',1000), francoSil=seuilSil>0&&achSil>=seuilSil;
+  const achPdn=r2(surfAcc*n('tr-pdn-m2',3)),   seuilPdn=n('tr-pdn-franco',5000), francoPdn=seuilPdn>0&&achPdn>=seuilPdn;
+  const pdnBrut=achPdn*n('tr-pdn-taux',20)/100, pdnMax=n('tr-pdn-max',312), pdnPalette=pdnMax>0&&pdnBrut>=pdnMax;
+  const trConso = (hasPan&&!francoSil) ? r2(achSil*n('tr-sil-taux',15)/100) : 0;
+  const trPdn   = (hasPan&&!francoPdn) ? r2(pdnPalette?pdnMax:pdnBrut) : 0;
   const trBrut = r2(trPan+trPor+trSol+trTe+trConso+trPdn);
   const trCoef = n('tr-coef',1.2);
   const computed = r2(trBrut*trCoef); // coût réel × coefficient transport (1,2 par défaut)
@@ -5880,8 +5897,8 @@ function calcTransport(p, items){
   if(achatPor>0) details.push({lab:'Portes — '+n('tr-por-taux',15)+' % de '+fmt(achatPor)+' €', v:trPor});
   if(solM2>0) details.push({lab:'Sol phénolique — '+fmt(solM2)+' m²', v:trSol});
   if(teMl>0) details.push({lab:'Tés de reprise — '+fmt(teMl)+' ml', v:trTe});
-  if(trConso>0) details.push({lab:'Consommables Sil3tec', v:trConso});
-  if(trPdn>0) details.push({lab:'Plastiques des Neiges', v:trPdn});
+  if(hasPan&&achSil>0&&(trConso>0||francoSil)) details.push({lab:'Sil3tec — achat ≈ '+grp(Math.round(achSil))+' €', v:trConso, franco:francoSil});
+  if(hasPan&&achPdn>0&&(trPdn>0||francoPdn)) details.push({lab:'Plast. des Neiges — achat ≈ '+grp(Math.round(achPdn))+' €'+(pdnPalette&&!francoPdn?' (palette)':''), v:trPdn, franco:francoPdn});
   const el=G('tr-detail'); if(el) el.innerHTML=details.length?(details.map(d=>`<div style="display:flex;justify-content:space-between;gap:8px"><span>${d.lab}</span><span style="white-space:nowrap;font-family:'DM Mono',monospace">${d.franco?'franco':fmt(d.v)+' €'}</span></div>`).join('')+`<div style="display:flex;justify-content:space-between;gap:8px;border-top:1px dashed var(--border2);margin-top:2px;padding-top:2px;color:var(--text3)"><span>Coût réel ${fmt(trBrut)} € × ${String(trCoef).replace('.',',')}</span><span style="white-space:nowrap;font-family:'DM Mono',monospace">${fmt(computed)} €</span></div>`):'<div style="color:var(--text3);font-style:italic">Aucun poste de transport.</div>';
   return { trPan, trPor, trAcc:r2(trSol+trTe+trConso+trPdn), trSol, trTe, trConso, trPdn, trBrut, trCoef, computed, trNet, trManual, details, fou, livr };
 }
@@ -6291,7 +6308,7 @@ function collectParams(){
   px.tr_pan_arcelor=valOr('tr-pan-arcelor',0); px.tr_pan_arcelor_franco=valOr('tr-pan-arcelor-franco',10000); px.tr_pan_huurre=valOr('tr-pan-huurre',0); px.tr_pan_celtek=valOr('tr-pan-celtek',300);
   px.tr_por_pct=valOr('tr-por-taux',15); px.tr_por_min=valOr('tr-por-min',150); px.tr_por_max=valOr('tr-por-max',650);
   px.tr_sol_m2=valOr('tr-sol-m2',7.5); px.tr_sol_min=valOr('tr-sol-min',150); px.tr_sol_max=valOr('tr-sol-max',450);
-  px.tr_te_ml=valOr('tr-te-ml',5); px.tr_te_min=valOr('tr-te-min',60); px.tr_conso=valOr('tr-conso',50); px.tr_pdn=valOr('tr-pdn',0); px.tr_coef=valOr('tr-coef',1.2);
+  px.tr_te_ml=valOr('tr-te-ml',5); px.tr_te_min=valOr('tr-te-min',60); px.tr_sil_m2=valOr('tr-sil-m2',0.9); px.tr_sil_taux=valOr('tr-sil-taux',15); px.tr_sil_franco=valOr('tr-sil-franco',1000); px.tr_pdn_m2=valOr('tr-pdn-m2',3); px.tr_pdn_taux=valOr('tr-pdn-taux',20); px.tr_pdn_max=valOr('tr-pdn-max',312); px.tr_pdn_franco=valOr('tr-pdn-franco',5000); px.tr_coef=valOr('tr-coef',1.2);
   // Évacuation / manutention : DÉFAUTS d'un nouveau devis (les champs ev-base / manu-base de la barre
   // latérale sont propres au devis ouvert et NE DOIVENT PAS devenir la base — bug corrigé le 02/10/2026)
   px.ev_base = EVMANU_DEF.ev;
@@ -6351,7 +6368,7 @@ function applyParams(px){
     setv('tr-pan-arcelor', px.tr_v3 ? px.tr_pan_arcelor : 380); setv('tr-pan-arcelor-franco', px.tr_pan_arcelor_franco==null ? 10000 : px.tr_pan_arcelor_franco); setv('tr-pan-huurre',px.tr_pan_huurre); setv('tr-pan-celtek',px.tr_pan_celtek); // avant tr_v3, Arcelor était enregistré « franco » à tort
     setv('tr-por-taux',px.tr_por_pct); setv('tr-por-min',px.tr_por_min); setv('tr-por-max',px.tr_por_max);
     setv('tr-sol-m2',px.tr_sol_m2); setv('tr-sol-min',px.tr_sol_min); setv('tr-sol-max',px.tr_sol_max);
-    setv('tr-te-ml',px.tr_te_ml); setv('tr-te-min',px.tr_te_min); setv('tr-conso',px.tr_conso); setv('tr-pdn',px.tr_pdn); setv('tr-coef',px.tr_coef);
+    setv('tr-te-ml',px.tr_te_ml); setv('tr-te-min',px.tr_te_min); setv('tr-sil-m2',px.tr_sil_m2); setv('tr-sil-taux',px.tr_sil_taux); setv('tr-sil-franco',px.tr_sil_franco); setv('tr-pdn-m2',px.tr_pdn_m2); setv('tr-pdn-taux',px.tr_pdn_taux); setv('tr-pdn-max',px.tr_pdn_max); setv('tr-pdn-franco',px.tr_pdn_franco); // anciens forfaits tr_conso / tr_pdn : abandonnés setv('tr-coef',px.tr_coef);
   }
   if(px.ev_base!=null)   EVMANU_DEF.ev   = px.ev_base;
   if(px.manu_base!=null) EVMANU_DEF.manu = px.manu_base;
