@@ -2262,7 +2262,8 @@ function togglePwd(){
   <div class="sr-title">Ce devis<span style="display:block;font-size:10px;font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0;margin-top:2px">Réglages propres à cette affaire</span></div>
   <div class="sr-row"><span class="sr-label">Pose panneaux</span><span><input class="sr-input" id="pp" type="number" value="18" step="0.5" oninput="syncP()"><span class="sr-unit">€/m²</span></span></div>
   <div class="sr-row"><span class="sr-label">Accessoires</span><span><input class="sr-input" id="pa" type="number" value="6" step="0.5" oninput="syncP()"><span class="sr-unit">€/m²</span></span></div>
-  <div class="sr-row" style="padding-bottom:.625rem"><span class="sr-label">Coefficient</span><span><input class="sr-input" id="pc" type="number" value="1.5" step="0.05" oninput="syncP()"><span class="sr-unit">×</span></span></div>
+  <div class="sr-row" style="padding-bottom:.25rem"><span class="sr-label">Coefficient</span><span style="white-space:nowrap"><button type="button" id="pc-reset" onclick="coefReset()" title="Revenir au coefficient automatique (selon le montant du devis)" style="display:none;border:0.5px solid var(--border);background:transparent;color:var(--text2);border-radius:6px;font-size:12px;line-height:1;padding:3px 6px;margin-right:4px;cursor:pointer">↺</button><input class="sr-input" id="pc" type="number" value="1.5" step="0.01" oninput="coefInput()"><span class="sr-unit">×</span></span></div>
+  <div id="pc-auto-info" style="font-size:10px;color:var(--text3);margin:0 0 .625rem;line-height:1.4"></div>
   <div id="params-devis-hint" style="display:none;font-size:10px;color:var(--orange);background:var(--orange-light);border-radius:var(--radius-sm);padding:4px 8px;margin-bottom:.625rem;line-height:1.5"></div>
   <!-- Options du devis : plans d'exécution & DOE (forfait) et compte prorata (% de tout ce qui précède) -->
   <div class="sr-row sr-off" id="ex-doe-row"><label class="sr-label sr-check"><input type="checkbox" id="ex-doe-on" onchange="extrasInput()"><span>Plans d'exécution &amp; DOE</span></label><span style="white-space:nowrap"><input class="sr-input" id="ex-doe" type="number" value="1000" step="50" min="0" oninput="extrasInput()"><span class="sr-unit">€</span></span></div>
@@ -2658,6 +2659,44 @@ const P = () => {
     journeePx: valOr('journee-px', 1125) // 0 respecté (forfait journée à 0 possible)
   };
 };
+
+// ── Coefficient automatique selon le montant du devis (courbe validée par Clément le 27/11/2026) ──
+// Courbe tirée des 61 devis de l'app (août → novembre 2026) : 1,55 jusqu'à 15 000 € HT, puis descente continue
+// jusqu'à 1,44 à 50 000 €, puis tendance réelle des devis (1,40 à 100 000 €, 1,34 à 300 000 €), plancher 1,30.
+// Arrondi au centième. Le montant de référence est TOUJOURS calculé au coef par défaut (1,50) : baisser le coef
+// ne fait pas repasser le devis sous un palier (pas de va-et-vient).
+// Coef tapé à la main = manuel (gardé tel quel) ; ↺ revient à l'automatique. Devis enregistrés avant cette règle : manuels.
+const COEF_AUTO={haut:1.55, plat:15000, jonction:50000, cJonction:1.44, a:2.065, b:-0.0576, min:1.30};
+let COEF_MANUEL=false;
+function coefAutoMax(){ const d=parseFloat(typeof DEFAULT_PARAMS!=='undefined'&&DEFAULT_PARAMS?DEFAULT_PARAMS.pc:1.5); return d>0?d:1.5; } // coef de référence du montant
+function coefBaseHT(){ // total HT avant extras et remise, calculé au coef par défaut
+  const p0=Object.assign({},P(),{coef:coefAutoMax()});
+  let t=0; items.forEach(it=>{ t+=cpv(it,p0); });
+  const j=p0.mode==='journee'?p0.journeePx:0;
+  return t+calcTransport(p0,items).trNet+calcEvacuation(p0)+calcManutention(p0)+j+travauxHT()+calcDepose().total;
+}
+function coefAuto(base){
+  const K=COEF_AUTO; let c;
+  if(!(base>K.plat)) c=K.haut;
+  else if(base<=K.jonction) c=K.haut+(K.cJonction-K.haut)*Math.log(base/K.plat)/Math.log(K.jonction/K.plat);
+  else c=K.a+K.b*Math.log(base);
+  return Math.round(Math.max(K.min,c)*100)/100;
+}
+function coefAutoApply(){
+  const el=G('pc'); if(!el) return;
+  const base=coefBaseHT(), auto=coefAuto(base);
+  if(!COEF_MANUEL && Math.abs((parseFloat(el.value)||0)-auto)>1e-9) el.value=auto;
+  const cur=parseFloat(el.value)||0, ecart=Math.abs(cur-auto)>1e-9;
+  const f2=v=>v.toFixed(2).replace('.',',');
+  const rs=G('pc-reset'); if(rs) rs.style.display=(COEF_MANUEL&&ecart)?'':'none';
+  const info=G('pc-auto-info'); if(!info) return;
+  if(!items.length&&!(travauxHT()>0)&&!(calcDepose().total>0)){ info.textContent=''; return; } // devis vide : rien à dire
+  info.textContent=COEF_MANUEL
+    ? (ecart?`Coef saisi à la main · automatique : ${f2(auto)}`:'Coef saisi à la main (= automatique)')
+    : `Automatique : ${grp(Math.round(base))} € HT au coef ${f2(coefAutoMax())}`;
+}
+function coefInput(){ COEF_MANUEL=true; syncP(); }
+function coefReset(){ COEF_MANUEL=false; refreshAll(); showToast('Coefficient automatique'); }
 
 // ── Bastaing de protection (produit complémentaire, chiffré au ml) ──
 // Prix de vente/ml validés par Clément (fourniture ×1,5 + pose). mat = déboursé
@@ -4710,6 +4749,7 @@ function renderCfgItems(p){ // liste complète des produits du devis (mêmes fon
 }
 function refreshAll(){
   renumberPortes();
+  try{ coefAutoApply(); }catch(e){ console.warn('coef auto', e); }
   try{ refreshNav(); }catch(e){}
   try{ solChevInfo(); }catch(e){}
   try{ updateSidebarPir(); }catch(e){}
@@ -4718,7 +4758,7 @@ function refreshAll(){
   // Signaler des pose/acc/coef propres à ce devis (différents des défauts)
   const pdh=G('params-devis-hint');
   if(pdh){
-    const diff=p.pose!==DEFAULT_PARAMS.pp||p.acc!==DEFAULT_PARAMS.pa||p.coef!==DEFAULT_PARAMS.pc;
+    const diff=p.pose!==DEFAULT_PARAMS.pp||p.acc!==DEFAULT_PARAMS.pa||(COEF_MANUEL&&p.coef!==DEFAULT_PARAMS.pc);
     pdh.style.display=(diff&&p.mode!=='journee')?'block':'none';
     if(diff) pdh.textContent=`Valeurs propres à ce devis (défauts : pose ${DEFAULT_PARAMS.pp} · acc ${DEFAULT_PARAMS.pa} · coef ${DEFAULT_PARAMS.pc})`;
   }
@@ -5702,6 +5742,7 @@ function devisDesigAcc(it){ // libellé + détail montrés au CLIENT (aperçu + 
   if(it.accId==='sol_phen') return {label:'Sol phénolique 100mm'+(it.piece?' — '+it.piece:''), meta:fmt(parseFloat(it.qty)||0)+' m² — sur chevrons PVC inclus'};
   if(it.accId==='tole') return {label:'Tôle larmée 4mm', meta:fmt(parseFloat(it.qty)||0)+' m²'}; // sans nombre ni format de tôles côté client
   if(it.accId==='ecrou_pom') return {label:'Pose écrou POM pour reprise plafond', meta:'Suspension des plafonds existants à la structure, par tige filetée et écrou POM traversant'};
+  if(it.accId==='soupape' && (parseFloat(it.vol)||0)>0) return {label:it.label||'', meta:'modèle '+soupapeChoix(it.vol).mod}; // le client voit le modèle, jamais la référence fournisseur
   if(it.accId==='lisse' && it.niv){ const ml=parseFloat(it.qty)||0, n=it.niv||1; return {label:it.label||'', meta:(n>1?`${fmt(ml)} ml de paroi × ${n} niveaux = ${fmt(ml*n)} ml de lisse`:`${fmt(ml)} ml de lisse`)+', cache-vis et embouts compris'}; }
   const meta=String(it.meta||'').trim();
   if(/^\d+\s+unités?$/i.test(meta)) return {label:it.label||'', meta:''}; // « 3 unités » : déjà dans la colonne Quantité
@@ -5740,7 +5781,6 @@ function apercuDevisRows(items, travaux, p){
     if(secFold.ap_acc) accs.forEach(it=>{
       const v=cpv(it,p), qte=it.qty||1, pu=qte>0?v/qte:v;
       const dd=devisDesigAcc(it); h+=row('', dd.label, dd.meta, v>0?money(pu):'—', `${String(qte).replace('.',',')} ${it.unit||'u'}`, v>0?money(v):'À chiffrer');
-  if(it.accId==='soupape' && (parseFloat(it.vol)||0)>0) return {label:it.label||'', meta:'modèle '+soupapeChoix(it.vol).mod}; // le client voit le modèle, jamais la référence fournisseur
     });
   }
   if(travaux.length){
@@ -6537,7 +6577,7 @@ function saveDraft(){
   const num=G('devis-num')?.textContent||''; if(!num) return;
   const o=readDrafts();
   o[num]={ ts:Date.now(), num, projet:G('projet-nom')?.value||'', items:items, travaux:travaux, client:curClient,
-    pp:G('pp')?.value, pa:G('pa')?.value, pc:G('pc')?.value, pxOverride:PXOV, trManual:trManual, trTotal:G('tr-total')?.value, trPanFou:G('tr-pan-fou')?.value, trPanLivr:G('tr-pan-livr')?.value, trPanMontant:G('tr-pan-montant')?.value, dateDevis:DEVIS_DATE, remise:remisePayload(), extras:extrasPayload(), metre:metrePayload(),
+    pp:G('pp')?.value, pa:G('pa')?.value, pc:G('pc')?.value, coefManuel:COEF_MANUEL, pxOverride:PXOV, trManual:trManual, trTotal:G('tr-total')?.value, trPanFou:G('tr-pan-fou')?.value, trPanLivr:G('tr-pan-livr')?.value, trPanMontant:G('tr-pan-montant')?.value, dateDevis:DEVIS_DATE, remise:remisePayload(), extras:extrasPayload(), metre:metrePayload(),
     evBase:G('ev-base')?.value, manuBase:G('manu-base')?.value, manuClient:G('manu-client')?.checked, manuExtra:manuExtraGet(),
     poseMode:document.querySelector('input[name="pose-mode"]:checked')?.value, journeePx:G('journee-px')?.value, depose:DEPOSE };
   const keys=Object.keys(o).sort((a,b)=>(o[b].ts||0)-(o[a].ts||0)); keys.slice(30).forEach(k=>delete o[k]); // garder les 30 plus récents
@@ -6565,6 +6605,7 @@ function restoreDraft(d){
   if(G('pp')&&d.pp!=null&&d.pp!=='') G('pp').value=d.pp;
   if(G('pa')&&d.pa!=null&&d.pa!=='') G('pa').value=d.pa;
   if(G('pc')&&d.pc!=null&&d.pc!=='') G('pc').value=d.pc;
+  COEF_MANUEL=(d.coefManuel===false)?false:true; // brouillon d'avant la règle : coef gardé tel quel
   if(G('ev-base')&&d.evBase!=null&&d.evBase!=='') G('ev-base').value=d.evBase;
   if(G('manu-base')&&d.manuBase!=null&&d.manuBase!=='') G('manu-base').value=d.manuBase;
   if(G('manu-client')) G('manu-client').checked=!!d.manuClient;
@@ -6710,7 +6751,7 @@ async function sauvegarderDevis(opts){
     client: curClient,
     projet_nom: G('projet-nom')?.value||'',
     items: items,
-    params: { pose: valOr('pp',18), acc: valOr('pa',6), coef: coefOr(G('pc')?.value,1.5), depose: deposePayload(), pxOverride: PXOV, evBase: valOr('ev-base',EVMANU_DEF.ev), manuBase: valOr('manu-base',EVMANU_DEF.manu), manuClient: G('manu-client')?.checked||false, manuExtra: manuExtraGet(), poseMode: document.querySelector('input[name="pose-mode"]:checked')?.value||'budget', journeePx: valOr('journee-px',POSE_DEF.px), travaux: travaux, remise: remisePayload(), extras: extrasPayload(), metre: metrePayload(), trPanFou: (G('tr-pan-fou')?.value)||'arcelor', trPanLivr: parseInt(G('tr-pan-livr')?.value)||1, trPanMontant: (G('tr-pan-montant')?.value)||'', dateDevis: DEVIS_DATE },
+    params: { pose: valOr('pp',18), acc: valOr('pa',6), coef: coefOr(G('pc')?.value,1.5), coefManuel: COEF_MANUEL, depose: deposePayload(), pxOverride: PXOV, evBase: valOr('ev-base',EVMANU_DEF.ev), manuBase: valOr('manu-base',EVMANU_DEF.manu), manuClient: G('manu-client')?.checked||false, manuExtra: manuExtraGet(), poseMode: document.querySelector('input[name="pose-mode"]:checked')?.value||'budget', journeePx: valOr('journee-px',POSE_DEF.px), travaux: travaux, remise: remisePayload(), extras: extrasPayload(), metre: metrePayload(), trPanFou: (G('tr-pan-fou')?.value)||'arcelor', trPanLivr: parseInt(G('tr-pan-livr')?.value)||1, trPanMontant: (G('tr-pan-montant')?.value)||'', dateDevis: DEVIS_DATE },
     transport: tr,
     evacuation: evac,
     manutention: { base: parseFloat(G('manu-base')?.value)||600, client: G('manu-client')?.checked||false, total: manu },
@@ -6936,7 +6977,7 @@ async function telechargerDevisPDF(id){
   if(!data||!data.length){ showToast('Devis introuvable', true); return; }
   const d=data[0];
   // On génère le PDF du devis sauvegardé sans écraser le devis en cours de travail
-  const bak={items:items, curClient:curClient, trManual:trManual, trTotal:G('tr-total')?G('tr-total').value:'', trFou:G('tr-pan-fou')?G('tr-pan-fou').value:'arcelor', trLivr:G('tr-pan-livr')?G('tr-pan-livr').value:1, trMont:G('tr-pan-montant')?G('tr-pan-montant').value:'', dd:DEVIS_DATE, pxov:PXOV, dep:DEPOSE, rem:REMISE, ext:EXTRAS, trv:travaux,
+  const bak={items:items, curClient:curClient, trManual:trManual, trTotal:G('tr-total')?G('tr-total').value:'', trFou:G('tr-pan-fou')?G('tr-pan-fou').value:'arcelor', trLivr:G('tr-pan-livr')?G('tr-pan-livr').value:1, trMont:G('tr-pan-montant')?G('tr-pan-montant').value:'', dd:DEVIS_DATE, pxov:PXOV, dep:DEPOSE, rem:REMISE, ext:EXTRAS, trv:travaux, cm:COEF_MANUEL,
     projet:G('projet-nom')?G('projet-nom').value:'', num:G('devis-num')?G('devis-num').textContent:'',
     pp:G('pp')?G('pp').value:'', pa:G('pa')?G('pa').value:'', pc:G('pc')?G('pc').value:'',
     ev:G('ev-base')?G('ev-base').value:'', mn:G('manu-base')?G('manu-base').value:'', mc:G('manu-client')?G('manu-client').checked:false, mx:manuExtraGet()};
@@ -6953,6 +6994,7 @@ async function telechargerDevisPDF(id){
     EXTRAS=extrasLoad(d.params&&d.params.extras);
     {const _p=d.params||{}; if(G('ev-base'))G('ev-base').value=(_p.evBase!=null)?_p.evBase:EVMANU_DEF.ev; if(G('manu-base'))G('manu-base').value=(_p.manuBase!=null)?_p.manuBase:EVMANU_DEF.manu; if(G('manu-client'))G('manu-client').checked=!!_p.manuClient; manuExtraApply(_p.manuExtra);}
     {const _q=d.params||{}; if(G('pp'))G('pp').value=nOr(_q.pose,DEFAULT_PARAMS.pp); if(G('pa'))G('pa').value=nOr(_q.acc,DEFAULT_PARAMS.pa); if(G('pc'))G('pc').value=coefOr(_q.coef,DEFAULT_PARAMS.pc);}
+    COEF_MANUEL=true; // PDF d'un devis enregistré : son coef tel quel
     if(G('projet-nom'))G('projet-nom').value=d.projet_nom||'';
     if(G('devis-num'))G('devis-num').textContent=d.numero||'';
     refreshAll();
@@ -6965,7 +7007,7 @@ async function telechargerDevisPDF(id){
     if(G('ev-base'))G('ev-base').value=bak.ev; if(G('manu-base'))G('manu-base').value=bak.mn; if(G('manu-client'))G('manu-client').checked=bak.mc; manuExtraApply(bak.mx);
     if(G('projet-nom'))G('projet-nom').value=bak.projet;
     if(G('devis-num'))G('devis-num').textContent=bak.num;
-    if(G('pp'))G('pp').value=bak.pp; if(G('pa'))G('pa').value=bak.pa; if(G('pc'))G('pc').value=bak.pc;
+    if(G('pp'))G('pp').value=bak.pp; if(G('pa'))G('pa').value=bak.pa; if(G('pc'))G('pc').value=bak.pc; COEF_MANUEL=bak.cm;
     window._noDraft=false;
     refreshAll();
   }
@@ -6987,6 +7029,7 @@ async function chargerDevis(id){
     if(G('pp')) G('pp').value = nOr(d.params&&d.params.pose, DEFAULT_PARAMS.pp);
     if(G('pa')) G('pa').value = nOr(d.params&&d.params.acc, DEFAULT_PARAMS.pa);
     if(G('pc')) G('pc').value = coefOr(d.params&&d.params.coef, DEFAULT_PARAMS.pc);
+    COEF_MANUEL = !(d.params && d.params.coefManuel===false); // devis d'avant la règle : coef enregistré conservé
     const dpz = d.params && d.params.depose;
     DEPOSE = deposeLoad(dpz);
     PXOV = (d.params && d.params.pxOverride && typeof d.params.pxOverride==='object') ? Object.assign({}, d.params.pxOverride) : {};
@@ -7045,6 +7088,7 @@ async function nouveauDevis(force){
   if(G('pp')) G('pp').value = DEFAULT_PARAMS.pp;
   if(G('pa')) G('pa').value = DEFAULT_PARAMS.pa;
   if(G('pc')) G('pc').value = DEFAULT_PARAMS.pc;
+  COEF_MANUEL = false; // nouveau devis : coef automatique selon le montant
   G('devis-num').textContent = num;
   if(G('dnum')) G('dnum').textContent = num;
   clearClient();
